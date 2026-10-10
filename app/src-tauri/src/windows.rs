@@ -220,6 +220,8 @@ pub struct Prefs {
     cloud_version: Option<u32>,
     /// 這版 App 內建的 Worker 版本
     latest_cloud_version: u32,
+    /// 這個版本有沒有設定「使用 Cloudflare 登入」（沒有時精靈只能貼 API token）
+    oauth_available: bool,
 }
 
 fn prefs(app: &AppHandle) -> Prefs {
@@ -237,6 +239,7 @@ fn prefs(app: &AppHandle) -> Prefs {
         done_sync_days: store::DONE_SYNC_DAYS,
         cloud_version: (cloud > 0).then_some(cloud),
         latest_cloud_version: setup::WORKER_VERSION,
+        oauth_available: crate::oauth::client_id().is_some(),
     }
 }
 

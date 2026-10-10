@@ -37,6 +37,8 @@ fn default_script_name() -> String {
 #[derive(Default)]
 pub struct SetupState {
     token: Mutex<Option<String>>,
+    /// 取消等待中的 OAuth 登入
+    pub(crate) cancel: tokio::sync::Notify,
 }
 
 async fn cf(app: &AppHandle) -> Result<Cf, String> {
@@ -183,7 +185,9 @@ pub async fn connect(app: &AppHandle, token: String) -> Result<Vec<Account>, Str
 
 #[tauri::command]
 pub async fn setup_cancel(app: AppHandle) {
-    *app.state::<SetupState>().token.lock().await = None;
+    let st = app.state::<SetupState>();
+    st.cancel.notify_waiters();
+    *st.token.lock().await = None;
 }
 
 #[derive(Serialize)]

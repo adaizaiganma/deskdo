@@ -8,6 +8,7 @@ mod config;
 mod desktop_layer;
 #[cfg(windows)]
 mod glass;
+mod oauth;
 mod setup;
 mod store;
 mod tray;
@@ -33,6 +34,7 @@ fn main() {
             store::delete_todo,
             store::undo_delete,
             setup::setup_token,
+            oauth::setup_oauth,
             setup::setup_cancel,
             setup::setup_inspect,
             setup::setup_run,
