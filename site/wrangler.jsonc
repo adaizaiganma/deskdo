@@ -1,0 +1,13 @@
+{
+  // 宣傳網站：純靜態檔案，用 Workers static assets 部署（npx wrangler deploy）
+  "$schema": "../worker/node_modules/wrangler/config-schema.json",
+  "name": "deskdo-site",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./public",
+    // /guide 對應 guide.html
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+  // 自訂網域：部署後在 Cloudflare 後台的 Worker → 設定 → 網域和路由 加上，或在這裡加 "routes"
+}

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>使用說明 · Deskdo</title>
+  <meta name="description" content="Deskdo 使用說明：連接 claude.ai、跟 Claude 管理待辦、Gmail 每日自動轉待辦、快速新增語法、多台電腦。" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/favicon.svg" width="26" height="26" alt="" />Deskdo</a>
+      <nav>
+        <a href="/guide">使用說明</a>
+        <a href="https://github.com/GITHUB_REPO">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="narrow doc">
+    <h1>使用說明</h1>
+    <p class="meta">第一次開啟 Deskdo 時，設定精靈會帶你完成安裝與雲端設定。這一頁說明之後怎麼用。</p>
+
+    <nav class="toc" aria-label="目錄">
+      <b>目錄</b>
+      <ol>
+        <li><a href="#claude">連接 claude.ai</a></li>
+        <li><a href="#talk">跟 Claude 管理待辦</a></li>
+        <li><a href="#gmail">每天自動從 Gmail 整理待辦</a></li>
+        <li><a href="#desktop">桌面 App 的用法</a></li>
+        <li><a href="#devices">多台電腦與安全</a></li>
+      </ol>
+    </nav>
+
+    <h2 id="claude">1. 連接 claude.ai</h2>
+    <ol>
+      <li>在 Deskdo 的設定精靈最後一頁，或「設定 → claude.ai 連接器」按「顯示網址」，複製連接器網址。</li>
+      <li>到 <a href="https://claude.ai/settings/connectors">claude.ai 的連接器設定</a>，選「新增自訂連接器」。</li>
+      <li>名稱填「待辦清單」，網址貼上剛才複製的內容。不需要填 OAuth 設定。</li>
+      <li>完成。手機版 Claude App 會自動同步同一組連接器。</li>
+    </ol>
+    <p class="tip warn">連接器網址等同密碼：有這個網址的人就能讀寫你的待辦。不要貼在公開的地方。如果外流了，在 Deskdo 的設定裡按「更換網址」即可。</p>
+
+    <h2 id="talk">2. 跟 Claude 管理待辦</h2>
+    <p>在對話中啟用「待辦清單」連接器後，直接用平常的話說就可以，例如：</p>
+    <ul>
+      <li>「幫我新增：週五前交電路學報告，高優先」</li>
+      <li>「這週還有哪些待辦？」</li>
+      <li>「微積分作業三做完了」</li>
+      <li>「把所有逾期的項目改到明天」</li>
+      <li>「我上週完成了哪些事？」（已完成的紀錄會一直保存在雲端）</li>
+    </ul>
+    <p>Claude 可以使用的工具：</p>
+    <table>
+      <thead><tr><th>工具</th><th>說明</th></tr></thead>
+      <tbody>
+        <tr><td><code>list_todos</code></td><td>列出待辦，可以依狀態、標籤、優先度、期限、關鍵字篩選</td></tr>
+        <tr><td><code>add_todo</code></td><td>新增待辦；帶 <code>source_ref</code> 時會自動去重</td></tr>
+        <tr><td><code>update_todo</code></td><td>修改標題、期限、標籤、優先度、備註</td></tr>
+        <tr><td><code>complete_todo</code></td><td>標記完成（或取消完成）</td></tr>
+        <tr><td><code>delete_todo</code></td><td>永久刪除</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="gmail">3. 每天自動從 Gmail 整理待辦</h2>
+    <p>在 claude.ai 建立一個每天早上執行的排程任務，同時啟用 Gmail 和「待辦清單」連接器，提示詞可以參考：</p>
+    <pre>請檢查我過去 24 小時收到的 Gmail（略過電子報、廣告與自動通知），
+找出需要我採取行動的信件，例如作業、繳費、回覆、報名、期限。
+
+每一件事都用 add_todo 新增：
+- title：一句話、動詞開頭的繁體中文，例如「回覆王教授專題進度」
+- due：信中有期限就填（YYYY-MM-DD），沒有就不填
+- tag：能判斷課名或專案就填，請沿用 list_todos 回傳的既有 tags
+- priority：期限在 3 天內或寄件者是老師／學校行政時設為 high
+- note：寄件者、主旨，以及一句摘要
+- source："email"，source_ref：該封信的 Gmail message ID（用來避免重複新增）
+
+最後列出今天新增了哪些項目，以及目前逾期的待辦（list_todos overdue=true）。</pre>
+    <p>因為每封信都帶著 Gmail message ID，同一封信不會被重複新增，排程重跑也沒關係。</p>
+
+    <h2 id="desktop">4. 桌面 App 的用法</h2>
+    <h3>快速新增</h3>
+    <p>在輸入框打字後按 Enter。可以加上這些標記，順序不限：</p>
+    <table>
+      <thead><tr><th>標記</th><th>意義</th><th>範例</th></tr></thead>
+      <tbody>
+        <tr><td><code>#標籤</code></td><td>標籤（課名、專案）</td><td><code>#微積分</code></td></tr>
+        <tr><td><code>@期限</code></td><td>今天、明天、後天、週一…週日、下週三、10/15、2026-10-15</td><td><code>@週五</code></td></tr>
+        <tr><td><code>!</code></td><td>高優先</td><td><code>!</code></td></tr>
+      </tbody>
+    </table>
+    <p>例如 <code>交作業三 #微積分 @週五 !</code>。</p>
+
+    <h3>其他操作</h3>
+    <ul>
+      <li><b>勾選</b>完成；<b>點一下</b>或<b>按右鍵</b>項目就在原地展開編輯，改完自動儲存。</li>
+      <li>完成和刪除都可以在底部按「復原」。</li>
+      <li>主視窗：系統匣圖示按左鍵開啟。<code>Ctrl+N</code> 新增、<code>Ctrl+F</code> 搜尋。</li>
+      <li>桌面小工具：拖曳標題列移動、拖曳邊緣調整大小。右上角 <code>⋯</code> 可以隱藏。</li>
+      <li>系統匣圖示上的數字是「今天到期＋逾期」的件數，有逾期時會變紅。</li>
+      <li>已完成的項目在電腦上只顯示最近 30 天，更早的紀錄仍保存在雲端，可以問 Claude。</li>
+    </ul>
+
+    <h2 id="devices">5. 多台電腦與安全</h2>
+    <ul>
+      <li><b>加一台電腦：</b>安裝 Deskdo，用同一個 Cloudflare 帳號登入，精靈會偵測到既有的雲端，只把這台電腦加入。</li>
+      <li><b>移除電腦：</b>「設定 → 已連線的電腦」按「移除」，那台電腦就不能再讀寫待辦。</li>
+      <li><b>更換連接器網址：</b>「設定 → claude.ai 連接器 → 更換網址」，舊網址立即失效。</li>
+      <li><b>更新雲端：</b>新版 Deskdo 需要更新雲端程式時，主視窗會出現提示，按一下並登入 Cloudflare 即可，資料不會變動。</li>
+    </ul>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Deskdo · 開源專案，與 Anthropic、Cloudflare 無關</span>
+      <nav>
+        <a href="/">首頁</a>
+        <a href="/privacy">隱私說明</a>
+        <a href="https://github.com/GITHUB_REPO">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
