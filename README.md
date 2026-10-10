@@ -135,7 +135,7 @@ cd site
 npx wrangler deploy
 ```
 
-部署後在 Cloudflare 後台的 Worker →「設定 → 網域和路由」加上自訂網域。頁面裡的 `GITHUB_REPO` 要換成實際的 `帳號/repo`。
+部署後在 Cloudflare 後台的 Worker →「設定 → 網域和路由」加上自訂網域。
 
 ---
 
