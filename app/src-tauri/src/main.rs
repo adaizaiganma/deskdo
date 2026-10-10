@@ -19,9 +19,13 @@ use tauri::RunEvent;
 use tauri_plugin_autostart::ManagerExt;
 
 fn main() {
-    tauri::Builder::default()
-        // 已經有一個在執行時，改成叫它打開主視窗
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| windows::show_main(app, None)))
+    let mut builder = tauri::Builder::default();
+    // 已經有一個在執行時，改成叫它打開主視窗。
+    // DESKDO_HOME（另一個設定目錄，開發測試用）視為獨立的執行個體，可以和正式版同時執行
+    if std::env::var_os("DESKDO_HOME").is_none() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| windows::show_main(app, None)));
+    }
+    builder
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(store::Shared::new()))

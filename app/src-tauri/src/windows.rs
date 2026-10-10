@@ -239,7 +239,7 @@ fn prefs(app: &AppHandle) -> Prefs {
         done_sync_days: store::DONE_SYNC_DAYS,
         cloud_version: (cloud > 0).then_some(cloud),
         latest_cloud_version: setup::WORKER_VERSION,
-        oauth_available: crate::oauth::client_id().is_some(),
+        oauth_available: crate::oauth::available(),
     }
 }
 

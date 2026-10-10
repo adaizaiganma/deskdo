@@ -179,12 +179,13 @@ button {
 .primary:hover {
   filter: brightness(1.06);
 }
+/* 用半透明底色：放在卡片（--raised）或頁面（--bg）上都看得出是按鈕 */
 .ghost {
   padding: 0 14px;
-  background: var(--bg2);
+  background: var(--active);
 }
 .ghost:hover {
-  background: var(--active);
+  background: color-mix(in srgb, var(--text) 13%, transparent);
 }
 .ghost.danger {
   color: var(--warn);

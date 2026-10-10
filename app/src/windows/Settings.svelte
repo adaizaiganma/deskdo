@@ -422,7 +422,7 @@
     min-width: 0;
     padding: 8px 10px;
     border-radius: 8px;
-    background: var(--bg2);
+    background: var(--active);
     font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;

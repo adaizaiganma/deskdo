@@ -31,6 +31,20 @@ fn redirect_uri() -> String {
     format!("http://localhost:{REDIRECT_PORT}/callback")
 }
 
+/// 開發版可以用 DESKDO_DEV_CF_TOKEN 直接提供 Cloudflare token，跳過瀏覽器登入（測試精靈用）
+fn dev_token() -> Option<String> {
+    if cfg!(debug_assertions) {
+        std::env::var("DESKDO_DEV_CF_TOKEN").ok().filter(|s| !s.trim().is_empty())
+    } else {
+        None
+    }
+}
+
+/// 精靈要不要顯示「使用 Cloudflare 登入」
+pub fn available() -> bool {
+    client_id().is_some() || dev_token().is_some()
+}
+
 /// 建置時用 DESKDO_CF_CLIENT_ID 指定；執行時的同名環境變數可以覆寫（開發用）
 pub fn client_id() -> Option<String> {
     std::env::var("DESKDO_CF_CLIENT_ID")
@@ -100,6 +114,9 @@ fn query_param(request_line: &str, key: &str) -> Option<String> {
 
 #[tauri::command]
 pub async fn setup_oauth(app: AppHandle) -> Result<Vec<Account>, String> {
+    if let Some(token) = dev_token() {
+        return setup::connect(&app, token).await;
+    }
     let client_id = client_id().ok_or("這個版本沒有設定 Cloudflare 登入，請改用 API token")?;
     let verifier = random_b64(48);
     let state = random_b64(16);

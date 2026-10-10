@@ -366,11 +366,13 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
     let mut version = None;
     while Instant::now() < deadline {
         version = cloud_version(&s.client, &conn).await;
-        if version.is_some() {
+        // 剛上傳的新版本可能要幾秒才會在各地生效
+        if version.is_some_and(|v| v >= WORKER_VERSION) {
             break;
         }
         tokio::time::sleep(Duration::from_secs(3)).await;
     }
+    let version = version.filter(|v| *v >= WORKER_VERSION);
     let reachable = version.is_some();
     if reachable {
         s.cloud_version.store(version.unwrap_or(0), Ordering::Relaxed);
@@ -381,10 +383,16 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
     windows::emit_prefs(app);
     s.wake(true);
 
+    // 先問 Worker（env 有 MCP_SECRET 的舊部署要用那一把），問不到就直接從 D1 讀
     let connector_url = match target {
         Target::Update { .. } => None,
-        Target::New { .. } if reachable => fetch_connector(&s.client, &conn).await.ok().map(|c| c.0),
-        Target::New { .. } => stored_mcp_secret(cf, account, &db).await.ok().flatten().map(|sec| format!("{api_base}/mcp/{sec}")),
+        Target::New { .. } => {
+            let fetched = if reachable { fetch_connector(&s.client, &conn).await.ok().map(|c| c.0) } else { None };
+            match fetched {
+                Some(url) => Some(url),
+                None => stored_mcp_secret(cf, account, &db).await.ok().flatten().map(|sec| format!("{api_base}/mcp/{sec}")),
+            }
+        }
     };
     Ok(SetupDone { api_base, reachable, connector_url })
 }
@@ -451,7 +459,9 @@ pub async fn cloud_version(client: &reqwest::Client, cfg: &Config) -> Option<u32
     let r = api::send(client, cfg, Method::GET, "/api/info", None, None).await;
     match r.status {
         200 => r.data.and_then(|d| d["version"].as_u64()).map(|v| v as u32),
-        404 => Some(1),
+        // 第一版 Worker 對未知路徑回 JSON 的 404。新網址剛開通時 Cloudflare 會先回自己的 HTML 404，
+        // 那表示 Worker 還沒生效，不能當成第一版
+        404 if r.data.as_ref().is_some_and(|d| d.get("error").is_some()) => Some(1),
         _ => None,
     }
 }

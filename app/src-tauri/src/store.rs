@@ -185,11 +185,12 @@ pub fn start_sync(app: AppHandle) {
         let mut version_checked: Option<(Instant, String)> = None;
         loop {
             refresh(&app).await;
-            // 啟動時、換了連線設定時、之後每 6 小時檢查一次
-            let base = s.config().api_base;
-            if version_checked.as_ref().is_none_or(|(t, b)| *b != base || t.elapsed() > VERSION_CHECK_INTERVAL) {
+            // 啟動時、換了連線設定（網址或 token）時、之後每 6 小時檢查一次
+            let cfg = s.config();
+            let conn = format!("{}\n{}", cfg.api_base, cfg.api_token);
+            if version_checked.as_ref().is_none_or(|(t, c)| *c != conn || t.elapsed() > VERSION_CHECK_INTERVAL) {
                 crate::setup::check_cloud_version(&app).await;
-                version_checked = Some((Instant::now(), base));
+                version_checked = Some((Instant::now(), conn));
             }
             let secs = s.config().poll_seconds.max(10);
             tokio::select! {
