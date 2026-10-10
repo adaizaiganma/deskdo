@@ -11,8 +11,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{
     collections::HashSet,
-    sync::{atomic::AtomicBool, Arc, Mutex},
-    time::Duration,
+    sync::{
+        atomic::{AtomicBool, AtomicU32},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
 };
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Notify;
@@ -72,6 +75,8 @@ pub struct Shared {
     pub client: reqwest::Client,
     wake: Notify,
     pub fx_main: AtomicBool,
+    /// 雲端 Worker 的版本；0 表示還不知道
+    pub cloud_version: AtomicU32,
 }
 
 impl Shared {
@@ -95,6 +100,7 @@ impl Shared {
             client: reqwest::Client::new(),
             wake: Notify::new(),
             fx_main: AtomicBool::new(false),
+            cloud_version: AtomicU32::new(0),
         }
     }
 
@@ -170,11 +176,21 @@ pub fn emit(app: &AppHandle) {
 
 // ---- 同步 ----
 
+/// 多久檢查一次雲端 Worker 有沒有新版本
+const VERSION_CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+
 pub fn start_sync(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let s = shared(&app);
+        let mut version_checked: Option<(Instant, String)> = None;
         loop {
             refresh(&app).await;
+            // 啟動時、換了連線設定時、之後每 6 小時檢查一次
+            let base = s.config().api_base;
+            if version_checked.as_ref().is_none_or(|(t, b)| *b != base || t.elapsed() > VERSION_CHECK_INTERVAL) {
+                crate::setup::check_cloud_version(&app).await;
+                version_checked = Some((Instant::now(), base));
+            }
             let secs = s.config().poll_seconds.max(10);
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(secs)) => {}

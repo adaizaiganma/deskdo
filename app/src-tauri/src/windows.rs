@@ -1,7 +1,7 @@
 //! 兩個視窗：釘在桌面的小工具（widget），以及從系統匣開啟的主視窗（main）。
 
 use crate::{
-    api,
+    api, setup,
     store::{self, shared},
     tray::TrayItems,
 };
@@ -216,10 +216,16 @@ pub struct Prefs {
     autostart: bool,
     configured: bool,
     done_sync_days: u32,
+    /// 雲端 Worker 的版本；null 表示還不知道
+    cloud_version: Option<u32>,
+    /// 這版 App 內建的 Worker 版本
+    latest_cloud_version: u32,
 }
 
 fn prefs(app: &AppHandle) -> Prefs {
-    let c = shared(app).config();
+    let s = shared(app);
+    let c = s.config();
+    let cloud = s.cloud_version.load(Ordering::Relaxed);
     Prefs {
         configured: c.configured(),
         api_base: c.api_base,
@@ -229,10 +235,12 @@ fn prefs(app: &AppHandle) -> Prefs {
         desktop_opacity: c.desktop_opacity,
         autostart: app.autolaunch().is_enabled().unwrap_or(false),
         done_sync_days: store::DONE_SYNC_DAYS,
+        cloud_version: (cloud > 0).then_some(cloud),
+        latest_cloud_version: setup::WORKER_VERSION,
     }
 }
 
-fn emit_prefs(app: &AppHandle) {
+pub fn emit_prefs(app: &AppHandle) {
     let _ = app.emit("prefs", prefs(app));
 }
 
@@ -258,6 +266,7 @@ pub async fn save_connection(
         c.save();
         c.clone()
     };
+    s.cloud_version.store(0, Ordering::Relaxed);
     emit_prefs(&app);
     s.wake(true);
     if !cfg.configured() {

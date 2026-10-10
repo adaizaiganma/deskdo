@@ -2,11 +2,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod api;
+mod cloudflare;
 mod config;
 #[cfg(windows)]
 mod desktop_layer;
 #[cfg(windows)]
 mod glass;
+mod setup;
 mod store;
 mod tray;
 mod windows;
@@ -20,7 +22,9 @@ fn main() {
         // 已經有一個在執行時，改成叫它打開主視窗
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| windows::show_main(app, None)))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(store::Shared::new()))
+        .manage(setup::SetupState::default())
         .invoke_handler(tauri::generate_handler![
             store::get_state,
             store::refresh_now,
@@ -28,6 +32,14 @@ fn main() {
             store::update_todo,
             store::delete_todo,
             store::undo_delete,
+            setup::setup_token,
+            setup::setup_cancel,
+            setup::setup_inspect,
+            setup::setup_run,
+            setup::get_connector,
+            setup::rotate_connector,
+            setup::list_devices,
+            setup::revoke_device,
             windows::get_prefs,
             windows::save_connection,
             windows::set_widget_visible,
