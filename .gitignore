@@ -1,0 +1,7 @@
+# 子目錄各自有 .gitignore（app/、worker/），這裡只放共通的
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.log
