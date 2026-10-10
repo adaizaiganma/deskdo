@@ -24,7 +24,7 @@ const TOKEN_URL: &str = "https://dash.cloudflare.com/oauth2/token";
 /// 要和 Cloudflare OAuth client 設定的 redirect URI 完全一致
 const REDIRECT_PORT: u16 = 47613;
 /// 讀帳號、部署 Worker、建立與查詢 D1
-const SCOPES: &str = "account-settings.read workers-scripts.write d1.write";
+const SCOPES: &str = "account-settings.read workers-scripts.edit d1.write";
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 fn redirect_uri() -> String {
