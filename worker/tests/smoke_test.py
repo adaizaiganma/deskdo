@@ -148,6 +148,21 @@ check(err, "刪除不存在 → isError")
 s, _, _ = api("DELETE", f"/api/todos/{t1['id']}")
 check(s == 204, "REST DELETE → 204")
 
+# --- 低優先度 ---
+s, _, lo = api("POST", "/api/todos", {"title": "低優先項目", "priority": "low"})
+_, _, hi = api("POST", "/api/todos", {"title": "高優先項目", "priority": "high"})
+_, _, no = api("POST", "/api/todos", {"title": "普通項目"})
+check(s == 201 and lo["priority"] == "low", "POST 低優先")
+ids = {lo["id"], hi["id"], no["id"]}
+titles = [t["title"] for t in api("GET", "/api/todos?status=open")[2]["todos"] if t["id"] in ids]
+check(titles == ["高優先項目", "普通項目", "低優先項目"], f"排序：高、普通、低 {titles}")
+err, r = call("update_todo", {"id": no["id"], "priority": "low"})
+check(not err and r["priority"] == "low", "MCP update_todo 設為低優先")
+s, _, _ = api("POST", "/api/todos", {"title": "x", "priority": "urgent"})
+check(s == 400, "未知的優先度 → 400")
+for i in ids:
+    api("DELETE", f"/api/todos/{i}")
+
 # --- 裝置 token、D1 裡的 MCP 密鑰 ---
 s, _, b = api("GET", "/api/info")
 check(s == 200 and isinstance(b["version"], int), f"GET /api/info version={b['version']}")

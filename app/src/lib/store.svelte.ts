@@ -19,6 +19,8 @@ class Store {
   doneToday = $derived(this.done.filter((t) => localDate(t.doneAt) === this.today));
   tags = $derived([...new Set(this.snap.todos.flatMap((t) => (t.tag ? [t.tag] : [])))].sort((a, b) => a.localeCompare(b, "zh-Hant")));
   overdueCount = $derived(this.open.filter((t) => t.due && t.due < this.today).length);
+  /** 雲端版本 3 起才支援低優先；還不知道版本時先放行 */
+  supportsLow = $derived((this.prefs?.cloudVersion ?? 3) >= 3);
   cloudOutdated = $derived(
     !!this.prefs?.configured && this.prefs.cloudVersion !== null && this.prefs.cloudVersion < this.prefs.latestCloudVersion,
   );
@@ -38,6 +40,12 @@ class Store {
       toast.error(String(e));
       return undefined;
     }
+  }
+
+  /** 要設成低優先前先問；雲端太舊時提示更新並回傳 false */
+  canUseLow(): boolean {
+    if (!this.supportsLow) toast.error("低優先需要先更新雲端：到「設定 → 雲端」按「更新雲端」");
+    return this.supportsLow;
   }
 
   find(id: string): Todo | undefined {

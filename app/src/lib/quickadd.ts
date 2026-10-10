@@ -6,6 +6,7 @@
  * - `#標籤`              設定標籤
  * - `@今天` `@明天` `@後天` `@週五` `@下週三` `@10/15` `@10-15` `@2026-10-15`   設定期限
  * - `!` 或 `！`          高優先
+ * - `~` 或 `～`          低優先
  * 其餘文字為標題。各部分以空白分隔，順序不限。
  */
 import { addDays, diffDays, mondayIndex } from "./dates";
@@ -56,6 +57,8 @@ export function parseQuickAdd(text: string, today: string): NewTodo | null {
     let due: string | null;
     if (tok === "!" || tok === "！") {
       fields.priority = "high";
+    } else if (tok === "~" || tok === "～") {
+      fields.priority = "low";
     } else if ((head === "#" || head === "＃") && tok.length > 1) {
       fields.tag = tok.slice(1);
     } else if ((head === "@" || head === "＠") && tok.length > 1 && (due = parseDue(tok.slice(1), today))) {

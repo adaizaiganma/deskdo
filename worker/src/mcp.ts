@@ -48,7 +48,7 @@ function buildServer(env: Env): McpServer {
       inputSchema: {
         status: z.enum(["open", "done", "all"]).optional().describe("Default: open"),
         tag: z.string().optional().describe("Exact tag match, case-insensitive"),
-        priority: z.enum(["high", "normal"]).optional(),
+        priority: z.enum(["high", "normal", "low"]).optional(),
         due_before: date.optional().describe("Due on or before this date (YYYY-MM-DD)"),
         due_after: date.optional().describe("Due on or after this date (YYYY-MM-DD)"),
         overdue: z.boolean().optional().describe("Only open items whose due date is before today"),
@@ -88,7 +88,7 @@ function buildServer(env: Env): McpServer {
         title: z.string().describe("Short actionable title"),
         due: date.nullable().optional().describe("Due date YYYY-MM-DD"),
         tag: z.string().nullable().optional().describe("Course name / project"),
-        priority: z.enum(["high", "normal"]).optional().describe("Default: normal"),
+        priority: z.enum(["high", "normal", "low"]).optional().describe("Default: normal"),
         note: z.string().nullable().optional().describe("Details, links, email sender/subject, etc."),
         source: z
           .enum(["manual", "claude", "email"])
@@ -122,7 +122,7 @@ function buildServer(env: Env): McpServer {
         title: z.string().optional(),
         due: date.nullable().optional(),
         tag: z.string().nullable().optional(),
-        priority: z.enum(["high", "normal"]).optional(),
+        priority: z.enum(["high", "normal", "low"]).optional(),
         note: z.string().nullable().optional(),
         done: z.boolean().optional(),
       },

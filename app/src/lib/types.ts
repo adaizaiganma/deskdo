@@ -5,7 +5,7 @@ export interface Todo {
   doneAt: string | null;
   due: string | null; // YYYY-MM-DD
   tag: string | null;
-  priority: "high" | "normal";
+  priority: Priority;
   note: string | null;
   createdAt: string;
   updatedAt: string;
@@ -83,12 +83,14 @@ export interface Device {
   current: boolean;
 }
 
+export type Priority = "high" | "normal" | "low";
+
 export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "tag" | "priority" | "note" | "done">>;
 
 export interface NewTodo {
   title: string;
   due?: string;
   tag?: string;
-  priority?: "high";
+  priority?: "high" | "low";
   note?: string;
 }

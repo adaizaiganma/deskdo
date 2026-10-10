@@ -30,6 +30,20 @@
     if (filter && !filters.some((f) => f.tag === filter)) filter = null;
   });
 
+  /** 標籤列放不下時，把滑鼠滾輪的上下捲動轉成左右捲動 */
+  function wheelToHorizontal(node: HTMLElement) {
+    const onWheel = (e: WheelEvent) => {
+      if (node.scrollWidth <= node.clientWidth) return;
+      const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (!delta) return;
+      e.preventDefault();
+      node.scrollLeft += delta * (e.deltaMode === 1 ? 16 : 1); // deltaMode 1 = 以「行」為單位
+    };
+    // 要呼叫 preventDefault，所以不能用 passive 監聽
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return { destroy: () => node.removeEventListener("wheel", onWheel) };
+  }
+
   function readFlag(key: string): boolean {
     try {
       return localStorage.getItem(key) === "1";
@@ -92,7 +106,7 @@
   </header>
 
   {#if filters.length}
-    <nav class="chips" aria-label="依標籤篩選">
+    <nav class="chips" aria-label="依標籤篩選" use:wheelToHorizontal>
       <button class="chip" class:on={!filter} onclick={() => (filter = null)}>全部<span class="n">{store.open.length}</span></button>
       {#each filters as f (f.tag)}
         <button class="chip" class:on={filter === f.tag} onclick={() => (filter = filter === f.tag ? null : f.tag)}>

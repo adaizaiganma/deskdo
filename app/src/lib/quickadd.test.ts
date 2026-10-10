@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { groupTodos, rowDue } from "./dates";
 import { parseDue, parseQuickAdd } from "./quickadd";
-import type { Todo } from "./types";
+import type { Priority, Todo } from "./types";
 
 const TODAY = "2026-10-10"; // 週六
 
@@ -20,6 +20,13 @@ describe("parseQuickAdd", () => {
     expect(parseQuickAdd("報告 ＃專題 ＠後天 ！", TODAY)).toEqual({
       title: "報告", tag: "專題", due: "2026-10-12", priority: "high",
     });
+  });
+
+  test("low priority", () => {
+    expect(parseQuickAdd("整理書桌 ~", TODAY)).toEqual({ title: "整理書桌", priority: "low" });
+    expect(parseQuickAdd("整理書桌 ～ #宿舍", TODAY)).toEqual({ title: "整理書桌", tag: "宿舍", priority: "low" });
+    // 只有單獨的 ~ 才算，夾在文字裡的保留在標題
+    expect(parseQuickAdd("約 ~3 點", TODAY)).toEqual({ title: "約 ~3 點" });
   });
 
   test("empty title", () => {
@@ -51,7 +58,7 @@ describe("parseDue", () => {
   });
 });
 
-function todo(id: string, due: string | null, priority: "high" | "normal" = "normal"): Todo {
+function todo(id: string, due: string | null, priority: Priority = "normal"): Todo {
   return {
     id, title: id, done: false, doneAt: null, due, tag: null, priority, note: null,
     createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z", source: "manual", sourceRef: null,
@@ -70,9 +77,9 @@ describe("groupTodos", () => {
     ]);
   });
 
-  test("high priority first within the same day", () => {
-    const [g] = groupTodos([todo("n", TODAY), todo("h", TODAY, "high")], TODAY);
-    expect(g.items.map((t) => t.id)).toEqual(["h", "n"]);
+  test("high priority first and low priority last within the same day", () => {
+    const [g] = groupTodos([todo("l", TODAY, "low"), todo("n", TODAY), todo("h", TODAY, "high")], TODAY);
+    expect(g.items.map((t) => t.id)).toEqual(["h", "n", "l"]);
   });
 });
 

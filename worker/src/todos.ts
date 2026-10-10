@@ -8,7 +8,7 @@ export interface Env {
   TIMEZONE?: string;
 }
 
-export type Priority = "high" | "normal";
+export type Priority = "high" | "normal" | "low";
 export type Source = "manual" | "claude" | "email";
 export type Status = "open" | "done" | "all";
 
@@ -53,7 +53,7 @@ export const fields = {
   title: z.string().trim().min(1, "標題不能是空的").max(200),
   due: dateSchema.nullable(),
   tag: nullableText(50),
-  priority: z.enum(["high", "normal"]),
+  priority: z.enum(["high", "normal", "low"]),
   note: nullableText(4000),
   source: z.enum(["manual", "claude", "email"]),
   sourceRef: z.string().trim().min(1).max(200),
@@ -185,7 +185,7 @@ export async function listTodos(env: Env, f: TodoFilter): Promise<Todo[]> {
     " ORDER BY done ASC," +
     " CASE WHEN done = 1 THEN doneAt END DESC," +
     " CASE WHEN due IS NULL THEN 1 ELSE 0 END, due ASC," +
-    " CASE priority WHEN 'high' THEN 0 ELSE 1 END, createdAt ASC" +
+    " CASE priority WHEN 'high' THEN 0 WHEN 'low' THEN 2 ELSE 1 END, createdAt ASC" +
     ` LIMIT ${limit}`;
 
   const { results } = await env.DB.prepare(sql).bind(...params).all<TodoRow>();

@@ -23,6 +23,7 @@
 
   const sending = $derived(todo.id.startsWith("tmp-"));
   const high = $derived(todo.priority === "high");
+  const low = $derived(todo.priority === "low");
   const due = $derived(!todo.done && todo.due ? rowDue(todo.due, today) : null);
   const checked = $derived(todo.done || checking);
   const source = $derived({ email: "來自 Gmail", claude: "由 AI 助理新增", manual: "手動新增" }[todo.source] ?? "");
@@ -88,6 +89,22 @@
     newTag = "";
   }
 
+  function setPriority(p: Todo["priority"]) {
+    if (p === "low" && !store.canUseLow()) return;
+    patch({ priority: p });
+  }
+
+  /**
+   * 編輯中點到這一列的空白處（不是輸入框或按鈕）就收合；點到列外面由 TodoList 處理。
+   * 按下時也要在空白處：在備註框拖曳選字、放開時剛好停在空白處，不算點擊。
+   */
+  let downOnBlank = false;
+  const isBlank = (t: EventTarget | null) => !(t as HTMLElement | null)?.closest("input, textarea, button, select, label, a");
+
+  function onRowClick(e: MouseEvent) {
+    if (editing && downOnBlank && isBlank(e.target)) onedit(null);
+  }
+
   function titleKey(e: KeyboardEvent) {
     if (e.isComposing) return;
     if (e.key === "Enter") onedit(null);
@@ -98,7 +115,9 @@
   }
 </script>
 
-<div class="row" class:editing class:done={todo.done} class:sending data-row={todo.id}>
+<!-- 鍵盤使用者用 Enter／Esc（標題輸入框）收合，所以點擊收合不需要對應的按鍵處理 -->
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+<div class="row" class:editing class:done={todo.done} class:sending class:low data-row={todo.id} onpointerdown={(e) => (downOnBlank = isBlank(e.target))} onclick={onRowClick}>
   <div class="line">
     <button
       class="chk"
@@ -134,13 +153,16 @@
         disabled={sending}
       >
         <span class="title" class:struck={checked}>{todo.title}</span>
-        {#if high || todo.tag || todo.source === "email" || todo.note || todo.done}
+        {#if high || low || todo.tag || todo.source === "email" || todo.note || todo.done}
           <span class="meta">
             {#if todo.done && todo.doneAt}
               <span>{monthDay(localDate(todo.doneAt) ?? today, today)} 完成</span>
             {/if}
             {#if high && !todo.done}
               <span class="mi warn"><Icon name="flag" size={11} stroke={1.8} />高優先</span>
+            {/if}
+            {#if low && !todo.done}
+              <span class="mi faint">低優先</span>
             {/if}
             {#if todo.tag}<span class="mi">#{todo.tag}</span>{/if}
             {#if todo.source === "email"}<span class="mi"><Icon name="mail" size={12} stroke={1.5} />Gmail</span>{/if}
@@ -188,14 +210,14 @@
       </div>
       <div class="field">
         <span class="ficon"><Icon name="flag" size={14} stroke={1.5} /></span>
-        <button class="pill" class:warn-on={high} onclick={() => patch({ priority: high ? "normal" : "high" })}>高優先</button>
+        <button class="pill" class:warn-on={high} onclick={() => setPriority(high ? "normal" : "high")}>! 高優先</button>
+        <button class="pill" class:on={low} onclick={() => setPriority(low ? "normal" : "low")}>~ 低優先</button>
       </div>
       <textarea class="note" placeholder="備註…" bind:value={draftNote} onblur={commit} aria-label="備註"></textarea>
       <div class="foot">
         <span>{source}{created ? ` · ${monthDay(created, today)} 建立` : ""}</span>
         <span class="grow"></span>
         <button class="tbtn danger" onclick={() => store.remove(todo)}><Icon name="trash" size={13} stroke={1.5} />刪除</button>
-        <button class="tbtn" onclick={() => onedit(null)}>收合</button>
       </div>
     </div>
   {/if}
@@ -312,6 +334,9 @@
   .mi.warn {
     color: var(--warn);
   }
+  .mi.faint {
+    color: var(--faint);
+  }
   .due {
     flex: none;
     display: flex;
@@ -338,15 +363,29 @@
     color: var(--warn);
   }
 
+  /* 寬度跟著內容，右邊留白可以點擊收合 */
   .title-input {
-    flex: 1;
-    min-width: 0;
+    flex: 0 1 auto;
+    field-sizing: content;
+    min-width: 7em;
+    max-width: 100%;
+    margin: -3px 0 -3px -6px;
+    padding: 2px 6px;
     font-size: 14px;
     line-height: 1.45;
     border: 0;
-    background: transparent;
+    border-radius: 6px;
+    background: var(--bg2);
     outline: none;
-    padding: 0;
+  }
+  .title-input:focus {
+    box-shadow: 0 0 0 1.5px var(--accent);
+  }
+  .row.editing {
+    cursor: default;
+  }
+  .row.low:not(.done) .title {
+    color: var(--sub);
   }
 
   .editor {

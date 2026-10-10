@@ -14,6 +14,25 @@
 
   let text = $state("");
   let input = $state<HTMLInputElement>();
+
+  // 符號說明按「不再顯示」後就不出現；主視窗和小工具共用同一個 localStorage
+  const HINT_KEY = "quickadd.hideHint";
+  let hideHint = $state(readHideHint());
+
+  function readHideHint(): boolean {
+    try {
+      return localStorage.getItem(HINT_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function dismissHint() {
+    hideHint = true;
+    try {
+      localStorage.setItem(HINT_KEY, "1");
+    } catch {}
+  }
   const parsed = $derived(parseQuickAdd(text, store.today));
   const tag = $derived(parsed?.tag ?? (text.trim() ? defaultTag : null));
   const due = $derived(parsed?.due ?? (text.trim() ? defaultDue : null));
@@ -24,6 +43,8 @@
 
   function submit() {
     if (!parsed) return;
+    // 雲端還不支援低優先時保留輸入內容，提示先更新
+    if (parsed.priority === "low" && !store.canUseLow()) return;
     store.add({
       ...parsed,
       ...(tag ? { tag } : {}),
@@ -40,18 +61,29 @@
   }
 </script>
 
+<svelte:window onstorage={(e) => e.key === HINT_KEY && (hideHint = readHideHint())} />
+
 <div class="quick">
   <label class="box">
     <span class="plus"><Icon name="plus" size={16} stroke={1.8} /></span>
     <input bind:this={input} bind:value={text} onkeydown={onKey} placeholder="新增待辦，按 Enter 送出" aria-label="新增待辦" />
   </label>
-  <div class="meta">
+  <div class="meta" class:empty={!text.trim() && hideHint}>
     {#if !text.trim()}
-      <span class="hint">試試 <b>交報告 #電路學 @週五 !</b></span>
+      {#if !hideHint}
+        <span class="hint" title="例如：交報告 #電路學 @週五 !">
+          <span><b>#</b>標籤</span>
+          <span title="@今天 @明天 @週五 @下週三 @10/15"><b>@</b>期限</span>
+          <span><b>!</b>高優先</span>
+          <span><b>~</b>低優先</span>
+        </span>
+        <button class="hint-close" onclick={dismissHint}>不再顯示</button>
+      {/if}
     {:else}
       {#if due}<span class="chip"><Icon name="calendar" size={11} stroke={1.7} />{relativeDue(due, store.today)}</span>{/if}
       {#if tag}<span class="chip">#{tag}</span>{/if}
       {#if parsed?.priority === "high"}<span class="chip warn">高優先</span>{/if}
+      {#if parsed?.priority === "low"}<span class="chip low">低優先</span>{/if}
     {/if}
   </div>
 </div>
@@ -118,11 +150,34 @@
       transform: translateY(-3px);
     }
   }
+  .chip.low {
+    background: var(--bg2);
+    color: var(--sub);
+  }
+  .meta.empty {
+    min-height: 0;
+    padding-top: 0;
+  }
   .hint {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
     color: var(--faint);
   }
   .hint b {
-    font-weight: 500;
-    color: var(--sub);
+    font-weight: 700;
+    color: var(--accent);
+    margin-right: 2px;
+  }
+  .hint-close {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--faint);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .hint-close:hover {
+    color: var(--text);
+    background: var(--hover);
   }
 </style>

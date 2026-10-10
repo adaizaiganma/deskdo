@@ -99,10 +99,13 @@ export function groupOf(due: string | null, today: string): GroupKey {
   return "later";
 }
 
+/** 同一天到期時：高優先在前、低優先在後 */
+const PRIORITY_RANK = { high: 0, normal: 1, low: 2 } as const;
+
 function compare(a: Todo, b: Todo): number {
   return (
     (a.due ?? "9999").localeCompare(b.due ?? "9999") ||
-    Number(b.priority === "high") - Number(a.priority === "high") ||
+    (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1) ||
     a.createdAt.localeCompare(b.createdAt)
   );
 }
