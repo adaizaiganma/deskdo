@@ -41,6 +41,13 @@ export interface Prefs {
   oauthAvailable: boolean;
   /** 測試版（Deskdo Beta，和正式版分開安裝） */
   beta: boolean;
+  appVersion: string;
+}
+
+/** 已經下載好、等使用者按「更新」的新版 App */
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
 }
 
 // ---- 設定精靈 ----

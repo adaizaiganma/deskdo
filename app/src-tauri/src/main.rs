@@ -12,6 +12,7 @@ mod oauth;
 mod setup;
 mod store;
 mod tray;
+mod updater;
 mod windows;
 
 use std::sync::Arc;
@@ -28,8 +29,10 @@ fn main() {
     builder
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Arc::new(store::Shared::new()))
         .manage(setup::SetupState::default())
+        .manage(updater::UpdateState::default())
         .invoke_handler(tauri::generate_handler![
             store::get_state,
             store::refresh_now,
@@ -46,6 +49,9 @@ fn main() {
             setup::rotate_connector,
             setup::list_devices,
             setup::revoke_device,
+            updater::get_update,
+            updater::check_update,
+            updater::install_update,
             windows::get_prefs,
             windows::save_connection,
             windows::set_widget_visible,
@@ -66,7 +72,8 @@ fn main() {
             windows::create_main(&handle)?;
             windows::refresh_autostart_path(&handle);
             store::emit(&handle);
-            store::start_sync(handle);
+            store::start_sync(handle.clone());
+            updater::start(handle);
             Ok(())
         })
         .on_window_event(windows::on_window_event)

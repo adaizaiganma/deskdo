@@ -27,9 +27,11 @@ pub fn config_dir() -> PathBuf {
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
-        let dir = base.join(if BETA { "Deskdo Beta" } else { "Deskdo" });
+        // DESKDO_CONFIG_DIR（建置時）可以改目錄名稱，給測試自動更新之類的特殊建置用
+        let name = option_env!("DESKDO_CONFIG_DIR").unwrap_or(if BETA { "Deskdo Beta" } else { "Deskdo" });
+        let dir = base.join(name);
         let _ = fs::create_dir_all(&dir);
-        if !BETA {
+        if name == "Deskdo" {
             migrate_legacy(&base.join(LEGACY_DIR), &dir);
         }
         dir

@@ -99,6 +99,11 @@
         <div class="menu" role="menu" transition:scale={{ start: 0.95, duration: 120 }}>
           <button role="menuitem" onclick={() => menu(() => invoke("open_main", { view: null }))}><Icon name="open" />開啟主視窗</button>
           <button role="menuitem" onclick={() => menu(() => store.refresh())}><Icon name="refresh" />立即同步</button>
+          {#if store.appUpdate}
+            <button role="menuitem" class="accent" onclick={() => menu(() => store.installUpdate())}>
+              <Icon name="sparkle" />更新到 {store.appUpdate.version}
+            </button>
+          {/if}
           <button role="menuitem" onclick={() => menu(() => invoke("open_main", { view: "settings" }))}><Icon name="settings" />設定…</button>
           <hr />
           <button role="menuitem" onclick={() => menu(() => invoke("set_widget_visible", { visible: false }))}><Icon name="close" />隱藏桌面小工具</button>
@@ -221,6 +226,10 @@
   }
   .menu button:hover {
     background: var(--hover);
+  }
+  .menu button.accent {
+    color: var(--accent);
+    font-weight: 600;
   }
   .menu hr {
     border: 0;

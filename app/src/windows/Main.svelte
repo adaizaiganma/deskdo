@@ -190,6 +190,11 @@
       {:else}
         <div class="scroll">
           <div class="page">
+            {#if store.appUpdate}
+              <button class="banner" onclick={() => store.installUpdate()} title={store.appUpdate.notes ?? ""}>
+                <Icon name="refresh" size={14} />Deskdo {store.appUpdate.version} 已經下載好，按這裡重新啟動並更新
+              </button>
+            {/if}
             {#if store.cloudOutdated}
               <button class="banner" onclick={() => (wizard = "update")}>
                 <Icon name="sparkle" size={14} />雲端有新版本，按這裡更新（需要登入 Cloudflare）

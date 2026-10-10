@@ -2,12 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { localDate, localToday } from "./dates";
 import { toast } from "./toast.svelte";
-import type { NewTodo, Prefs, Snapshot, Todo, TodoPatch } from "./types";
+import type { NewTodo, Prefs, Snapshot, Todo, TodoPatch, UpdateInfo } from "./types";
 
 /** 資料都在 Rust 端；這裡只保留最新快照，修改一律透過 invoke */
 class Store {
   snap = $state<Snapshot>({ todos: [], today: localToday(), status: "syncing", message: "", lastSync: null });
   prefs = $state<Prefs | null>(null);
+  /** 已下載好的新版 App；有值時顯示「重新啟動並更新」 */
+  appUpdate = $state<UpdateInfo | null>(null);
   #localToday = $state(localToday());
 
   /** 跨日時不必等伺服器，本機日期往前就跟著換 */
@@ -28,8 +30,10 @@ class Store {
   async init() {
     await listen<Snapshot>("state", (e) => (this.snap = e.payload));
     await listen<Prefs>("prefs", (e) => (this.prefs = e.payload));
+    await listen<UpdateInfo>("update", (e) => (this.appUpdate = e.payload));
     this.snap = await invoke<Snapshot>("get_state");
     this.prefs = await invoke<Prefs>("get_prefs");
+    this.appUpdate = (await invoke<UpdateInfo | null>("get_update")) ?? null;
     setInterval(() => (this.#localToday = localToday()), 60_000);
   }
 
@@ -74,6 +78,11 @@ class Store {
   remove(todo: Todo) {
     this.#call("delete_todo", { id: todo.id });
     toast.show(`已刪除「${todo.title}」`, { undo: () => this.#call("undo_delete", { id: todo.id }) });
+  }
+
+  /** 安裝已下載的新版；Deskdo 會關閉，裝完自動重新開啟 */
+  installUpdate() {
+    return this.#call("install_update");
   }
 
   refresh() {

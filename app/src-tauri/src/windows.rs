@@ -224,6 +224,7 @@ pub struct Prefs {
     oauth_available: bool,
     /// 測試版（和正式版分開安裝）
     beta: bool,
+    app_version: String,
 }
 
 fn prefs(app: &AppHandle) -> Prefs {
@@ -243,6 +244,7 @@ fn prefs(app: &AppHandle) -> Prefs {
         latest_cloud_version: setup::WORKER_VERSION,
         oauth_available: crate::oauth::available(),
         beta: crate::config::BETA,
+        app_version: app.package_info().version.to_string(),
     }
 }
 

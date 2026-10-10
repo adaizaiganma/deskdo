@@ -16,6 +16,8 @@ const SIZE: u32 = 32;
 pub struct TrayItems {
     pub widget: CheckMenuItem<Wry>,
     pub autostart: CheckMenuItem<Wry>,
+    /// 「檢查更新」；下載好新版後變成「重新啟動以更新到 x.y.z」
+    pub update: MenuItem<Wry>,
     badge: Mutex<Option<(u32, bool)>>,
 }
 
@@ -25,6 +27,7 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
     let sync = MenuItem::with_id(app, "sync", "立即同步", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "設定…", true, None::<&str>)?;
     let auto = CheckMenuItem::with_id(app, "autostart", "開機時啟動", true, autostart, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", "檢查更新", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "結束", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
@@ -36,6 +39,7 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
             &PredefinedMenuItem::separator(app)?,
             &settings,
             &auto,
+            &update,
             &PredefinedMenuItem::separator(app)?,
             &quit,
         ],
@@ -58,6 +62,7 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
                 let on = app.state::<TrayItems>().autostart.is_checked().unwrap_or(false);
                 let _ = windows::set_autostart(app.clone(), on);
             }
+            "update" => crate::updater::tray_clicked(app),
             "quit" => windows::quit(app),
             _ => {}
         })
@@ -68,7 +73,11 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
         })
         .build(app)?;
 
-    app.manage(TrayItems { widget, autostart: auto, badge: Mutex::new(None) });
+    // 開發版和測試版不自動更新，選單裡就不放這一項
+    if cfg!(debug_assertions) || crate::config::BETA {
+        let _ = menu.remove(&update);
+    }
+    app.manage(TrayItems { widget, autostart: auto, update, badge: Mutex::new(None) });
     Ok(())
 }
 
