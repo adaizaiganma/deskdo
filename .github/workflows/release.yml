@@ -1,0 +1,42 @@
+# 推送 v* 標籤時建置 Windows 安裝檔，建立 GitHub Release 草稿（確認後再按發布）
+#   git tag v0.4.0 && git push origin v0.4.0
+#
+# 需要在 repo 的 Settings → Secrets and variables → Actions → Variables 設定：
+#   DESKDO_CF_CLIENT_ID：Cloudflare OAuth client ID（公開用戶端，不是密鑰）
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix worker
+          npm ci --prefix app
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DESKDO_CF_CLIENT_ID: ${{ vars.DESKDO_CF_CLIENT_ID }}
+        with:
+          projectPath: app
+          tagName: ${{ github.ref_name }}
+          releaseName: Deskdo ${{ github.ref_name }}
+          releaseBody: 下載 `Deskdo_*_x64-setup.exe` 安裝。第一次開啟時會出現設定精靈。
+          releaseDraft: true
