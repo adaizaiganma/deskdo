@@ -8,6 +8,9 @@
     // /guide 對應 guide.html
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
-  }
-  // 自訂網域：部署後在 Cloudflare 後台的 Worker → 設定 → 網域和路由 加上，或在這裡加 "routes"
+  },
+  // 自訂網域：部署時 wrangler 會自動建立 DNS 記錄與憑證（網域要在同一個 Cloudflare 帳號）
+  "routes": [{ "pattern": "adaizaiganma.qzz.io", "custom_domain": true }],
+  // 只用自訂網域，不開 deskdo-site.<子網域>.workers.dev
+  "workers_dev": false
 }
