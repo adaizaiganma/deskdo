@@ -31,6 +31,8 @@ export interface Prefs {
   desktopOpacity: number;
   autostart: boolean;
   configured: boolean;
+  /** 已完成的項目只同步最近這幾天的 */
+  doneSyncDays: number;
 }
 
 export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "tag" | "priority" | "note" | "done">>;

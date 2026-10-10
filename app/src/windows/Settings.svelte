@@ -17,7 +17,7 @@
     result = null;
     try {
       const n = await invoke<number>("save_connection", { apiBase, apiToken, pollSeconds: Number(pollSeconds) || 30 });
-      result = { ok: true, text: `已儲存，連線成功，伺服器上共有 ${n} 筆待辦` };
+      result = { ok: true, text: `已儲存，連線成功，目前有 ${n} 項待辦` };
     } catch (err) {
       result = { ok: false, text: `已儲存，但連線失敗：${err}` };
     } finally {

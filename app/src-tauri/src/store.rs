@@ -20,6 +20,9 @@ use tokio::sync::Notify;
 /// 刪除後可以「復原」的時間；過了才真的送出 DELETE
 const DELETE_DELAY: Duration = Duration::from_secs(5);
 
+/// 已完成的項目只同步最近這幾天的；更早的留在伺服器上（可以請 Claude 查詢）
+pub const DONE_SYNC_DAYS: u32 = 30;
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Todo {
@@ -215,7 +218,8 @@ async fn refresh(app: &AppHandle) {
         etag
     };
 
-    let r = api::send(&s.client, &cfg, Method::GET, "/api/todos", None, etag.as_deref()).await;
+    let path = format!("/api/todos?doneDays={DONE_SYNC_DAYS}");
+    let r = api::send(&s.client, &cfg, Method::GET, &path, None, etag.as_deref()).await;
     {
         let mut g = s.inner.lock().unwrap();
         g.fetching = false;

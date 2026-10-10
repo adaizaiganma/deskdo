@@ -88,6 +88,8 @@ export interface TodoFilter {
   dueAfter?: string; // 含當天
   overdue?: boolean;
   noDue?: boolean;
+  /** 已完成的項目只取這一天（含）之後完成的；未完成的不受影響 */
+  doneSince?: string;
   q?: string;
   limit?: number;
 }
@@ -102,6 +104,12 @@ export function today(env: Env): string {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+export function addDays(date: string, n: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 const ID_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
@@ -158,6 +166,11 @@ export async function listTodos(env: Env, f: TodoFilter): Promise<Todo[]> {
     params.push(today(env));
   }
   if (f.noDue) where.push("due IS NULL");
+  if (f.doneSince) {
+    // doneAt 是 UTC 的 ISO 字串，和 YYYY-MM-DD 直接比較字串即可
+    where.push("(done = 0 OR doneAt >= ?)");
+    params.push(f.doneSince);
+  }
   if (f.q) {
     where.push("(instr(lower(title), lower(?)) > 0 OR instr(lower(coalesce(note, '')), lower(?)) > 0)");
     params.push(f.q, f.q);

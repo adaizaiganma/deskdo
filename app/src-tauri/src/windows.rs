@@ -215,6 +215,7 @@ pub struct Prefs {
     desktop_opacity: f64,
     autostart: bool,
     configured: bool,
+    done_sync_days: u32,
 }
 
 fn prefs(app: &AppHandle) -> Prefs {
@@ -227,6 +228,7 @@ fn prefs(app: &AppHandle) -> Prefs {
         show_desktop_widget: c.show_desktop_widget,
         desktop_opacity: c.desktop_opacity,
         autostart: app.autolaunch().is_enabled().unwrap_or(false),
+        done_sync_days: store::DONE_SYNC_DAYS,
     }
 }
 
@@ -239,7 +241,7 @@ pub fn get_prefs(app: AppHandle) -> Prefs {
     prefs(&app)
 }
 
-/// 儲存連線設定，然後測試連線；回傳伺服器上的待辦數量
+/// 儲存連線設定，然後測試連線；回傳伺服器上未完成的待辦數量
 #[tauri::command]
 pub async fn save_connection(
     app: AppHandle,
@@ -261,7 +263,7 @@ pub async fn save_connection(
     if !cfg.configured() {
         return Err("請填寫 API 網址和 token".into());
     }
-    let r = api::send(&s.client, &cfg, reqwest::Method::GET, "/api/todos", None, None).await;
+    let r = api::send(&s.client, &cfg, reqwest::Method::GET, "/api/todos?status=open", None, None).await;
     if let Some(e) = r.error {
         return Err(e);
     }

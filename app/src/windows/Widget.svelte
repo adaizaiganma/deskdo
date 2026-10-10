@@ -22,7 +22,8 @@
       .filter((f) => f.count > 0),
   );
   const todos = $derived(filter ? store.open.filter((t) => t.tag === filter) : store.open);
-  const done = $derived(filter ? store.done.filter((t) => t.tag === filter) : store.done);
+  // 小工具只看今天完成的（確認剛剛勾了什麼、順手復原），完整紀錄在主視窗
+  const done = $derived(filter ? store.doneToday.filter((t) => t.tag === filter) : store.doneToday);
 
   // 篩選中的標籤沒有項目了就回到「全部」
   $effect(() => {

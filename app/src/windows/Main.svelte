@@ -6,7 +6,7 @@
   import QuickAdd from "../components/QuickAdd.svelte";
   import Toast from "../components/Toast.svelte";
   import TodoList from "../components/TodoList.svelte";
-  import { localDate, longDate } from "../lib/dates";
+  import { longDate } from "../lib/dates";
   import { store } from "../lib/store.svelte";
   import type { Todo } from "../lib/types";
   import Settings from "./Settings.svelte";
@@ -23,6 +23,7 @@
 
   const today = $derived(store.today);
   const open = $derived(store.open);
+  const doneDays = $derived(store.prefs?.doneSyncDays ?? 30);
 
   const nav: { id: View; label: string; icon: IconName; count: () => number }[] = [
     { id: "today", label: "今天", icon: "sun", count: () => open.filter((t) => t.due && t.due <= today).length },
@@ -44,7 +45,6 @@
 
   /** 每個頁面要顯示的內容 */
   const page = $derived.by(() => {
-    const doneToday = store.done.filter((t) => localDate(t.doneAt) === today);
     if (view.startsWith("tag:")) {
       const tag = view.slice(4);
       return {
@@ -63,7 +63,7 @@
           title: "今天",
           sub: longDate(today),
           todos: open.filter((t) => t.due && t.due <= today),
-          done: doneToday,
+          done: store.doneToday,
           defaultTag: null,
           defaultDue: today,
           empty: "今天沒有要做的事\n可以看看「即將到來」",
@@ -81,7 +81,15 @@
       case "nodue":
         return { title: "沒有期限", sub: "", todos: open.filter((t) => !t.due), done: null, defaultTag: null, defaultDue: null, empty: "每件事都排好期限了" };
       case "done":
-        return { title: "已完成", sub: `共 ${store.done.length} 項`, todos: [], done: store.done, defaultTag: null, defaultDue: null, empty: "還沒有完成的項目" };
+        return {
+          title: "已完成",
+          sub: `最近 ${doneDays} 天完成 ${store.done.length} 項・更早的紀錄保存在雲端，可以請 Claude 查詢`,
+          todos: [],
+          done: store.done,
+          defaultTag: null,
+          defaultDue: null,
+          empty: `最近 ${doneDays} 天沒有完成的項目`,
+        };
       default:
         return { title: "全部", sub: `${open.length} 項待辦`, todos: open, done: store.done, defaultTag: null, defaultDue: null, empty: "沒有待辦事項\n享受一下空白吧" };
     }

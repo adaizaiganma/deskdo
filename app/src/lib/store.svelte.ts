@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { localToday } from "./dates";
+import { localDate, localToday } from "./dates";
 import { toast } from "./toast.svelte";
 import type { NewTodo, Prefs, Snapshot, Todo, TodoPatch } from "./types";
 
@@ -16,6 +16,7 @@ class Store {
   done = $derived(
     this.snap.todos.filter((t) => t.done).sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? "")),
   );
+  doneToday = $derived(this.done.filter((t) => localDate(t.doneAt) === this.today));
   tags = $derived([...new Set(this.snap.todos.flatMap((t) => (t.tag ? [t.tag] : [])))].sort((a, b) => a.localeCompare(b, "zh-Hant")));
   overdueCount = $derived(this.open.filter((t) => t.due && t.due < this.today).length);
 

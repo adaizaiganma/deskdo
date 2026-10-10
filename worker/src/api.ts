@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { json, notFound, safeEqual } from "./http";
 import {
+  addDays,
   addSchema,
   addTodo,
   dateSchema,
@@ -24,6 +25,8 @@ const querySchema = z.object({
   overdue: z.enum(["true", "false"]).optional(),
   q: z.string().optional(),
   limit: z.coerce.number().int().optional(),
+  // 已完成的項目只回傳最近 N 天內完成的（桌面 App 不需要完整歷史）
+  doneDays: z.coerce.number().int().min(1).max(3650).optional(),
 });
 
 function authorized(req: Request, env: Env): boolean {
@@ -48,7 +51,7 @@ async function readJson(req: Request): Promise<unknown> {
 
 /**
  * REST API（給桌面小工具用）
- *   GET    /api/todos          支援 If-None-Match，資料沒變時回 304
+ *   GET    /api/todos          支援 If-None-Match，資料沒變時回 304；?doneDays=N 只回傳最近 N 天完成的項目
  *   POST   /api/todos
  *   PATCH  /api/todos/:id
  *   DELETE /api/todos/:id
@@ -68,13 +71,19 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
       // 先讀版本號再讀資料：中間若有寫入，下一次輪詢會因版本不同而重新下載
       const version = await getVersion(env.DB);
       const day = today(env);
-      const etag = `"v${version}-${day}"`;
+      // 不同查詢條件的回應內容不同，所以 ETag 也要帶上查詢字串
+      const etag = `"v${version}-${day}${url.search}"`;
       if (req.headers.get("If-None-Match") === etag) {
         return new Response(null, { status: 304, headers: { ETag: etag } });
       }
 
-      const q = parsed.data;
-      const filter: TodoFilter = { ...q, overdue: q.overdue === "true", limit: q.limit ?? 500 };
+      const { doneDays, ...q } = parsed.data;
+      const filter: TodoFilter = {
+        ...q,
+        overdue: q.overdue === "true",
+        doneSince: doneDays ? addDays(day, -doneDays) : undefined,
+        limit: q.limit ?? 500,
+      };
       const todos = await listTodos(env, filter);
       return json({ version, today: day, todos }, 200, { ETag: etag });
     }
