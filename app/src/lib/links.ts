@@ -15,3 +15,9 @@ export const CF_TOKEN_TEMPLATE =
   "&accountId=*&zoneId=all&name=Deskdo";
 
 export const CLAUDE_CONNECTORS = "https://claude.ai/settings/connectors";
+
+/** OpenAI 的開發者模式與 MCP 連接器說明（ChatGPT 的選單名稱常變動，以官方說明為準） */
+export const CHATGPT_MCP_HELP = "https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt";
+
+/** 宣傳頁的使用說明，各家 AI 助理的設定方式都在這裡 */
+export const SITE_GUIDE = "https://adaizaiganma.qzz.io/guide";

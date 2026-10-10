@@ -94,7 +94,7 @@
       case "done":
         return {
           title: "已完成",
-          sub: `最近 ${doneDays} 天完成 ${store.done.length} 項・更早的紀錄保存在雲端，可以請 Claude 查詢`,
+          sub: `最近 ${doneDays} 天完成 ${store.done.length} 項・更早的紀錄保存在雲端`,
           todos: [],
           done: store.done,
           defaultTag: null,

@@ -28,7 +28,7 @@
     <h2>你的待辦存在哪裡</h2>
     <p>
       所有待辦都存在<b>你自己的 Cloudflare 帳號</b>裡：一個名為 <code>deskdo</code> 的 Worker（小程式）和同名的 D1 資料庫。
-      Deskdo 桌面 App 和 claude.ai 都直接連到這個 Worker。Deskdo 的開發者無法存取你的帳號或資料。
+      Deskdo 桌面 App 和你連接的 AI 助理都直接連到這個 Worker。Deskdo 的開發者無法存取你的帳號或資料。
     </p>
     <p>你的電腦上另外有一份快取（<code>%APPDATA%\Deskdo\cache.json</code>），用來在離線時顯示待辦。</p>
 
@@ -47,16 +47,17 @@
       你隨時可以到 Cloudflare 的「個人資料 → 存取管理 → 已連結的應用程式」撤銷 Deskdo 的授權，已建立的雲端會繼續運作。
     </p>
 
-    <h2>電腦與 claude.ai 如何驗證</h2>
+    <h2>電腦與 AI 助理如何驗證</h2>
     <ul>
       <li>每台電腦各有一把隨機產生的 token，存在該電腦的 <code>%APPDATA%\Deskdo\config.json</code>。雲端只保存它的雜湊值。</li>
-      <li>claude.ai 連接器網址裡含有一把 256-bit 的隨機密鑰。請把網址當作密碼保管；外流時可以在 App 裡更換。</li>
+      <li>AI 連接器網址裡含有一把 256-bit 的隨機密鑰。請把網址當作密碼保管；外流時可以在 App 裡更換。</li>
     </ul>
 
-    <h2>Claude 與 Gmail</h2>
+    <h2>AI 助理與 Gmail</h2>
     <p>
-      當你在 claude.ai 使用「待辦清單」連接器時，Claude 會依照你的要求讀寫待辦；這部分的資料處理依照
-      Anthropic 的隱私政策。Gmail 自動整理是你自己在 claude.ai 建立的排程任務，Deskdo 本身不會存取你的信箱。
+      連接 AI 助理是選用的。當你在 Claude、ChatGPT 等 AI 助理使用「待辦清單」連接器時，它們會依照你的要求讀寫待辦；
+      這部分的資料處理依照各家的隱私政策（例如 Anthropic、OpenAI）。Gmail 自動整理是你自己在 AI 助理建立的排程任務，
+      Deskdo 本身不會存取你的信箱。
     </p>
 
     <h2>這個網站</h2>

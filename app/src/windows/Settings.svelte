@@ -2,7 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
-  import { CLAUDE_CONNECTORS } from "../lib/links";
+  import { CLAUDE_CONNECTORS, SITE_GUIDE } from "../lib/links";
   import { localDate, monthDay } from "../lib/dates";
   import { store } from "../lib/store.svelte";
   import type { Connector, Device } from "../lib/types";
@@ -124,19 +124,22 @@
 
   {#if p?.configured}
     <section class="card">
-      <h2>claude.ai 連接器</h2>
-      <p class="hint">在 claude.ai「設定 → 連接器 → 新增自訂連接器」貼上這個網址，Claude 就能讀寫你的待辦。網址等同密碼，請不要分享。</p>
+      <h2>AI 連接器（MCP）</h2>
+      <p class="hint">
+        想讓 Claude、ChatGPT 等 AI 助理讀寫你的待辦，就在它們的「自訂連接器」貼上這個網址；不用 AI 的話可以略過。網址等同密碼，請不要分享。
+      </p>
       {#if connector}
         <div class="url-box">
           <code>{connector.url}</code>
           <button class="ghost" onclick={copyConnector}>{copied ? "已複製" : "複製"}</button>
         </div>
         <div class="btns">
-          <button class="link" onclick={() => openUrl(CLAUDE_CONNECTORS)}>開啟 claude.ai 連接器設定</button>
+          <button class="link" onclick={() => openUrl(CLAUDE_CONNECTORS)}>Claude 連接器設定</button>
+          <button class="link" onclick={() => openUrl(SITE_GUIDE + "#ai")}>其他 AI 的設定方式</button>
           <span class="grow"></span>
           {#if connector.rotatable}
             {#if confirmRotate}
-              <span class="hint">舊網址會立即失效，claude.ai 要換成新網址</span>
+              <span class="hint">舊網址會立即失效，AI 助理那邊要換成新網址</span>
               <button class="ghost danger" onclick={rotateConnector}>確定更換</button>
               <button class="ghost" onclick={() => (confirmRotate = false)}>取消</button>
             {:else}

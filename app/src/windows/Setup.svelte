@@ -5,7 +5,7 @@
   import { onMount, untrack } from "svelte";
   import { fade } from "svelte/transition";
   import Icon from "../components/Icon.svelte";
-  import { CF_SIGNUP, CF_TOKEN_TEMPLATE, CLAUDE_CONNECTORS } from "../lib/links";
+  import { CF_SIGNUP, CF_TOKEN_TEMPLATE, CHATGPT_MCP_HELP, CLAUDE_CONNECTORS, SITE_GUIDE } from "../lib/links";
   import { store } from "../lib/store.svelte";
   import type { Account, Inspection, SetupDone, SetupProgress, SetupStep } from "../lib/types";
 
@@ -45,6 +45,13 @@
   let progress = $state<Partial<Record<SetupStep, SetupProgress>>>({});
   let result = $state<SetupDone | null>(null);
   let copied = $state(false);
+
+  const AI_TABS = [
+    { id: "claude", label: "Claude" },
+    { id: "chatgpt", label: "ChatGPT" },
+    { id: "other", label: "其他工具" },
+  ] as const;
+  let ai = $state<(typeof AI_TABS)[number]["id"]>("claude");
 
   const oauth = $derived(store.prefs?.oauthAvailable ?? false);
   const subdomainValid = $derived(/^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/.test(subdomain));
@@ -154,7 +161,7 @@
           </svg>
         </div>
         <h1>歡迎使用 Deskdo</h1>
-        <p class="lead">只要設定一次，桌面上的待辦就能和 Claude（網頁版、手機版）同步。</p>
+        <p class="lead">只要設定一次，待辦就能在多台電腦同步；想要的話，也能讓 Claude、ChatGPT 等 AI 助理幫你管理。</p>
         <ul class="points">
           <li><Icon name="sparkle" size={15} /><span>待辦存在<b>你自己的 Cloudflare 帳號</b>，Deskdo 和開發者都看不到你的資料。</span></li>
           <li><Icon name="done" size={15} /><span>Cloudflare 免費方案就夠用，不需要綁信用卡。</span></li>
@@ -300,18 +307,41 @@
           </p>
 
           {#if result.connectorUrl}
-            <h2>最後一步：連接 Claude</h2>
-            <ol class="claude-steps">
-              <li>複製你的連接器網址：
-                <div class="url-box">
-                  <code>{result.connectorUrl}</code>
-                  <button class="ghost" onclick={copy}>{copied ? "已複製" : "複製"}</button>
-                </div>
-                <span class="hint warn">這個網址等同密碼，請不要分享給別人。之後可以在「設定」裡再次查看或更換。</span>
-              </li>
-              <li><button class="link" onclick={() => openUrl(CLAUDE_CONNECTORS)}>開啟 claude.ai 的連接器設定</button>，選「新增自訂連接器」。</li>
-              <li>名稱填「待辦清單」，網址貼上剛才複製的內容，按「新增」。手機版 Claude 會自動同步。</li>
-            </ol>
+            <h2>連接 AI 助理（可略過）</h2>
+            <p class="hint">想用說的新增、查詢待辦，可以把 Deskdo 接到 AI 助理。不用的話直接按「開始使用」，之後也能在「設定」裡找到這個網址。</p>
+            <div class="url-box">
+              <code>{result.connectorUrl}</code>
+              <button class="ghost" onclick={copy}>{copied ? "已複製" : "複製網址"}</button>
+            </div>
+            <span class="hint warn">這個網址等同密碼，請不要分享給別人。</span>
+
+            <div class="tabs" role="tablist" aria-label="AI 助理">
+              {#each AI_TABS as t (t.id)}
+                <button role="tab" class:on={ai === t.id} aria-selected={ai === t.id} onclick={() => (ai = t.id)}>{t.label}</button>
+              {/each}
+            </div>
+            {#if ai === "claude"}
+              <ol class="ai-steps">
+                <li><button class="link" onclick={() => openUrl(CLAUDE_CONNECTORS)}>開啟 claude.ai 的連接器設定</button>，選「新增自訂連接器」。</li>
+                <li>名稱填「待辦清單」，網址貼上剛才複製的內容，按「新增」。</li>
+                <li>完成。手機版 Claude 會自動同步，也可以搭配排程任務每天從 Gmail 整理待辦。</li>
+              </ol>
+            {:else if ai === "chatgpt"}
+              <ol class="ai-steps">
+                <li>在 ChatGPT 的設定裡開啟「開發者模式」（在「應用程式與連接器」→「進階」）。</li>
+                <li>建立連接器：名稱填「待辦清單」，網址貼上剛才複製的內容，驗證方式選「不需要驗證」。</li>
+                <li>在對話中選用這個連接器。ChatGPT 每次新增或修改待辦前會先請你確認。</li>
+              </ol>
+              <p class="hint">
+                新增、修改待辦需要 ChatGPT 支援可寫入的連接器，部分方案可能只能查詢。選單名稱可能變動，請以
+                <button class="link" onclick={() => openUrl(CHATGPT_MCP_HELP)}>OpenAI 的說明</button>為準。
+              </p>
+            {:else}
+              <p class="hint ai-other">
+                任何支援遠端 MCP 伺服器（Streamable HTTP）的工具都可以使用這個網址，例如 Cursor、VS Code，驗證方式選「無」。
+                <button class="link" onclick={() => openUrl(SITE_GUIDE + "#ai")}>查看使用說明</button>
+              </p>
+            {/if}
           {/if}
           <div class="row"><button class="primary big" onclick={onfinish}>開始使用</button></div>
         {/if}
@@ -582,17 +612,43 @@
       transform: rotate(360deg);
     }
   }
-  .claude-steps {
+  .ai-steps {
     margin: 0;
     padding-left: 20px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     font-size: 13.5px;
     line-height: 1.6;
   }
+  .ai-other {
+    font-size: 13.5px;
+    color: var(--sub);
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 10px;
+    background: var(--active);
+    align-self: flex-start;
+    margin-top: 4px;
+  }
+  .tabs button {
+    height: 28px;
+    padding: 0 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .tabs button.on {
+    background: var(--raised);
+    color: var(--text);
+    font-weight: 600;
+    box-shadow: var(--card-shadow);
+  }
   .url-box {
-    margin: 6px 0 4px;
+    margin: 0;
     align-items: center;
   }
   .url-box code {

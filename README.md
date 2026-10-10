@@ -1,12 +1,12 @@
 # Deskdo
 
-貼在 Windows 桌面上的毛玻璃待辦清單，同時可以透過 claude.ai 自訂連接器（網頁／手機）讀寫。
+貼在 Windows 桌面上的毛玻璃待辦清單。可以單獨使用，也可以透過 MCP 自訂連接器讓 Claude、ChatGPT 等 AI 助理讀寫。
 
 **一般使用者**：到宣傳頁（`site/`，網址見 [發布](#4-發布)）或 [GitHub Releases](../../releases/latest) 下載安裝檔。第一次開啟時，設定精靈會帶你登入 Cloudflare，自動在你自己的帳號建立雲端。使用說明在宣傳頁的 `/guide`。
 
 ```
                          使用者自己的 Cloudflare 帳號
-claude.ai（網頁／手機）──MCP──┐
+AI 助理（選用）──────────MCP──┐
                               ├──> Worker「deskdo」──> D1「deskdo」
 Deskdo（Windows）──REST────┘
        └── 設定精靈：用 Cloudflare API 部署上面這兩個（不需要 wrangler）
@@ -14,7 +14,7 @@ Deskdo（Windows）──REST────┘
 
 | 目錄 | 內容 |
 |---|---|
-| `worker/` | Cloudflare Worker（TypeScript）：`/mcp/<密鑰>` 給 claude.ai、`/api/*` 給桌面 App |
+| `worker/` | Cloudflare Worker（TypeScript）：`/mcp/<密鑰>` 給 AI 助理（任何支援遠端 MCP 的工具）、`/api/*` 給桌面 App |
 | `app/` | Deskdo 桌面 App（Tauri 2 + Svelte 5）：桌面小工具、主視窗、系統匣、設定精靈 |
 | `site/` | 宣傳頁（純靜態，用 Workers static assets 部署） |
 
@@ -33,7 +33,7 @@ Deskdo（Windows）──REST────┘
 ### 驗證
 
 - **桌面 App**：每台電腦一把 token，存在 D1 的 `devices` 表（只存 SHA-256），可以在設定裡個別撤銷。
-- **claude.ai**：網址 `/mcp/<密鑰>`，密鑰存在 D1 的 `settings` 表，可以在 App 裡更換。密鑰錯誤時回 404，不透露端點存在。
+- **AI 助理**：網址 `/mcp/<密鑰>`（Streamable HTTP，無狀態；不需要 OAuth），密鑰存在 D1 的 `settings` 表，可以在 App 裡更換。密鑰錯誤時回 404，不透露端點存在。
 - **舊版部署相容**：env 的 `API_TOKEN`、`MCP_SECRET`（`setup.ps1` 設定的）仍然有效，而且會先比對，所以還沒套用 0002 migration 的資料庫也能運作。
 - 密鑰比對使用固定時間比較（`crypto.subtle.timingSafeEqual`）。
 - 注意：`wrangler tail` 和 Cloudflare 的請求日誌會顯示完整網址（含 MCP 密鑰）。
@@ -45,7 +45,7 @@ Deskdo（Windows）──REST────┘
 | `GET /api/todos` | 支援 `If-None-Match`，沒變動時回 304；`?doneDays=N` 只回傳最近 N 天完成的（App 用 30） |
 | `POST /api/todos`、`PATCH /api/todos/:id`、`DELETE /api/todos/:id` | 新增、修改（只改有傳的欄位）、刪除 |
 | `GET /api/info` | Worker 版本 |
-| `GET /api/connector`、`POST /api/connector/rotate` | claude.ai 連接器網址、更換 |
+| `GET /api/connector`、`POST /api/connector/rotate` | AI 連接器網址、更換 |
 | `GET /api/devices`、`DELETE /api/devices/:id` | 已連線的電腦、撤銷 |
 
 MCP 工具（`worker/src/mcp.ts`）：`list_todos`、`add_todo`（`source_ref` 去重）、`update_todo`、`complete_todo`、`delete_todo`。

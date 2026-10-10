@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>使用說明 · Deskdo</title>
-  <meta name="description" content="Deskdo 使用說明：連接 claude.ai、跟 Claude 管理待辦、Gmail 每日自動轉待辦、快速新增語法、多台電腦。" />
+  <meta name="description" content="Deskdo 使用說明：連接 Claude、ChatGPT 等 AI 助理、用 AI 管理待辦、Gmail 每日自動轉待辦、快速新增語法、多台電腦。" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
 </head>
@@ -26,24 +26,46 @@
     <nav class="toc" aria-label="目錄">
       <b>目錄</b>
       <ol>
-        <li><a href="#claude">連接 claude.ai</a></li>
-        <li><a href="#talk">跟 Claude 管理待辦</a></li>
+        <li><a href="#ai">連接 AI 助理（可略過）</a></li>
+        <li><a href="#talk">用 AI 管理待辦</a></li>
         <li><a href="#gmail">每天自動從 Gmail 整理待辦</a></li>
         <li><a href="#desktop">桌面 App 的用法</a></li>
         <li><a href="#devices">多台電腦與安全</a></li>
       </ol>
     </nav>
 
-    <h2 id="claude">1. 連接 claude.ai</h2>
+    <h2 id="ai">1. 連接 AI 助理（可略過）</h2>
+    <p>
+      Deskdo 不需要 AI 也能完整使用。想用說的管理待辦，可以把它接到支援 MCP 自訂連接器的 AI 助理。
+      先在 Deskdo 的設定精靈最後一頁，或「設定 → AI 連接器」按「顯示網址」，複製連接器網址。
+    </p>
+
+    <h3 id="claude">Claude</h3>
     <ol>
-      <li>在 Deskdo 的設定精靈最後一頁，或「設定 → claude.ai 連接器」按「顯示網址」，複製連接器網址。</li>
       <li>到 <a href="https://claude.ai/settings/connectors">claude.ai 的連接器設定</a>，選「新增自訂連接器」。</li>
       <li>名稱填「待辦清單」，網址貼上剛才複製的內容。不需要填 OAuth 設定。</li>
       <li>完成。手機版 Claude App 會自動同步同一組連接器。</li>
     </ol>
+
+    <h3 id="chatgpt">ChatGPT</h3>
+    <ol>
+      <li>在 ChatGPT 的設定裡開啟「開發者模式」（在「應用程式與連接器」→「進階」）。</li>
+      <li>建立連接器：名稱填「待辦清單」，網址貼上剛才複製的內容，驗證方式選「不需要驗證」。</li>
+      <li>在對話中選用這個連接器。ChatGPT 每次新增或修改待辦前會先請你確認。</li>
+    </ol>
+    <p class="tip">
+      新增、修改待辦需要 ChatGPT 支援可寫入的自訂連接器，依方案不同，可能只能查詢。選單名稱也可能變動，請以
+      <a href="https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt">OpenAI 的說明</a>為準。
+    </p>
+
+    <h3 id="other">其他 MCP 工具</h3>
+    <p>
+      任何支援遠端 MCP 伺服器（Streamable HTTP）的工具都可以使用同一個網址，例如 Cursor、VS Code。驗證方式選「無」，
+      密鑰已經包含在網址裡。
+    </p>
     <p class="tip warn">連接器網址等同密碼：有這個網址的人就能讀寫你的待辦。不要貼在公開的地方。如果外流了，在 Deskdo 的設定裡按「更換網址」即可。</p>
 
-    <h2 id="talk">2. 跟 Claude 管理待辦</h2>
+    <h2 id="talk">2. 用 AI 管理待辦</h2>
     <p>在對話中啟用「待辦清單」連接器後，直接用平常的話說就可以，例如：</p>
     <ul>
       <li>「幫我新增：週五前交電路學報告，高優先」</li>
@@ -52,7 +74,7 @@
       <li>「把所有逾期的項目改到明天」</li>
       <li>「我上週完成了哪些事？」（已完成的紀錄會一直保存在雲端）</li>
     </ul>
-    <p>Claude 可以使用的工具：</p>
+    <p>AI 助理可以使用的工具：</p>
     <table>
       <thead><tr><th>工具</th><th>說明</th></tr></thead>
       <tbody>
@@ -65,7 +87,10 @@
     </table>
 
     <h2 id="gmail">3. 每天自動從 Gmail 整理待辦</h2>
-    <p>在 claude.ai 建立一個每天早上執行的排程任務，同時啟用 Gmail 和「待辦清單」連接器，提示詞可以參考：</p>
+    <p>
+      以 Claude 為例：在 claude.ai 建立一個每天早上執行的排程任務，同時啟用 Gmail 和「待辦清單」連接器，提示詞可以參考下面這段。
+      其他 AI 助理只要能定時執行、又能同時使用 Gmail 和自訂連接器，也可以用同樣的提示詞。
+    </p>
     <pre>請檢查我過去 24 小時收到的 Gmail（略過電子報、廣告與自動通知），
 找出需要我採取行動的信件，例如作業、繳費、回覆、報名、期限。
 
@@ -100,14 +125,14 @@
       <li>主視窗：系統匣圖示按左鍵開啟。<code>Ctrl+N</code> 新增、<code>Ctrl+F</code> 搜尋。</li>
       <li>桌面小工具：拖曳標題列移動、拖曳邊緣調整大小。右上角 <code>⋯</code> 可以隱藏。</li>
       <li>系統匣圖示上的數字是「今天到期＋逾期」的件數，有逾期時會變紅。</li>
-      <li>已完成的項目在電腦上只顯示最近 30 天，更早的紀錄仍保存在雲端，可以問 Claude。</li>
+      <li>已完成的項目在電腦上只顯示最近 30 天，更早的紀錄仍保存在雲端，可以問接上 Deskdo 的 AI 助理。</li>
     </ul>
 
     <h2 id="devices">5. 多台電腦與安全</h2>
     <ul>
       <li><b>加一台電腦：</b>安裝 Deskdo，用同一個 Cloudflare 帳號登入，精靈會偵測到既有的雲端，只把這台電腦加入。</li>
       <li><b>移除電腦：</b>「設定 → 已連線的電腦」按「移除」，那台電腦就不能再讀寫待辦。</li>
-      <li><b>更換連接器網址：</b>「設定 → claude.ai 連接器 → 更換網址」，舊網址立即失效。</li>
+      <li><b>更換連接器網址：</b>「設定 → AI 連接器 → 更換網址」，舊網址立即失效，記得在 AI 助理那邊換成新網址。</li>
       <li><b>更新雲端：</b>新版 Deskdo 需要更新雲端程式時，主視窗會出現提示，按一下並登入 Cloudflare 即可，資料不會變動。</li>
     </ul>
   </main>

@@ -25,7 +25,7 @@
   const high = $derived(todo.priority === "high");
   const due = $derived(!todo.done && todo.due ? rowDue(todo.due, today) : null);
   const checked = $derived(todo.done || checking);
-  const source = $derived({ email: "來自 Gmail", claude: "由 Claude 新增", manual: "手動新增" }[todo.source] ?? "");
+  const source = $derived({ email: "來自 Gmail", claude: "由 AI 助理新增", manual: "手動新增" }[todo.source] ?? "");
   const created = $derived(localDate(todo.createdAt));
 
   const dueChips = $derived([
