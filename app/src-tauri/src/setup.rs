@@ -30,7 +30,8 @@ pub use embedded::WORKER_VERSION;
 
 /// 新部署的 Worker 與 D1 名稱；DESKDO_SCRIPT_NAME 可以覆寫（測試用）
 fn default_script_name() -> String {
-    std::env::var("DESKDO_SCRIPT_NAME").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "deskdo".into())
+    let default = if crate::config::BETA { "deskdo-beta" } else { "deskdo" };
+    std::env::var("DESKDO_SCRIPT_NAME").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| default.into())
 }
 
 /// 精靈進行中的 Cloudflare 憑證；只放在記憶體，完成或取消就清掉

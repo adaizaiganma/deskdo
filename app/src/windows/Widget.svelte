@@ -83,7 +83,9 @@
 <div class="widget" class:effects style:--opacity={opacity}>
   <header data-tauri-drag-region>
     <div class="heading" data-tauri-drag-region>
-      <div class="title" data-tauri-drag-region>待辦事項</div>
+      <div class="title" data-tauri-drag-region>
+        待辦事項{#if store.prefs?.beta}<span class="beta" data-tauri-drag-region>測試版</span>{/if}
+      </div>
       <div class="sub" data-tauri-drag-region>
         {longDate(store.today)} · {store.open.length} 項待辦{#if store.overdueCount}<span class="warn"> · {store.overdueCount} 逾期</span>{/if}
       </div>

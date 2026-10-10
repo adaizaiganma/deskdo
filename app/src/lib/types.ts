@@ -39,6 +39,8 @@ export interface Prefs {
   latestCloudVersion: number;
   /** 這個版本能不能「使用 Cloudflare 登入」 */
   oauthAvailable: boolean;
+  /** 測試版（Deskdo Beta，和正式版分開安裝） */
+  beta: boolean;
 }
 
 // ---- 設定精靈 ----

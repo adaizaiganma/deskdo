@@ -1,6 +1,6 @@
 //! 系統匣圖示：圓角方塊加勾號，右下角顯示「今天到期＋逾期」的件數，有逾期時變紅。
 
-use crate::{store::Snapshot, windows};
+use crate::{config::APP_TITLE, store::Snapshot, windows};
 use std::sync::{Mutex, OnceLock};
 use tauri::{
     image::Image,
@@ -43,7 +43,7 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(render(None))
-        .tooltip("待辦事項")
+        .tooltip(APP_TITLE)
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, e| match e.id().as_ref() {
@@ -87,7 +87,7 @@ pub fn update(app: &AppHandle, snap: &Snapshot) {
         let _ = tray.set_icon(Some(render(badge)));
     }
 
-    let mut tip = format!("待辦事項：{} 項未完成", open.len());
+    let mut tip = format!("{APP_TITLE}：{} 項未完成", open.len());
     if due_today > 0 {
         tip += &format!("\n今天到期 {due_today} 項");
     }

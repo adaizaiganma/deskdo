@@ -8,6 +8,13 @@ use std::{fs, io, path::Path, path::PathBuf, sync::OnceLock};
 /// 改名前（TodoWidget）的設定目錄名稱；第一次啟動時把設定搬過來
 const LEGACY_DIR: &str = "TodoWidget";
 
+/// 測試版（建置時設定 DESKDO_CHANNEL=beta，見 scripts/build-beta.ps1）：
+/// 設定目錄、雲端名稱都和正式版分開，兩個可以同時安裝
+pub const BETA: bool = cfg!(deskdo_beta);
+
+/// 視窗標題、系統匣顯示的名稱
+pub const APP_TITLE: &str = if BETA { "待辦事項（測試版）" } else { "待辦事項" };
+
 pub fn config_dir() -> PathBuf {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
     DIR.get_or_init(|| {
@@ -20,9 +27,11 @@ pub fn config_dir() -> PathBuf {
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
-        let dir = base.join("Deskdo");
+        let dir = base.join(if BETA { "Deskdo Beta" } else { "Deskdo" });
         let _ = fs::create_dir_all(&dir);
-        migrate_legacy(&base.join(LEGACY_DIR), &dir);
+        if !BETA {
+            migrate_legacy(&base.join(LEGACY_DIR), &dir);
+        }
         dir
     })
     .clone()

@@ -19,6 +19,14 @@ fn embed_worker() {
     for p in [&bundle, &migrations_dir, &version_ts, &wrangler] {
         println!("cargo:rerun-if-changed={}", p.display());
     }
+    // 測試版：DESKDO_CHANNEL=beta 時打開 cfg(deskdo_beta)（見 config.rs 的 BETA）
+    println!("cargo:rerun-if-env-changed=DESKDO_CHANNEL");
+    println!("cargo:rustc-check-cfg=cfg(deskdo_beta)");
+    if env::var("DESKDO_CHANNEL").as_deref() == Ok("beta") {
+        println!("cargo:rustc-cfg=deskdo_beta");
+    }
+    // oauth.rs 用 option_env! 讀，換了要重新編譯
+    println!("cargo:rerun-if-env-changed=DESKDO_CF_CLIENT_ID");
     if !bundle.exists() {
         panic!(
             "找不到 {}。請先打包 Worker：npm --prefix ../worker run bundle（npm run tauri dev/build 會自動執行）",
