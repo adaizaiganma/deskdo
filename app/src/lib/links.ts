@@ -20,4 +20,4 @@ export const CLAUDE_CONNECTORS = "https://claude.ai/settings/connectors";
 export const CHATGPT_MCP_HELP = "https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt";
 
 /** 宣傳頁的使用說明，各家 AI 助理的設定方式都在這裡 */
-export const SITE_GUIDE = "https://adaizaiganma.qzz.io/guide";
+export const SITE_GUIDE = "https://deskdo.adaizaiganma.qzz.io/guide";
