@@ -110,7 +110,7 @@ Cloudflare 後台 → 管理帳戶 → OAuth clients → 建立：
 | 名稱、Logo | Deskdo、`app/app-icon.svg` |
 | Client URL | 宣傳頁網址（網域要用 DNS TXT 驗證，才能設成 public） |
 | Redirect URI | `http://localhost:47613/callback` |
-| Scopes | Account Settings Read、Workers Editor、D1 Write（`account-settings.read`、`workers-scripts.edit`、`d1.write`），全部設為必要 |
+| Scopes | Account Settings Read、Workers Admin、D1 Write（`account-settings.read`、`workers-scripts.admin`、`d1.write`），全部設為必要。Workers Editor 只能修改既有的 Worker，建立新的會回 403「No access to the specified resource」，所以要用 Admin |
 | 驗證方式 | PKCE（公開用戶端，不需要 client secret） |
 
 驗證完網域後把 visibility 改成 public（不可逆）。在那之前只有你自己的帳號能登入，適合測試。

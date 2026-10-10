@@ -37,8 +37,17 @@ fn default_script_name() -> String {
 #[derive(Default)]
 pub struct SetupState {
     token: Mutex<Option<String>>,
+    /// 這次設定已經登記的電腦（資料庫 id, token）。按「重試」時沿用，不會重複登記
+    device: Mutex<Option<(String, String)>>,
     /// 取消等待中的 OAuth 登入
     pub(crate) cancel: tokio::sync::Notify,
+}
+
+impl SetupState {
+    async fn clear(&self) {
+        *self.token.lock().await = None;
+        *self.device.lock().await = None;
+    }
 }
 
 async fn cf(app: &AppHandle) -> Result<Cf, String> {
@@ -187,7 +196,7 @@ pub async fn connect(app: &AppHandle, token: String) -> Result<Vec<Account>, Str
 pub async fn setup_cancel(app: AppHandle) {
     let st = app.state::<SetupState>();
     st.cancel.notify_waiters();
-    *st.token.lock().await = None;
+    st.clear().await;
 }
 
 #[derive(Serialize)]
@@ -234,7 +243,7 @@ pub async fn setup_run(app: AppHandle, account_id: String, subdomain: Option<Str
     let cf = cf(&app).await?;
     let r = provision(&app, &cf, &account_id, subdomain).await;
     if r.is_ok() {
-        *app.state::<SetupState>().token.lock().await = None;
+        app.state::<SetupState>().clear().await;
     }
     r
 }
@@ -306,7 +315,16 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
         }
         Target::New { .. } => {
             step(app, "device", async {
-                let token = add_device(cf, account, &db).await.map_err(cf_err)?;
+                let st = app.state::<SetupState>();
+                let mut registered = st.device.lock().await;
+                let token = match registered.as_ref() {
+                    Some((d, t)) if *d == db => t.clone(),
+                    _ => {
+                        let t = add_device(cf, account, &db).await.map_err(cf_err)?;
+                        *registered = Some((db.clone(), t.clone()));
+                        t
+                    }
+                };
                 progress(app, "device", "done", device_name());
                 Ok(token)
             })
@@ -420,11 +438,19 @@ async fn migrate(cf: &Cf, account: &str, db: &str) -> Result<usize, CfError> {
         if applied.contains(*name) {
             continue;
         }
-        let record = format!("\n;INSERT INTO d1_migrations (name) VALUES ('{}')", name.replace('\'', "''"));
-        cf.d1_query(account, db, &format!("{sql}{record}"), &[]).await?;
+        cf.d1_query(account, db, &migration_batch(name, sql), &[]).await?;
         n += 1;
     }
     Ok(n)
+}
+
+/// migration 的 SQL 加上「記錄已套用」的語句。
+/// Windows 上 git 可能把 .sql 轉成 CRLF；結尾的 `;\r\n` 再接一個分號會變成只有 `\r` 的空語句，
+/// D1 會回 7500「SQL code did not contain a statement」，所以先統一換行、去掉結尾的分號。
+fn migration_batch(name: &str, sql: &str) -> String {
+    let body = sql.replace("\r\n", "\n");
+    let body = body.trim_end().trim_end_matches(';').trim_end();
+    format!("{body};\nINSERT INTO d1_migrations (name) VALUES ('{}');", name.replace('\'', "''"))
 }
 
 fn device_name() -> String {
@@ -568,6 +594,19 @@ mod tests {
         sorted.sort();
         assert_eq!(names, sorted);
         assert_eq!(names[0], "0001_init.sql");
+    }
+
+    #[test]
+    fn migration_batch_has_no_empty_statements() {
+        let expected = "CREATE TABLE t (a);\nINSERT INTO d1_migrations (name) VALUES ('0003_x.sql');";
+        for sql in ["CREATE TABLE t (a);\r\n", "CREATE TABLE t (a);\n\n", "CREATE TABLE t (a)", "CREATE TABLE t (a);;\r\n"] {
+            assert_eq!(migration_batch("0003_x.sql", sql), expected);
+        }
+        assert!(migration_batch("it's.sql", "SELECT 1").ends_with("VALUES ('it''s.sql');"));
+        for (name, sql) in embedded::MIGRATIONS {
+            let batch = migration_batch(name, sql);
+            assert!(!batch.contains('\r') && !batch.contains(";\n;"), "{name}");
+        }
     }
 
     #[test]

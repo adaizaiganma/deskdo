@@ -30,7 +30,10 @@ struct Envelope {
 
 #[derive(Deserialize)]
 struct ApiError {
+    /// 權限錯誤之類的回應有時不附錯誤碼
+    #[serde(default)]
     code: i64,
+    #[serde(default)]
     message: String,
 }
 
@@ -53,6 +56,7 @@ impl std::fmt::Display for CfError {
         match self.status {
             0 => write!(f, "無法連線到 Cloudflare"),
             401 | 403 => write!(f, "Cloudflare 權限不足：{}", self.message),
+            _ if self.code == 0 => write!(f, "Cloudflare：{}", self.message),
             _ => write!(f, "Cloudflare：{}（{}）", self.message, self.code),
         }
     }
@@ -92,7 +96,12 @@ impl Cf {
             .map_err(transport)?;
         let status = resp.status().as_u16();
         let bytes = resp.bytes().await.map_err(transport)?;
-        let unreadable = || CfError { status, code: 0, message: format!("HTTP {status}，無法解析回應") };
+        // 回應不是 JSON 時（例如閘道直接擋下），附上內容開頭方便判斷原因
+        let unreadable = || {
+            let text = String::from_utf8_lossy(&bytes);
+            let snippet: String = text.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(160).collect();
+            CfError { status, code: 0, message: format!("HTTP {status}：{snippet}") }
+        };
         let env: Envelope = serde_json::from_slice(&bytes).map_err(|_| unreadable())?;
         if env.success {
             return serde_json::from_value(env.result).map_err(|_| unreadable());
