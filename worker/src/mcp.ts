@@ -17,8 +17,8 @@ import {
 // 實際驗證與正規化交給 todos.ts 的 addSchema / patchSchema。
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
-const INSTRUCTIONS = `Personal to-do list of the user (UI language: Traditional Chinese).
-- Dates are YYYY-MM-DD in the Asia/Taipei timezone; list_todos returns "today" for reference.
+const instructions = (env: Env) => `Personal to-do list of the user (UI language: Traditional Chinese).
+- Dates are YYYY-MM-DD in the ${env.TIMEZONE || "Asia/Taipei"} timezone; list_todos returns "today" for reference.
 - "tag" is usually a course name or project; reuse existing tags (returned by list_todos as "tags") instead of inventing near-duplicates.
 - Write titles and notes in Traditional Chinese unless the user says otherwise.
 - When creating to-dos from emails, set source="email" and source_ref to the Gmail message ID so that re-running never creates duplicates.`;
@@ -36,7 +36,7 @@ function invalid(err: z.ZodError) {
 }
 
 function buildServer(env: Env): McpServer {
-  const server = new McpServer({ name: "todo", version: "0.1.0" }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "todo", version: "0.1.0" }, { instructions: instructions(env) });
 
   server.registerTool(
     "list_todos",

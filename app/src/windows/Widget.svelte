@@ -113,7 +113,11 @@
           today={store.today}
           {showDone}
           ontoggledone={toggleDone}
-          emptyText={filter ? "這個標籤沒有待辦" : "沒有待辦事項\n享受一下空白吧"}
+          emptyText={store.prefs && !store.prefs.configured
+            ? "還沒完成設定\n請在主視窗完成設定精靈"
+            : filter
+              ? "這個標籤沒有待辦"
+              : "沒有待辦事項\n享受一下空白吧"}
         />
       {/if}
     </div>

@@ -19,6 +19,9 @@ class Store {
   doneToday = $derived(this.done.filter((t) => localDate(t.doneAt) === this.today));
   tags = $derived([...new Set(this.snap.todos.flatMap((t) => (t.tag ? [t.tag] : [])))].sort((a, b) => a.localeCompare(b, "zh-Hant")));
   overdueCount = $derived(this.open.filter((t) => t.due && t.due < this.today).length);
+  cloudOutdated = $derived(
+    !!this.prefs?.configured && this.prefs.cloudVersion !== null && this.prefs.cloudVersion < this.prefs.latestCloudVersion,
+  );
 
   async init() {
     await listen<Snapshot>("state", (e) => (this.snap = e.payload));

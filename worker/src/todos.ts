@@ -2,8 +2,9 @@ import { z } from "zod";
 
 export interface Env {
   DB: D1Database;
-  MCP_SECRET: string;
-  API_TOKEN: string;
+  /** 舊版 setup.ps1 部署用；設定精靈部署的 Worker 改用 D1 裡的 settings / devices */
+  MCP_SECRET?: string;
+  API_TOKEN?: string;
   TIMEZONE?: string;
 }
 

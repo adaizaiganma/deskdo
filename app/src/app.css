@@ -156,3 +156,55 @@ button {
   color: var(--warn);
   font-weight: 500;
 }
+
+/* 按鈕：primary 主要動作、ghost 次要動作 */
+.primary,
+.ghost {
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s, opacity 0.15s;
+}
+.primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+.primary:hover {
+  filter: brightness(1.06);
+}
+/* 用半透明底色：放在卡片（--raised）或頁面（--bg）上都看得出是按鈕 */
+.ghost {
+  padding: 0 14px;
+  background: var(--active);
+}
+.ghost:hover {
+  background: color-mix(in srgb, var(--text) 13%, transparent);
+}
+.ghost.danger {
+  color: var(--warn);
+}
+.primary.big {
+  height: 42px;
+  padding: 0 22px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+.primary:disabled,
+.ghost:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.link {
+  color: var(--accent);
+  font-size: 13px;
+}
+.link:hover {
+  text-decoration: underline;
+}

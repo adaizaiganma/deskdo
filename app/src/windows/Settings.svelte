@@ -1,6 +1,14 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { onMount } from "svelte";
+  import { CLAUDE_CONNECTORS, SITE_GUIDE } from "../lib/links";
+  import { localDate, monthDay } from "../lib/dates";
   import { store } from "../lib/store.svelte";
+  import type { Connector, Device } from "../lib/types";
+
+  /** 開啟設定精靈（new：第一次設定；update：更新雲端） */
+  let { onsetup }: { onsetup: (mode: "new" | "update") => void } = $props();
 
   const p = $derived(store.prefs);
 
@@ -10,6 +18,19 @@
   let showToken = $state(false);
   let testing = $state(false);
   let result = $state<{ ok: boolean; text: string } | null>(null);
+
+  let connector = $state<Connector | null>(null);
+  let connectorError = $state("");
+  let confirmRotate = $state(false);
+  let copied = $state(false);
+
+  let devices = $state<Device[] | null>(null);
+  let devicesError = $state("");
+  let confirmRevoke = $state<string | null>(null);
+
+  onMount(() => {
+    if (store.prefs?.configured) loadDevices();
+  });
 
   async function saveConnection(e: SubmitEvent) {
     e.preventDefault();
@@ -32,33 +53,149 @@
       result = { ok: false, text: String(err) };
     }
   }
+
+  async function showConnector() {
+    connectorError = "";
+    try {
+      connector = await invoke<Connector>("get_connector");
+    } catch (e) {
+      connectorError = String(e);
+    }
+  }
+
+  async function rotateConnector() {
+    confirmRotate = false;
+    connectorError = "";
+    try {
+      connector = await invoke<Connector>("rotate_connector");
+    } catch (e) {
+      connectorError = String(e);
+    }
+  }
+
+  async function copyConnector() {
+    if (!connector) return;
+    await navigator.clipboard.writeText(connector.url);
+    copied = true;
+    setTimeout(() => (copied = false), 2000);
+  }
+
+  async function loadDevices() {
+    devicesError = "";
+    try {
+      devices = await invoke<Device[]>("list_devices");
+    } catch (e) {
+      devicesError = String(e);
+    }
+  }
+
+  async function revoke(id: string) {
+    confirmRevoke = null;
+    try {
+      await invoke("revoke_device", { id });
+      await loadDevices();
+    } catch (e) {
+      devicesError = String(e);
+    }
+  }
+
+  function seen(iso: string | null): string {
+    if (!iso) return "尚未連線";
+    const d = new Date(iso);
+    const day = localDate(iso);
+    if (!day) return "";
+    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return day === store.today ? `今天 ${time} 使用過` : `${monthDay(day, store.today)} 使用過`;
+  }
 </script>
 
 <div class="settings">
   <h1>設定</h1>
 
-  <form class="card" onsubmit={saveConnection}>
-    <h2>連線</h2>
-    <label class="field">
-      <span>API 網址</span>
-      <input bind:value={apiBase} placeholder="https://todo-worker.<帳號>.workers.dev" spellcheck="false" />
-    </label>
-    <label class="field">
-      <span>API token</span>
-      <span class="with-btn">
-        <input type={showToken ? "text" : "password"} bind:value={apiToken} spellcheck="false" autocomplete="off" />
-        <button type="button" class="ghost" onclick={() => (showToken = !showToken)}>{showToken ? "隱藏" : "顯示"}</button>
-      </span>
-    </label>
-    <label class="field">
-      <span>同步間隔</span>
-      <span class="with-unit"><input type="number" min="10" max="600" bind:value={pollSeconds} />秒</span>
-    </label>
-    <div class="actions">
-      <button type="submit" class="primary" disabled={testing}>{testing ? "連線中…" : "儲存並測試連線"}</button>
-      {#if result}<span class="result" class:bad={!result.ok}>{result.text}</span>{/if}
-    </div>
-  </form>
+  {#if p && !p.configured}
+    <section class="card callout">
+      <div>
+        <h2>還沒有完成設定</h2>
+        <p class="hint">登入 Cloudflare，Deskdo 會自動建立你的雲端，大約 2 分鐘。</p>
+      </div>
+      <button class="primary" onclick={() => onsetup("new")}>開始設定</button>
+    </section>
+  {/if}
+
+  {#if p?.configured}
+    <section class="card">
+      <h2>AI 連接器（MCP）</h2>
+      <p class="hint">
+        想讓 Claude、ChatGPT 等 AI 助理讀寫你的待辦，就在它們的「自訂連接器」貼上這個網址；不用 AI 的話可以略過。網址等同密碼，請不要分享。
+      </p>
+      {#if connector}
+        <div class="url-box">
+          <code>{connector.url}</code>
+          <button class="ghost" onclick={copyConnector}>{copied ? "已複製" : "複製"}</button>
+        </div>
+        <div class="btns">
+          <button class="link" onclick={() => openUrl(CLAUDE_CONNECTORS)}>Claude 連接器設定</button>
+          <button class="link" onclick={() => openUrl(SITE_GUIDE + "#ai")}>其他 AI 的設定方式</button>
+          <span class="grow"></span>
+          {#if connector.rotatable}
+            {#if confirmRotate}
+              <span class="hint">舊網址會立即失效，AI 助理那邊要換成新網址</span>
+              <button class="ghost danger" onclick={rotateConnector}>確定更換</button>
+              <button class="ghost" onclick={() => (confirmRotate = false)}>取消</button>
+            {:else}
+              <button class="ghost" onclick={() => (confirmRotate = true)}>更換網址</button>
+            {/if}
+          {/if}
+        </div>
+      {:else}
+        <div class="btns"><button class="ghost" onclick={showConnector}>顯示網址</button></div>
+      {/if}
+      {#if connectorError}<p class="result bad">{connectorError}</p>{/if}
+    </section>
+
+    <section class="card">
+      <h2>已連線的電腦</h2>
+      {#if devices}
+        {#each devices as d (d.id)}
+          <div class="toggle-row">
+            <div>
+              <div>{d.name}{#if d.current}<span class="tag">這台電腦</span>{/if}</div>
+              <div class="hint">{seen(d.lastSeenAt)}・{monthDay(localDate(d.createdAt) ?? store.today, store.today)} 加入</div>
+            </div>
+            {#if !d.current}
+              {#if confirmRevoke === d.id}
+                <span class="btns">
+                  <button class="ghost danger" onclick={() => revoke(d.id)}>確定移除</button>
+                  <button class="ghost" onclick={() => (confirmRevoke = null)}>取消</button>
+                </span>
+              {:else}
+                <button class="ghost" onclick={() => (confirmRevoke = d.id)}>移除</button>
+              {/if}
+            {/if}
+          </div>
+        {:else}
+          <p class="hint">這個雲端是用舊版的方式（setup.ps1）部署的，沒有個別的電腦紀錄。</p>
+        {/each}
+        <p class="hint">要在另一台電腦使用：安裝 Deskdo，用同一個 Cloudflare 帳號登入即可。移除後，那台電腦就不能再讀寫待辦。</p>
+      {/if}
+      {#if devicesError}<p class="result bad">{devicesError}</p>{/if}
+    </section>
+
+    <section class="card">
+      <h2>雲端</h2>
+      <div class="toggle-row">
+        <div>
+          <div>雲端版本 {p.cloudVersion ?? "—"}</div>
+          <div class="hint">
+            {#if store.cloudOutdated}有新版本 {p.latestCloudVersion}，更新需要登入 Cloudflare，資料不會變動
+            {:else if p.cloudVersion === null}還沒連上雲端
+            {:else}已是最新版本{/if}
+          </div>
+        </div>
+        {#if store.cloudOutdated}<button class="primary" onclick={() => onsetup("update")}>更新雲端</button>{/if}
+      </div>
+    </section>
+  {/if}
 
   {#if p}
     <section class="card">
@@ -109,6 +246,32 @@
       </div>
     </section>
   {/if}
+
+  <details class="card advanced">
+    <summary>進階：手動設定連線</summary>
+    <p class="hint">給自己用 wrangler 部署 Worker 的開發者。一般使用者請用上面的設定精靈。</p>
+    <form onsubmit={saveConnection}>
+      <label class="field">
+        <span>API 網址</span>
+        <input bind:value={apiBase} placeholder="https://deskdo.<子網域>.workers.dev" spellcheck="false" />
+      </label>
+      <label class="field">
+        <span>API token</span>
+        <span class="with-btn">
+          <input type={showToken ? "text" : "password"} bind:value={apiToken} spellcheck="false" autocomplete="off" />
+          <button type="button" class="ghost" onclick={() => (showToken = !showToken)}>{showToken ? "隱藏" : "顯示"}</button>
+        </span>
+      </label>
+      <label class="field">
+        <span>同步間隔</span>
+        <span class="with-unit"><input type="number" min="10" max="600" bind:value={pollSeconds} />秒</span>
+      </label>
+      <div class="actions">
+        <button type="submit" class="primary" disabled={testing}>{testing ? "連線中…" : "儲存並測試連線"}</button>
+        {#if result}<span class="result" class:bad={!result.ok}>{result.text}</span>{/if}
+      </div>
+    </form>
+  </details>
 
   <p class="foot">設定檔位置：%APPDATA%\Deskdo\config.json</p>
 </div>
@@ -181,29 +344,6 @@
     padding-left: 108px;
     flex-wrap: wrap;
   }
-  .primary {
-    height: 34px;
-    padding: 0 16px;
-    border-radius: 8px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 500;
-  }
-  .primary:disabled {
-    opacity: 0.6;
-  }
-  .ghost {
-    height: 34px;
-    padding: 0 14px;
-    border-radius: 8px;
-    background: var(--bg2);
-    font-size: 13px;
-    white-space: nowrap;
-  }
-  .ghost:hover {
-    background: var(--active);
-  }
   .result {
     font-size: 12.5px;
     color: var(--ok);
@@ -259,5 +399,72 @@
   .foot {
     font-size: 12px;
     color: var(--faint);
+  }
+  .callout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-color: var(--accent);
+  }
+  .callout h2 {
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .card > .hint {
+    margin: 0 0 12px;
+    line-height: 1.6;
+  }
+  .url-box {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .url-box code {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--active);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    user-select: all;
+  }
+  .btns {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .toggle-row .btns {
+    margin-top: 0;
+  }
+  .grow {
+    flex: 1;
+  }
+  .tag {
+    margin-left: 8px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+  }
+  .advanced summary {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--sub);
+    cursor: pointer;
+  }
+  .advanced[open] summary {
+    margin-bottom: 10px;
+  }
+  .result {
+    margin: 8px 0 0;
+  }
+  .actions .result {
+    margin: 0;
   }
 </style>

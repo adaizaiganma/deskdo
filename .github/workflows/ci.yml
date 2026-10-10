@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Worker
+        working-directory: worker
+        run: |
+          npm ci
+          npm run typecheck
+          npm run bundle
+
+      - name: App (frontend)
+        working-directory: app
+        run: |
+          npm ci
+          npm run check
+          npm test
+
+      # build.rs 會把上面打包好的 worker/dist/index.js 嵌進 exe
+      - name: App (Rust)
+        working-directory: app/src-tauri
+        run: cargo test

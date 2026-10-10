@@ -2,11 +2,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod api;
+mod cloudflare;
 mod config;
 #[cfg(windows)]
 mod desktop_layer;
 #[cfg(windows)]
 mod glass;
+mod oauth;
+mod setup;
 mod store;
 mod tray;
 mod windows;
@@ -16,11 +19,17 @@ use tauri::RunEvent;
 use tauri_plugin_autostart::ManagerExt;
 
 fn main() {
-    tauri::Builder::default()
-        // 已經有一個在執行時，改成叫它打開主視窗
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| windows::show_main(app, None)))
+    let mut builder = tauri::Builder::default();
+    // 已經有一個在執行時，改成叫它打開主視窗。
+    // DESKDO_HOME（另一個設定目錄，開發測試用）視為獨立的執行個體，可以和正式版同時執行
+    if std::env::var_os("DESKDO_HOME").is_none() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| windows::show_main(app, None)));
+    }
+    builder
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(store::Shared::new()))
+        .manage(setup::SetupState::default())
         .invoke_handler(tauri::generate_handler![
             store::get_state,
             store::refresh_now,
@@ -28,6 +37,15 @@ fn main() {
             store::update_todo,
             store::delete_todo,
             store::undo_delete,
+            setup::setup_token,
+            oauth::setup_oauth,
+            setup::setup_cancel,
+            setup::setup_inspect,
+            setup::setup_run,
+            setup::get_connector,
+            setup::rotate_connector,
+            setup::list_devices,
+            setup::revoke_device,
             windows::get_prefs,
             windows::save_connection,
             windows::set_widget_visible,

@@ -1,5 +1,6 @@
 import { handleApi } from "./api";
-import { json, notFound, safeEqual } from "./http";
+import { mcpSecretValid } from "./auth";
+import { json, notFound } from "./http";
 import { handleMcp } from "./mcp";
 import type { Env } from "./todos";
 
@@ -9,15 +10,14 @@ export default {
     const path = url.pathname;
 
     try {
-      if (path === "/api/todos" || path.startsWith("/api/todos/")) {
+      if (path.startsWith("/api/")) {
         return await handleApi(req, env, url);
       }
 
       // /mcp/<MCP_SECRET>：密鑰錯誤時回 404，不透露端點存在
       if (path.startsWith("/mcp/")) {
         const secret = path.slice("/mcp/".length).replace(/\/$/, "");
-        const expected = env.MCP_SECRET?.trim();
-        if (!expected || !safeEqual(secret, expected)) return notFound();
+        if (!(await mcpSecretValid(secret, env))) return notFound();
         return await handleMcp(req, env);
       }
 
