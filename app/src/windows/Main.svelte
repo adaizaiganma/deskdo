@@ -10,17 +10,28 @@
   import { store } from "../lib/store.svelte";
   import type { Todo } from "../lib/types";
   import Settings from "./Settings.svelte";
+  import Setup from "./Setup.svelte";
   import SyncStatus from "./SyncStatus.svelte";
   import TitleBar from "./TitleBar.svelte";
 
   type View = "all" | "today" | "upcoming" | "nodue" | "done" | "settings" | `tag:${string}`;
 
   let view = $state<View>("today");
+  /**
+   * 設定精靈：new = 第一次設定，update = 更新雲端。
+   * 精靈部署到一半就會寫入設定（configured 變成 true），所以用自己的狀態決定何時關閉，
+   * 而不是直接看 configured，否則看不到最後一頁的連接器網址。
+   */
+  let wizard = $state<"new" | "update" | null>(null);
   let query = $state("");
   let showDone = $state(false);
   let quickAdd = $state<ReturnType<typeof QuickAdd>>();
   let search = $state<HTMLInputElement>();
 
+  const needsSetup = $derived(!!store.prefs && !store.prefs.configured);
+  $effect(() => {
+    if (needsSetup && !wizard) wizard = "new";
+  });
   const today = $derived(store.today);
   const open = $derived(store.open);
   const doneDays = $derived(store.prefs?.doneSyncDays ?? 30);
@@ -113,10 +124,8 @@
 
   onMount(() => {
     invoke<boolean>("get_effects").then((ok) => document.documentElement.classList.toggle("no-effects", !ok));
-    if (store.prefs && !store.prefs.configured) {
-      view = "settings";
-      invoke("open_main", { view: "settings" });
-    }
+    // 還沒設定時直接打開主視窗顯示設定精靈
+    if (store.prefs && !store.prefs.configured) invoke("open_main", { view: null });
     const off = listen<View>("navigate", (e) => go(e.payload));
     return () => {
       off.then((f) => f());
@@ -128,6 +137,15 @@
 
 <div class="app">
   <TitleBar />
+  {#if wizard}
+    <div class="body solo">
+      <Setup
+        mode={wizard}
+        onfinish={() => ((wizard = null), go("today"))}
+        oncancel={wizard === "update" ? () => (wizard = null) : undefined}
+      />
+    </div>
+  {:else}
   <div class="body">
     <aside>
       <label class="search">
@@ -168,10 +186,15 @@
 
     <main>
       {#if view === "settings"}
-        <div class="scroll"><Settings /></div>
+        <div class="scroll"><Settings onsetup={(mode) => (wizard = mode)} /></div>
       {:else}
         <div class="scroll">
           <div class="page">
+            {#if store.cloudOutdated}
+              <button class="banner" onclick={() => (wizard = "update")}>
+                <Icon name="sparkle" size={14} />雲端有新版本，按這裡更新（需要登入 Cloudflare）
+              </button>
+            {/if}
             <header>
               <h1>{page.title}</h1>
               {#if page.sub}<p>{page.sub}</p>{/if}
@@ -196,6 +219,7 @@
       <Toast />
     </main>
   </div>
+  {/if}
 </div>
 
 <style>
@@ -371,5 +395,21 @@
     width: min(420px, calc(100% - 32px));
     transform: translateX(-50%);
     bottom: 20px;
+  }
+  .body.solo {
+    display: block;
+  }
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0 0 14px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 13px;
+    text-align: left;
   }
 </style>

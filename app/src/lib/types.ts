@@ -33,6 +33,54 @@ export interface Prefs {
   configured: boolean;
   /** 已完成的項目只同步最近這幾天的 */
   doneSyncDays: number;
+  /** 雲端 Worker 的版本；null 表示還不知道 */
+  cloudVersion: number | null;
+  /** 這版 App 內建的 Worker 版本 */
+  latestCloudVersion: number;
+  /** 這個版本能不能「使用 Cloudflare 登入」 */
+  oauthAvailable: boolean;
+}
+
+// ---- 設定精靈 ----
+
+export interface Account {
+  id: string;
+  name: string;
+}
+
+export interface Inspection {
+  subdomain: string | null;
+  suggestedSubdomain: string;
+  existing: boolean;
+  mode: "new" | "update";
+  script: string;
+}
+
+export type SetupStep = "subdomain" | "database" | "migrate" | "device" | "upload" | "route" | "verify";
+
+export interface SetupProgress {
+  step: SetupStep;
+  state: "running" | "done" | "skip" | "error";
+  detail: string;
+}
+
+export interface SetupDone {
+  apiBase: string;
+  reachable: boolean;
+  connectorUrl: string | null;
+}
+
+export interface Connector {
+  url: string;
+  rotatable: boolean;
+}
+
+export interface Device {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastSeenAt: string | null;
+  current: boolean;
 }
 
 export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "tag" | "priority" | "note" | "done">>;
