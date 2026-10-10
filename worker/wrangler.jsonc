@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // 部署名稱沿用改名前的 todo-worker：改名會換掉 workers.dev 網址，claude.ai 連接器和密鑰都要重設
-  "name": "todo-worker",
+  // 名稱和設定精靈部署的相同（deskdo），所以 `npm run deploy` 會更新精靈建立的那個雲端
+  "name": "deskdo",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -12,13 +12,12 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "todo-db",
-      // 部署前執行 `npx wrangler d1 create todo-db`，把輸出的 database_id 貼到這裡
-      "database_id": "e0d09289-0c09-4fb1-b7ac-efdcdf6a737d",
+      "database_name": "deskdo",
+      // 作者帳號裡的資料庫。用自己的帳號開發時，換成 `npx wrangler d1 list` 裡 deskdo 的 uuid
+      "database_id": "a97c1cfe-743d-4d39-a24e-151fc1bda781",
       "migrations_dir": "migrations"
     }
   ]
-  // 密鑰（不要寫在這裡）：
-  //   npx wrangler secret put MCP_SECRET   -> 放在 /mcp/<MCP_SECRET> 網址中
-  //   npx wrangler secret put API_TOKEN    -> 桌面小工具用的 Bearer token
+  // 驗證用的 token 和 MCP 密鑰存在 D1（由設定精靈建立），不需要 wrangler secret。
+  // 舊的 setup.ps1 部署方式才會用 `wrangler secret put API_TOKEN / MCP_SECRET`。
 }

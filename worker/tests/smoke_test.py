@@ -47,7 +47,7 @@ def call(name, args):
 def d1(sql):
     """直接對本機 D1 執行 SQL（模擬設定精靈用 Cloudflare API 寫入裝置與密鑰）"""
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    r = subprocess.run(f'npx wrangler d1 execute todo-db --local --command "{sql}"',
+    r = subprocess.run(f'npx wrangler d1 execute deskdo --local --command "{sql}"',
                        cwd=root, shell=True, capture_output=True)
     assert r.returncode == 0, r.stderr.decode(errors="replace")
 

@@ -47,7 +47,7 @@ fn write_atomic(path: &Path, contents: &str) -> io::Result<()> {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    pub api_base: String, // 例如 https://todo-worker.xxx.workers.dev（Worker 名稱沿用改名前的部署）
+    pub api_base: String, // 例如 https://deskdo.xxx.workers.dev
     pub api_token: String,
     pub poll_seconds: u64,
     pub show_desktop_widget: bool,
