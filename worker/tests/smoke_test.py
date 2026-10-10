@@ -3,7 +3,7 @@
 注意：測試開始時會刪除所有待辦，所以只允許對本機 wrangler dev 執行。
 使用的是 .dev.vars 裡的本機測試密鑰。
 """
-import json, time, urllib.request, urllib.error
+import hashlib, json, os, subprocess, time, urllib.request, urllib.error
 
 BASE = "http://127.0.0.1:8787"
 TOKEN = "local-dev-api-token"
@@ -42,6 +42,14 @@ def call(name, args):
     res = b["result"]
     txt = res["content"][0]["text"]
     return res.get("isError", False), (txt if res.get("isError") else json.loads(txt))
+
+
+def d1(sql):
+    """直接對本機 D1 執行 SQL（模擬設定精靈用 Cloudflare API 寫入裝置與密鑰）"""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    r = subprocess.run(f'npx wrangler d1 execute todo-db --local --command "{sql}"',
+                       cwd=root, shell=True, capture_output=True)
+    assert r.returncode == 0, r.stderr.decode(errors="replace")
 
 
 def check(cond, msg):
@@ -139,5 +147,40 @@ err, r = call("delete_todo", {"id": r3["todo"]["id"]})
 check(err, "刪除不存在 → isError")
 s, _, _ = api("DELETE", f"/api/todos/{t1['id']}")
 check(s == 204, "REST DELETE → 204")
+
+# --- 裝置 token、D1 裡的 MCP 密鑰 ---
+s, _, b = api("GET", "/api/info")
+check(s == 200 and isinstance(b["version"], int), f"GET /api/info version={b['version']}")
+
+DEVICE_TOKEN = "local-test-device-token"
+d1("DELETE FROM devices; DELETE FROM settings;")
+d1(f"INSERT INTO devices (id, name, tokenHash, createdAt) VALUES ('dev1', 'Test PC', "
+   f"'{hashlib.sha256(DEVICE_TOKEN.encode()).hexdigest()}', '2026-01-01T00:00:00.000Z')")
+dev = {"Authorization": f"Bearer {DEVICE_TOKEN}"}
+s, _, _ = req("GET", BASE + "/api/todos", headers=dev)
+check(s == 200, "裝置 token 可以讀取待辦")
+s, _, b = req("GET", BASE + "/api/devices", headers=dev)
+check(s == 200 and b["devices"][0]["current"] and b["devices"][0]["lastSeenAt"], "裝置清單標記目前裝置並更新 lastSeenAt")
+s, _, b = api("GET", "/api/devices")
+check(not b["devices"][0]["current"], "env token 不算任何一台裝置")
+
+s, _, b = api("GET", "/api/connector")
+check(s == 200 and b["url"].endswith("/mcp/local-dev-mcp-secret") and b["rotatable"] is False,
+      "env 有 MCP_SECRET 時連接器網址用 env 的密鑰")
+s, _, _ = api("POST", "/api/connector/rotate")
+check(s == 409, "env 有 MCP_SECRET 時不能從 App 更換")
+
+d1("INSERT INTO settings (key, value) VALUES ('mcp_secret', 'd1-mcp-secret')")
+s, _, _ = req("POST", f"{BASE}/mcp/d1-mcp-secret", {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+              {"Accept": "application/json, text/event-stream", "MCP-Protocol-Version": "2025-06-18"})
+check(s == 200, "D1 裡的 MCP 密鑰也有效")
+
+s, _, _ = req("DELETE", BASE + "/api/devices/dev1", headers=dev)
+check(s == 204, "撤銷裝置 → 204")
+s, _, _ = req("GET", BASE + "/api/todos", headers=dev)
+check(s == 401, "撤銷後 token 失效")
+s, _, _ = api("GET", "/api/nope")
+check(s == 404, "未知的 /api 路徑 → 404")
+d1("DELETE FROM settings;")
 
 print("\nALL PASSED")
