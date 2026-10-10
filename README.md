@@ -141,7 +141,11 @@ npx wrangler deploy
 
 ## 5. 自己用 wrangler 部署（進階）
 
-不想用設定精靈的開發者，可以用舊的腳本部署（Worker 名稱 `todo-worker`、D1 名稱 `todo-db`）：
+`worker/wrangler.jsonc` 的 Worker 和 D1 名稱都是 `deskdo`，和設定精靈建立的相同，`database_id` 是作者帳號裡的資料庫。
+
+**已經用設定精靈建好雲端**（建議）：把 `database_id` 換成自己帳號裡 `deskdo` 的 uuid（`npx wrangler d1 list`），之後修改程式用 `npm run deploy`，新增 migration 後執行 `npm run db:migrate:remote`。驗證用的 token 和 MCP 密鑰都在 D1，不需要 `wrangler secret`。
+
+**完全不用設定精靈**：用舊的腳本，它會建立 D1、部署，並把密鑰設在 env：
 
 ```powershell
 cd worker
@@ -150,7 +154,7 @@ npx wrangler login
 .\scripts\setup.ps1 -RotateSecrets  # 更換兩把密鑰
 ```
 
-之後修改程式用 `npm run deploy`，新增 migration 後執行 `npm run db:migrate:remote`。這種部署的密鑰在 env，App 裡的「更換網址」不能用，請用 `-RotateSecrets`。App 的「更新雲端」仍然可以使用（會保留 env 的密鑰）。
+這種部署的密鑰在 env，App 裡的「更換網址」不能用，請用 `-RotateSecrets`；也沒有個別電腦的紀錄，另一台電腦要手動填網址和 token。
 
 ---
 

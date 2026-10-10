@@ -36,19 +36,19 @@ if ($code -ne 0) { throw "請先執行 npx wrangler login" }
 # 1. D1 資料庫
 $text = Get-Content $config -Raw -Encoding utf8
 if ($text.Contains($placeholder)) {
-    Write-Host "== 建立 D1 資料庫 todo-db"
-    Invoke-Quiet d1 create todo-db --location apac --update-config=false
+    Write-Host "== 建立 D1 資料庫 deskdo"
+    Invoke-Quiet d1 create deskdo --location apac --update-config=false
     if ($LASTEXITCODE -ne 0) { Write-Host "（建立失敗，可能已存在，改為查詢既有資料庫）" }
     $dbs = Invoke-Quiet d1 list --json | Out-String | ConvertFrom-Json
-    $db = $dbs | Where-Object { $_.name -eq "todo-db" } | Select-Object -First 1
-    if (-not $db) { throw "找不到 todo-db" }
+    $db = $dbs | Where-Object { $_.name -eq "deskdo" } | Select-Object -First 1
+    if (-not $db) { throw "找不到 deskdo" }
     $text = $text.Replace($placeholder, $db.uuid)
     [IO.File]::WriteAllText((Resolve-Path $config), $text, (New-Object Text.UTF8Encoding $false))
     Write-Host "已將 database_id = $($db.uuid) 寫入 $config"
 }
 
 Write-Host "== 套用 migration"
-Invoke-Quiet d1 migrations apply todo-db --remote
+Invoke-Quiet d1 migrations apply deskdo --remote
 if ($LASTEXITCODE -ne 0) { throw "migration 失敗" }
 
 # 2. 部署
@@ -57,7 +57,7 @@ Write-Host "== 部署 Worker"
 npx wrangler deploy
 if ($LASTEXITCODE -ne 0) { throw "部署失敗" }
 do {
-    $url = (Read-Host "請貼上上面顯示的網址（https://todo-worker.xxx.workers.dev）").Trim().TrimEnd("/")
+    $url = (Read-Host "請貼上上面顯示的網址（https://deskdo.xxx.workers.dev）").Trim().TrimEnd("/")
 } until ($url -match "^https://[a-z0-9.-]+\.workers\.dev$")
 
 # 3. 密鑰
