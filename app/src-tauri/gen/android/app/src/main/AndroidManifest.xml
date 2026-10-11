@@ -22,6 +22,13 @@
                 <!-- AndroidTV support -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+            <!-- Cloudflare 授權完成頁的「回到 Deskdo」（oauth.rs 的 RETURN_URL） -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="deskdo" />
+            </intent-filter>
         </activity>
 
         <!-- 主畫面小工具（DeskdoWidget.kt） -->
