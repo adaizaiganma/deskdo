@@ -137,8 +137,8 @@ Cloudflare 後台 → 管理帳戶 → OAuth clients → 建立：
 ### 安裝檔
 
 ```powershell
-git tag v0.4.0
-git push origin v0.4.0
+git tag v0.5.0
+git push origin v0.5.0
 ```
 
 `.github/workflows/release.yml` 會在 Windows 上建置並建立 GitHub Release 草稿，確認後按發布。需要先在 repo 的 Actions 設定 variable `DESKDO_CF_CLIENT_ID` 和兩個簽章 secret（見下一節）。
