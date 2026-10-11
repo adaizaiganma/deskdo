@@ -303,7 +303,7 @@
         {:else}
           <h1>設定完成 🎉</h1>
           <p class="lead">
-            桌面小工具已經可以使用了。
+            {mobile ? "可以開始使用了，也可以在主畫面加上 Deskdo 小工具。" : "桌面小工具已經可以使用了。"}
             {#if !result.reachable}新網址還在生效中，可能要再等一兩分鐘才會開始同步。{/if}
           </p>
 
@@ -356,11 +356,14 @@
     height: 100%;
     overflow: auto;
     display: grid;
+    /* 欄寬固定是視窗寬度；不然會被不換行的網址撐開，手機上整頁比螢幕寬 */
+    grid-template-columns: minmax(0, 1fr);
     place-items: center;
     padding: 32px 24px;
   }
   .panel {
     width: min(560px, 100%);
+    min-width: 0;
   }
   section {
     display: flex;
