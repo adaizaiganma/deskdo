@@ -1,4 +1,5 @@
 /** 倒數日：只存在這台裝置（localStorage），不同步到雲端 */
+import { diffDays, nextYearly } from "./dates";
 
 export interface Countdown {
   id: string;
@@ -7,6 +8,12 @@ export interface Countdown {
   date: string;
   /** 每年重複（生日、紀念日）：倒數到下一次的這一天 */
   yearly: boolean;
+}
+
+/** 算好的倒數：target = 要倒數到的那一天（每年重複的是下一次），n = 還有幾天（負的是已經過了幾天），nth = 第幾週年 */
+export function resolve(c: Countdown, today: string) {
+  const target = c.yearly ? nextYearly(c.date, today) : c.date;
+  return { ...c, target, n: diffDays(today, target), nth: c.yearly ? Number(target.slice(0, 4)) - Number(c.date.slice(0, 4)) : 0 };
 }
 
 const KEY = "deskdo.countdowns";

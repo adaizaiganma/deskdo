@@ -3,6 +3,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
   import Calendar from "../components/Calendar.svelte";
+  import CountdownStrip from "../components/CountdownStrip.svelte";
   import Icon, { type IconName } from "../components/Icon.svelte";
   import QuickAdd from "../components/QuickAdd.svelte";
   import Toast from "../components/Toast.svelte";
@@ -19,9 +20,12 @@
   import SyncStatus from "./SyncStatus.svelte";
   import TitleBar from "./TitleBar.svelte";
 
-  type View = "all" | "today" | "upcoming" | "calendar" | "countdown" | "nodue" | "done" | "settings" | "folders" | `tag:${string}` | `folder:${string}`;
+  type View = "home" | "all" | "calendar" | "countdown" | "settings" | "folders" | `tag:${string}` | `folder:${string}`;
+  /** 「全部」頁的篩選：未完成、沒有期限、已完成 */
+  type AllFilter = "open" | "nodue" | "done";
 
-  let view = $state<View>("all");
+  let view = $state<View>("home");
+  let allFilter = $state<AllFilter>("open");
   /**
    * 設定精靈：new = 第一次設定，update = 更新雲端。
    * 精靈部署到一半就會寫入設定（configured 變成 true），所以用自己的狀態決定何時關閉，
@@ -48,14 +52,19 @@
   const doneDays = $derived(store.prefs?.doneSyncDays ?? 30);
 
   const nav: { id: View; label: string; icon: IconName; count: () => number }[] = [
-    { id: "today", label: "今天", icon: "sun", count: () => open.filter((t) => t.due && t.due <= today).length },
-    { id: "upcoming", label: "即將到來", icon: "upcoming", count: () => open.filter((t) => t.due && t.due > today).length },
+    // 主頁的數字：今天到期和逾期的
+    { id: "home", label: "主頁", icon: "home", count: () => open.filter((t) => t.due && t.due <= today).length },
+    { id: "all", label: "全部", icon: "inbox", count: () => open.length },
     { id: "calendar", label: "日曆", icon: "calendar", count: () => 0 },
     { id: "countdown", label: "倒數日", icon: "hourglass", count: () => 0 },
-    { id: "all", label: "全部", icon: "inbox", count: () => open.length },
-    { id: "nodue", label: "沒有期限", icon: "tray", count: () => open.filter((t) => !t.due).length },
-    { id: "done", label: "已完成", icon: "done", count: () => 0 },
   ];
+  const allFilters = $derived<{ id: AllFilter; label: string; count: number }[]>([
+    { id: "open", label: "未完成", count: open.length },
+    { id: "nodue", label: "沒有期限", count: open.filter((t) => !t.due).length },
+    { id: "done", label: "已完成", count: store.done.length },
+  ]);
+  /** 「全部」頁只看已完成的 */
+  const doneOnly = $derived(view === "all" && allFilter === "done");
 
   // 標籤、資料夾頁也列出還沒輪到的步驟（淡色顯示）：它的前一步可能是別的標籤，不列出來就找不到了
   const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
@@ -119,60 +128,58 @@
       };
     }
     switch (view) {
-      case "today":
+      case "home": {
+        const late = list.filter((t) => t.due && t.due < today).length;
+        const due = list.filter((t) => t.due === today).length;
         return {
-          title: "今天",
-          sub: longDate(today),
-          todos: list.filter((t) => t.due && t.due <= today),
+          title: "主頁",
+          sub: [longDate(today), late && `${late} 項逾期`, due && `今天 ${due} 項`].filter(Boolean).join("・"),
+          todos: list.filter((t) => t.due),
           done: store.doneToday,
           defaultTag: null,
+          // 主頁只列有期限的待辦，沒寫期限就當成今天，免得新增完就看不到
           defaultDue: today,
-          empty: "今天沒有要做的事\n可以看看「即將到來」",
+          empty: "接下來沒有排定期限的待辦\n沒有期限的待辦在「全部」",
         };
-      case "upcoming":
-        return {
-          title: "即將到來",
-          sub: "依期限排序",
-          todos: list.filter((t) => t.due && t.due > today),
-          done: null,
-          defaultTag: null,
-          defaultDue: null,
-          empty: "接下來沒有排定期限的待辦",
-        };
+      }
       case "calendar":
         return { title: "日曆", sub: "", todos: [], done: null, defaultTag: null, defaultDue: null, empty: "" };
-      case "nodue":
-        return { title: "沒有期限", sub: "", todos: list.filter((t) => !t.due), done: null, defaultTag: null, defaultDue: null, empty: "每件事都排好期限了" };
-      case "done":
-        return {
-          title: "已完成",
-          sub: `最近 ${doneDays} 天完成 ${store.done.length} 項・更早的紀錄保存在雲端`,
-          todos: [],
-          done: store.done,
-          defaultTag: null,
-          defaultDue: null,
-          empty: `最近 ${doneDays} 天沒有完成的項目`,
-        };
       default:
-        return { title: "全部", sub: `${open.length} 項待辦`, todos: list, done: store.done, defaultTag: null, defaultDue: null, empty: "沒有待辦事項\n享受一下空白吧" };
+        if (allFilter === "nodue")
+          return { title: "全部", sub: "沒有期限的待辦", todos: list.filter((t) => !t.due), done: null, defaultTag: null, defaultDue: null, empty: "每件事都排好期限了" };
+        if (allFilter === "done")
+          return {
+            title: "全部",
+            sub: `最近 ${doneDays} 天完成 ${store.done.length} 項・更早的紀錄保存在雲端`,
+            todos: [],
+            done: store.done,
+            defaultTag: null,
+            defaultDue: null,
+            empty: `最近 ${doneDays} 天沒有完成的項目`,
+          };
+        // 已完成的改用上面的篩選看
+        return { title: "全部", sub: `${open.length} 項待辦`, todos: list, done: null, defaultTag: null, defaultDue: null, empty: "沒有待辦事項\n享受一下空白吧" };
     }
   });
 
-  // 正在看的資料夾被改名或刪除了就回到「全部」
+  // 正在看的資料夾被改名或刪除了就回到主頁
   $effect(() => {
-    if (view.startsWith("folder:") && !store.folders.some((f) => `folder:${f.name}` === view)) go("all");
+    if (view.startsWith("folder:") && !store.folders.some((f) => `folder:${f.name}` === view)) go("home");
   });
 
   function go(v: View) {
+    // 從別頁回到「全部」時從未完成開始看
+    if (v !== view) allFilter = "open";
     view = v;
-    showDone = v === "done";
+    showDone = false;
     drawer = false;
   }
 
   function onKey(e: KeyboardEvent) {
     if (e.ctrlKey && e.key.toLowerCase() === "n") {
       e.preventDefault();
-      if (view === "settings" || view === "folders" || view === "done" || view === "countdown") go("all");
+      if (view === "settings" || view === "folders" || view === "countdown") go("home");
+      else if (doneOnly) allFilter = "open";
       queueMicrotask(() => quickAdd?.focus());
     } else if (e.ctrlKey && e.key.toLowerCase() === "f") {
       e.preventDefault();
@@ -191,6 +198,7 @@
       if (!id || wizard) return;
       query = "";
       go("all");
+      allFilter = "open";
       store.focus = id;
     };
     // App 剛啟動時自己拿；原本就在背景時，MainActivity.onResume 會發 deskdo-open
@@ -211,7 +219,7 @@
     <div class="body solo">
       <Setup
         mode={wizard}
-        onfinish={() => ((wizard = null), go("all"))}
+        onfinish={() => ((wizard = null), go("home"))}
         oncancel={wizard === "update" ? () => (wizard = null) : undefined}
       />
     </div>
@@ -227,9 +235,9 @@
       <nav>
         {#each nav as n (n.id)}
           <button class="nav" class:on={view === n.id} onclick={() => go(n.id)}>
-            <span class="nicon" class:today={n.id === "today"}><Icon name={n.icon} /></span>
+            <span class="nicon" class:accent={n.id === "home"}><Icon name={n.icon} /></span>
             <span class="nlabel">{n.label}</span>
-            {#if n.count()}<span class="ncount" class:warn={n.id === "today" && store.overdueCount}>{n.count()}</span>{/if}
+            {#if n.count()}<span class="ncount" class:warn={n.id === "home" && store.overdueCount}>{n.count()}</span>{/if}
           </button>
         {/each}
       </nav>
@@ -311,20 +319,32 @@
               <h1>{page.title}</h1>
               {#if page.sub}<p>{page.sub}</p>{/if}
             </header>
+            {#if view === "home"}
+              <CountdownStrip {today} onopen={() => go("countdown")} />
+            {/if}
+            {#if view === "all"}
+              <div class="filters" role="tablist" aria-label="篩選">
+                {#each allFilters as f (f.id)}
+                  <button role="tab" aria-selected={allFilter === f.id} class:on={allFilter === f.id} onclick={() => ((allFilter = f.id), (showDone = false))}>
+                    {f.label}<span>{f.count}</span>
+                  </button>
+                {/each}
+              </div>
+            {/if}
             {#if view === "calendar"}
               <Calendar bind:this={quickAdd} {today} {matches} searching={!!query.trim()} />
             {:else}
-            {#if view !== "done"}
+            {#if !doneOnly}
               <QuickAdd bind:this={quickAdd} defaultTag={page.defaultTag} defaultDue={page.defaultDue} />
             {/if}
-            {#key view}
+            {#key `${view}:${allFilter}`}
               <TodoList
                 todos={page.todos.filter(matches)}
                 done={page.done ? page.done.filter(matches) : null}
                 {today}
-                showDone={view === "done" ? undefined : showDone || !!query.trim()}
-                ontoggledone={view === "done" ? undefined : () => (showDone = !showDone)}
-                doneLimit={view === "done" ? 300 : 50}
+                showDone={doneOnly ? undefined : showDone || !!query.trim()}
+                ontoggledone={doneOnly ? undefined : () => (showDone = !showDone)}
+                doneLimit={doneOnly ? 300 : 50}
                 emptyText={query.trim() ? `找不到「${query.trim()}」` : page.empty}
               />
             {/key}
@@ -432,7 +452,7 @@
     place-items: center;
     color: var(--sub);
   }
-  .nicon.today {
+  .nicon.accent {
     color: var(--accent);
   }
   .nicon.hash {
@@ -572,6 +592,40 @@
   }
   .body.solo {
     display: block;
+  }
+  /* 「全部」頁的篩選 */
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 2px 14px;
+  }
+  .filters button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--bg2);
+    font-size: 13px;
+    color: var(--sub);
+    transition: background 0.12s, color 0.12s;
+  }
+  .filters button:hover {
+    color: var(--text);
+  }
+  .filters button span {
+    font-size: 12px;
+    color: var(--faint);
+  }
+  .filters button.on {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .filters button.on span {
+    color: var(--accent);
   }
   .banner {
     display: flex;

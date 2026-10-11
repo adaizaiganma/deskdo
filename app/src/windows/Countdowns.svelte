@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "../components/Icon.svelte";
-  import { countdowns, type Countdown } from "../lib/countdowns.svelte";
-  import { addDays, dayDistance, diffDays, fullDate, nextYearly, spanText } from "../lib/dates";
+  import { countdowns, resolve, type Countdown } from "../lib/countdowns.svelte";
+  import { addDays, dayDistance, diffDays, fullDate, spanText } from "../lib/dates";
   import { store } from "../lib/store.svelte";
   import { toast } from "../lib/toast.svelte";
 
@@ -16,10 +16,7 @@
 
   const items = $derived(
     countdowns.list
-      .map((c) => {
-        const target = c.yearly ? nextYearly(c.date, today) : c.date;
-        return { ...c, target, n: diffDays(today, target), nth: c.yearly ? Number(target.slice(0, 4)) - Number(c.date.slice(0, 4)) : 0 };
-      })
+      .map((c) => resolve(c, today))
       // 還沒到的（越近越前面），接著是已經過了的（越近越前面）
       .sort((a, b) => (a.n >= 0) !== (b.n >= 0) ? (a.n >= 0 ? -1 : 1) : Math.abs(a.n) - Math.abs(b.n)),
   );
