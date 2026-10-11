@@ -96,6 +96,19 @@ class Store {
     }
   }
 
+  /** 一串步驟中目前可以做的那一步（還沒輪到的步驟往前找） */
+  headOf(todo: Todo): Todo {
+    const seen = new Set<string>();
+    let t = todo;
+    while (this.waiting.has(t.id) && !seen.has(t.id)) {
+      seen.add(t.id);
+      const prev = this.prevOf(t);
+      if (!prev) break;
+      t = prev;
+    }
+    return t;
+  }
+
   /** 前一步（如果有的話） */
   prevOf(todo: Todo): Todo | undefined {
     return todo.afterId ? this.find(todo.afterId) : undefined;

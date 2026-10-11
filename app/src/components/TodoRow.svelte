@@ -60,10 +60,13 @@
 
   // 打開編輯時載入草稿；收合時把標題和備註存回去
   let wasEditing = false;
+  /** 草稿是從哪一筆載入的。這一列換成顯示別筆時（例如在步驟之間切換），不能把草稿存到別筆上 */
+  let draftId: string | null = null;
   $effect(() => {
     const now = editing;
     untrack(() => {
       if (now && !wasEditing) {
+        draftId = todo.id;
         draftTitle = todo.title;
         draftNote = todo.note ?? "";
         panel = null;
@@ -80,6 +83,7 @@
   }
 
   function commit() {
+    if (draftId !== todo.id) return;
     const p: TodoPatch = {};
     const title = draftTitle.trim();
     if (title && title !== todo.title) p.title = title;
@@ -250,9 +254,6 @@
             {#if todo.note && !todo.done}<span class="mi" title={todo.note}><Icon name="note" size={12} stroke={1.5} />備註</span>{/if}
           </span>
         {/if}
-        {#if next}
-          <span class="next">↳ 接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today)}` : ""}</span>
-        {/if}
       </button>
       {#if due}
         <span class="due {due.tone}" title={todo.due}>
@@ -262,6 +263,11 @@
       {/if}
     {/if}
   </div>
+  {#if next && !editing}
+    <button class="next" onclick={() => onedit(next.id)} title="編輯下一步">
+      ↳ 接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today)}` : ""}
+    </button>
+  {/if}
 
   {#if editing}
     <div class="editor" transition:slide={{ duration: 200 }}>
@@ -324,11 +330,11 @@
       <div class="field steps">
         <span class="ficon"><Icon name="link" size={14} stroke={1.5} /></span>
         {#if waitingFor}
-          <span class="step-info">前一步：{waitingFor.title}</span>
+          <button class="step-info" onclick={() => onedit(waitingFor.id)} title="編輯前一步">前一步：{waitingFor.title}</button>
           <button class="tbtn" onclick={() => patch({ afterId: null })}>取消連接</button>
         {/if}
         {#if next}
-          <span class="step-info">接著：{next.title}</span>
+          <button class="step-info" onclick={() => onedit(next.id)} title="編輯下一步">接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today)}` : ""}</button>
           <button class="tbtn" onclick={() => store.update(next.id, { afterId: null })}>取消連接</button>
         {/if}
         <button class="pill" class:on={panel === "new"} onclick={() => startStep("new")}>
@@ -562,16 +568,29 @@
     outline: none;
     cursor: pointer;
   }
+  /* 對齊標題（勾選框 20px + 間距 10px + 列的左邊距 10px） */
   .next {
+    display: block;
+    max-width: calc(100% - 50px);
+    margin: -7px 0 0 40px;
+    padding: 0 0 8px;
     font-size: 11.5px;
     color: var(--faint);
+    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .next:hover {
+    color: var(--accent);
+  }
+  .step-info:hover {
+    text-decoration: underline;
+  }
   .step-info {
     font-size: 12px;
-    color: var(--sub);
+    color: var(--accent);
+    text-align: left;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;

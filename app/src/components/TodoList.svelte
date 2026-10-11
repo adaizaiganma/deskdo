@@ -2,6 +2,7 @@
   import { flip } from "svelte/animate";
   import { fly, slide } from "svelte/transition";
   import { groupOf, groupTodos, type GroupKey } from "../lib/dates";
+  import { store } from "../lib/store.svelte";
   import type { Todo } from "../lib/types";
   import Icon from "./Icon.svelte";
   import TodoRow from "./TodoRow.svelte";
@@ -40,6 +41,14 @@
     const t = id ? todos.find((x) => x.id === id) : undefined;
     pinned = t ? { id: t.id, key: groupOf(t.due, today) } : null;
   }
+  /**
+   * 正在編輯、但不在清單上的步驟（還沒輪到，平常藏起來）：
+   * 暫時顯示在它那一串目前可以做的那一步下方；那一步不在這個清單上時，顯示在最上面。
+   */
+  const peek = $derived(editingId && !todos.some((t) => t.id === editingId) ? store.find(editingId) : undefined);
+  const peekHead = $derived(peek && !peek.done ? store.headOf(peek).id : null);
+  const peekOnTop = $derived(!!peek && !peek.done && !todos.some((t) => t.id === peekHead));
+
   const doneShown = $derived(done ? done.slice(0, doneLimit) : []);
   const doneOpen = $derived(showDone ?? true);
 
@@ -53,7 +62,17 @@
 
 <svelte:window onpointerdown={onPointerDown} />
 
+{#snippet peekRow(t: Todo)}
+  <!-- 換到同一串的另一步時重建，才會重新載入標題、備註的草稿 -->
+  {#key t.id}
+    <div class="peek" transition:slide={{ duration: 180 }}>
+      <TodoRow todo={t} {today} editing onedit={setEditing} />
+    </div>
+  {/key}
+{/snippet}
+
 <div class="list">
+  {#if peek && peekOnTop}{@render peekRow(peek)}{/if}
   {#each groups as g (g.key)}
     <section transition:slide={{ duration: 200 }}>
       {#if !flat}
@@ -66,6 +85,7 @@
       {#each g.items as t (t.id)}
         <div animate:flip={{ duration: 220 }} in:fly={{ y: -8, duration: 260 }} out:slide={{ duration: 220 }}>
           <TodoRow todo={t} {today} editing={editingId === t.id} onedit={setEditing} />
+          {#if peek && !peekOnTop && peekHead === t.id}{@render peekRow(peek)}{/if}
         </div>
       {/each}
     </section>
@@ -103,6 +123,10 @@
   }
   section {
     margin-bottom: 2px;
+  }
+  /* 平常藏起來的步驟，編輯時暫時縮排顯示在前一步下方 */
+  .peek {
+    margin-left: 22px;
   }
   .ghead {
     display: flex;
