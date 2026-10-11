@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { slide } from "svelte/transition";
   import { addDays, localDate, monthDay, nextMonday, relativeDue, rowDue } from "../lib/dates";
+  import { mobile } from "../lib/platform";
   import { parseQuickAdd } from "../lib/quickadd";
   import { store } from "../lib/store.svelte";
   import type { Todo, TodoPatch } from "../lib/types";
@@ -70,7 +71,8 @@
         draftTitle = todo.title;
         draftNote = todo.note ?? "";
         panel = null;
-        queueMicrotask(() => titleInput?.focus());
+        // 手機上不自動聚焦：鍵盤一跳出來就蓋住半個畫面，要改標題再點標題
+        if (!mobile) queueMicrotask(() => titleInput?.focus());
       } else if (!now && wasEditing) {
         commit();
       }
@@ -374,6 +376,7 @@
         <span>{source}{created ? ` · ${monthDay(created, today)} 建立` : ""}</span>
         <span class="grow"></span>
         <button class="tbtn danger" onclick={() => store.remove(todo)}><Icon name="trash" size={13} stroke={1.5} />刪除</button>
+        {#if mobile}<button class="tbtn" onclick={() => onedit(null)}>收起</button>{/if}
       </div>
     </div>
   {/if}
@@ -384,8 +387,11 @@
     border-radius: 10px;
     transition: background 0.15s, box-shadow 0.2s, margin 0.2s;
   }
-  .row:not(.editing):hover {
-    background: var(--hover);
+  /* 只在有滑鼠時：觸控螢幕點過之後 :hover 會一直留著 */
+  @media (hover: hover) {
+    .row:not(.editing):hover {
+      background: var(--hover);
+    }
   }
   .row.editing {
     background: var(--raised);

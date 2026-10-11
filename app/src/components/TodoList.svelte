@@ -1,6 +1,7 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
   import { fly, slide } from "svelte/transition";
+  import { closeOnBack } from "../lib/back.svelte";
   import { groupOf, groupTodos, type GroupKey } from "../lib/dates";
   import { store } from "../lib/store.svelte";
   import type { Todo } from "../lib/types";
@@ -41,6 +42,7 @@
     const t = id ? todos.find((x) => x.id === id) : undefined;
     pinned = t ? { id: t.id, key: groupOf(t.due, today) } : null;
   }
+  closeOnBack("editor", () => !!editingId, () => setEditing(null));
   /**
    * 正在編輯、但不在清單上的步驟（還沒輪到，平常藏起來）：
    * 暫時顯示在它那一串目前可以做的那一步下方；那一步不在這個清單上時，顯示在最上面。

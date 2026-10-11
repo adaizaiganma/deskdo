@@ -6,6 +6,7 @@
   import QuickAdd from "../components/QuickAdd.svelte";
   import Toast from "../components/Toast.svelte";
   import TodoList from "../components/TodoList.svelte";
+  import { closeOnBack } from "../lib/back.svelte";
   import { longDate } from "../lib/dates";
   import { mobile } from "../lib/platform";
   import { store } from "../lib/store.svelte";
@@ -31,6 +32,7 @@
   let search = $state<HTMLInputElement>();
   /** 手機版：側邊欄改成從左邊滑出的抽屜 */
   let drawer = $state(false);
+  closeOnBack("drawer", () => drawer, () => (drawer = false));
 
   const needsSetup = $derived(!!store.prefs && !store.prefs.configured);
   $effect(() => {
@@ -602,6 +604,8 @@
     flex-direction: column;
     border: none;
     border-radius: 0;
+    /* 和狀態列、導覽列後面的底色（Android 的 app_bg）一樣 */
+    background: var(--bg);
   }
   :global(html.mobile) main > .scroll,
   :global(html.mobile) main > :global(.page) {

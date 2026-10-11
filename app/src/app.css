@@ -102,6 +102,17 @@ button {
   outline-offset: 2px;
 }
 
+/* 手機：拿掉 WebView 按下時的藍色框；長按按鈕不要選取文字、跳出系統選單 */
+html.mobile {
+  -webkit-tap-highlight-color: transparent;
+}
+html.mobile button,
+html.mobile a {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
