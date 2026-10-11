@@ -15,24 +15,6 @@
   let text = $state("");
   let input = $state<HTMLInputElement>();
 
-  // 符號說明按「不再顯示」後就不出現；主視窗和小工具共用同一個 localStorage
-  const HINT_KEY = "quickadd.hideHint";
-  let hideHint = $state(readHideHint());
-
-  function readHideHint(): boolean {
-    try {
-      return localStorage.getItem(HINT_KEY) === "1";
-    } catch {
-      return false;
-    }
-  }
-
-  function dismissHint() {
-    hideHint = true;
-    try {
-      localStorage.setItem(HINT_KEY, "1");
-    } catch {}
-  }
   const steps = $derived(parseSteps(text, store.today));
   const parsed = $derived(steps?.[0] ?? null);
   const tag = $derived(parsed?.tag ?? (text.trim() ? defaultTag : null));
@@ -66,25 +48,20 @@
   }
 </script>
 
-<svelte:window onstorage={(e) => e.key === HINT_KEY && (hideHint = readHideHint())} />
-
 <div class="quick">
   <label class="box">
     <span class="plus"><Icon name="plus" size={16} stroke={1.8} /></span>
     <input bind:this={input} bind:value={text} onkeydown={onKey} placeholder="新增待辦，按 Enter 送出" aria-label="新增待辦" />
   </label>
-  <div class="meta" class:empty={!text.trim() && hideHint}>
+  <div class="meta">
     {#if !text.trim()}
-      {#if !hideHint}
-        <span class="hint" title="例如：交報告 #電路學 @週五 !">
-          <span><b>#</b>標籤</span>
-          <span title="@今天 @明天 @週五 @下週三 @10/15"><b>@</b>期限</span>
-          <span><b>!</b>高優先</span>
-          <span><b>~</b>低優先</span>
-          <span title="例如：做預報 &gt; 印預報"><b>&gt;</b>下一步</span>
-        </span>
-        <button class="hint-close" onclick={dismissHint}>不再顯示</button>
-      {/if}
+      <span class="hint" title="例如：交報告 #電路學 @週五 !">
+        <span><b>#</b>標籤</span>
+        <span title="@今天 @明天 @週五 @下週三 @10/15"><b>@</b>期限</span>
+        <span><b>!</b>高優先</span>
+        <span><b>~</b>低優先</span>
+        <span title="例如：做預報 &gt; 印預報"><b>&gt;</b>下一步</span>
+      </span>
     {:else}
       {#if due}<span class="chip"><Icon name="calendar" size={11} stroke={1.7} />{relativeDue(due, store.today)}</span>{/if}
       {#if tag}<span class="chip" title="#{tag}"><span class="clip">#{tag}</span></span>{/if}
@@ -162,10 +139,6 @@
     background: var(--bg2);
     color: var(--sub);
   }
-  .meta.empty {
-    min-height: 0;
-    padding-top: 0;
-  }
   .hint {
     display: flex;
     flex-wrap: wrap;
@@ -176,16 +149,5 @@
     font-weight: 700;
     color: var(--accent);
     margin-right: 2px;
-  }
-  .hint-close {
-    margin-left: auto;
-    font-size: 11px;
-    color: var(--faint);
-    padding: 2px 6px;
-    border-radius: 6px;
-  }
-  .hint-close:hover {
-    color: var(--text);
-    background: var(--hover);
   }
 </style>
