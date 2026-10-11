@@ -258,7 +258,7 @@
       {#if view === "settings"}
         <div class="scroll"><Settings onsetup={(mode) => (wizard = mode)} /></div>
       {:else if view === "folders"}
-        <div class="scroll"><Folders onupdatecloud={() => (wizard = "update")} /></div>
+        <Folders onupdatecloud={() => (wizard = "update")} />
       {:else}
         <div class="scroll">
           <div class="page">
