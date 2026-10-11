@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import Calendar from "../components/Calendar.svelte";
 
   import Icon, { type IconName } from "../components/Icon.svelte";
@@ -38,6 +38,11 @@
   /** 目前頁面的快速新增（日曆頁的在日曆裡），Ctrl+N 用 */
   let quickAdd = $state<{ focus(): void }>();
   let search = $state<HTMLInputElement>();
+  /** 電腦版：側邊欄收合成只剩圖示（每台電腦各自記住） */
+  let narrow = $state(readFlag("main.sidebarCollapsed"));
+  /** 電腦版的搜尋框平常收起來，按放大鏡或 Ctrl+F 才打開 */
+  let searchOpen = $state(false);
+  const showSearch = $derived(mobile || searchOpen || !!query);
   /** 手機版：側邊欄改成從左邊滑出的抽屜 */
   let drawer = $state(false);
   closeOnBack("drawer", () => drawer, () => (drawer = false));
@@ -87,6 +92,28 @@
       return [];
     }
   }
+  function readFlag(key: string): boolean {
+    try {
+      return localStorage.getItem(key) === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function toggleSidebar() {
+    narrow = !narrow;
+    try {
+      localStorage.setItem("main.sidebarCollapsed", narrow ? "1" : "0");
+    } catch {}
+  }
+
+  async function openSearch() {
+    if (narrow) toggleSidebar();
+    searchOpen = true;
+    await tick();
+    search?.focus();
+  }
+
   function toggleFolder(name: string) {
     collapsed = collapsed.includes(name) ? collapsed.filter((n) => n !== name) : [...collapsed, name];
     try {
@@ -173,7 +200,7 @@
       queueMicrotask(() => quickAdd?.focus());
     } else if (e.ctrlKey && e.key.toLowerCase() === "f") {
       e.preventDefault();
-      search?.focus();
+      openSearch();
     }
   }
 
@@ -229,15 +256,33 @@
   {:else}
   <div class="body">
     {#if drawer}<button class="scrim" onclick={() => (drawer = false)} aria-label="關閉選單"></button>{/if}
-    <aside class:open={drawer}>
-      <label class="search">
-        <Icon name="search" size={14} />
-        <input bind:this={search} bind:value={query} placeholder="搜尋" onkeydown={(e) => e.key === "Escape" && (query = "")} />
-      </label>
+    <aside class:open={drawer} class:narrow={narrow && !mobile}>
+      {#if !mobile}
+        <div class="side-top">
+          <button class="icon-btn" onclick={toggleSidebar} aria-label={narrow ? "展開側欄" : "收合側欄"} title={narrow ? "展開側欄" : "收合側欄"} aria-expanded={!narrow}>
+            <Icon name="menu" size={18} />
+          </button>
+          {#if !narrow && !showSearch}
+            <button class="icon-btn" onclick={openSearch} aria-label="搜尋" title="搜尋（Ctrl+F）"><Icon name="search" /></button>
+          {/if}
+        </div>
+      {/if}
+      {#if showSearch && !(narrow && !mobile)}
+        <label class="search">
+          <Icon name="search" size={14} />
+          <input
+            bind:this={search}
+            bind:value={query}
+            placeholder="搜尋"
+            onkeydown={(e) => e.key === "Escape" && ((query = ""), (searchOpen = false))}
+            onblur={() => !query && (searchOpen = false)}
+          />
+        </label>
+      {/if}
 
       <nav>
         {#each nav as n (n.id)}
-          <button class="nav" class:on={view === n.id} onclick={() => go(n.id)}>
+          <button class="nav" class:on={view === n.id} onclick={() => go(n.id)} title={narrow && !mobile ? n.label : undefined}>
             <span class="nicon" class:accent={n.id === "home"}><Icon name={n.icon} /></span>
             <span class="nlabel">{n.label}</span>
             {#if n.count()}<span class="ncount" class:warn={n.id === "home" && store.overdueCount}>{n.count()}</span>{/if}
@@ -245,7 +290,7 @@
         {/each}
       </nav>
 
-      {#if store.tags.length || store.folders.length}
+      {#if (store.tags.length || store.folders.length) && !(narrow && !mobile)}
         <div class="h4-row">
           <h4>標籤</h4>
           <button class="tidy" class:on={view === "folders"} onclick={() => go("folders")} title="用資料夾整理標籤">整理</button>
@@ -284,7 +329,7 @@
       {/if}
 
       <div class="side-foot">
-        <SyncStatus />
+        <SyncStatus compact={narrow && !mobile} />
         <button class="icon-btn" class:on={view === "settings"} onclick={() => go("settings")} aria-label="設定" title="設定">
           <Icon name="settings" />
         </button>
@@ -368,11 +413,53 @@
 
   aside {
     width: 232px;
+    transition: width 0.18s ease;
     flex: none;
     display: flex;
     flex-direction: column;
     padding: 4px 10px 10px;
     overflow-y: auto;
+  }
+  .side-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 2px 10px;
+  }
+  .side-top .icon-btn {
+    width: 36px;
+    height: 34px;
+  }
+  /* 收合的側欄：只剩圖示 */
+  aside.narrow {
+    width: 60px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  aside.narrow .nav {
+    justify-content: center;
+    padding: 0;
+  }
+  aside.narrow .nlabel,
+  aside.narrow .ncount {
+    display: none;
+  }
+  /* 收合時逾期的數字改成一個小點 */
+  aside.narrow .ncount.warn {
+    display: block;
+    position: absolute;
+    top: 7px;
+    right: 9px;
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--warn);
+    font-size: 0;
+  }
+  aside.narrow .side-foot {
+    flex-direction: column;
+    gap: 6px;
   }
   .search {
     /* 手機跳出鍵盤、側邊欄變矮時不要被壓扁 */

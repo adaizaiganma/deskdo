@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { addMonths, dayDistance, monthGrid, nextYearly, spanParts, spanText } from "./dates";
+import { QUOTES, quoteOf } from "./quotes";
 
 describe("addMonths", () => {
   test("within and across years", () => {
@@ -67,5 +68,13 @@ describe("spanParts", () => {
     expect(spanText("2026-10-11", "2026-10-30")).toBe("");
     expect(spanText("2026-10-11", "2027-10-11")).toBe("1 年");
     expect(spanText("2026-10-11", "2026-12-14")).toBe("2 個月 3 天");
+  });
+});
+
+describe("quoteOf", () => {
+  test("same day, same quote; next day, next quote", () => {
+    expect(quoteOf("2026-10-11")).toBe(quoteOf("2026-10-11"));
+    const i = QUOTES.indexOf(quoteOf("2026-10-11"));
+    expect(QUOTES.indexOf(quoteOf("2026-10-12"))).toBe((i + 1) % QUOTES.length);
   });
 });

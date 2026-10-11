@@ -40,11 +40,7 @@
   ]);
 </script>
 
-<section class="matrix">
-  <div class="head">
-    <h2>優先矩陣</h2>
-    <span class="hint">高優先算重要，3 天內到期或逾期算緊急</span>
-  </div>
+<section class="matrix" aria-label="優先矩陣" title="高優先算重要，3 天內到期或逾期算緊急">
   <div class="cols" aria-hidden="true">
     <span></span><span>緊急</span><span>不緊急</span>
   </div>
@@ -78,21 +74,8 @@
 {/snippet}
 
 <style>
-  .head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 4px 10px;
-    margin-bottom: 10px;
-  }
-  h2 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 700;
-  }
-  .hint {
-    font-size: 12px;
-    color: var(--faint);
+  .matrix {
+    margin-bottom: 18px;
   }
   .cols,
   .grid {

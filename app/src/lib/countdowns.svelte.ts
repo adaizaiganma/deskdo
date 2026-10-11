@@ -8,6 +8,8 @@ export interface Countdown {
   date: string;
   /** 每年重複（生日、紀念日）：倒數到下一次的這一天 */
   yearly: boolean;
+  /** 顯示在主頁；舊的資料沒有這個欄位，當成要顯示 */
+  pinned?: boolean;
 }
 
 /** 算好的倒數：target = 要倒數到的那一天（每年重複的是下一次），n = 還有幾天（負的是已經過了幾天），nth = 第幾週年 */
@@ -42,7 +44,7 @@ class Countdowns {
   }
 
   update(id: string, c: Omit<Countdown, "id">) {
-    this.list = this.list.map((x) => (x.id === id ? { ...c, id } : x));
+    this.list = this.list.map((x) => (x.id === id ? { ...x, ...c, id } : x));
     this.#save();
   }
 
@@ -51,6 +53,11 @@ class Countdowns {
     const list = this.list.filter((x) => x.id !== c.id);
     list.splice(index, 0, c);
     this.list = list;
+    this.#save();
+  }
+
+  setPinned(id: string, pinned: boolean) {
+    this.list = this.list.map((x) => (x.id === id ? { ...x, pinned } : x));
     this.#save();
   }
 

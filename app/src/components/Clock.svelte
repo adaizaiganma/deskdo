@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  let { size = 132 }: { size?: number } = $props();
+  import type { ClockStyle } from "../lib/homePrefs.svelte";
+
+  /** analog = 指針時鐘，下面一行小的數位時間；digital = 只有大字的數位時間 */
+  let { size = 132, mode = "analog" }: { size?: number; mode?: ClockStyle } = $props();
 
   let now = $state(new Date());
 
@@ -22,23 +25,73 @@
   const m = $derived(now.getMinutes() + s / 60);
   const h = $derived((now.getHours() % 12) + m / 60);
   const label = $derived(now.toLocaleTimeString("zh-TW", { hour: "numeric", minute: "2-digit" }));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const hm = $derived(`${pad(now.getHours())}:${pad(now.getMinutes())}`);
+  const sec = $derived(`:${pad(s)}`);
 </script>
 
-<svg class="clock" width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="現在時間 {label}">
-  <circle class="face" cx="50" cy="50" r="47" />
-  {#each Array(12) as _, i (i)}
-    <line class="tick" class:major={i % 3 === 0} x1="50" y1={i % 3 === 0 ? 9 : 10} x2="50" y2={i % 3 === 0 ? 16 : 14} transform="rotate({i * 30} 50 50)" />
-  {/each}
-  <line class="hand hour" x1="50" y1="54" x2="50" y2="28" transform="rotate({h * 30} 50 50)" />
-  <line class="hand minute" x1="50" y1="56" x2="50" y2="17" transform="rotate({m * 6} 50 50)" />
-  <line class="hand second" x1="50" y1="60" x2="50" y2="14" transform="rotate({s * 6} 50 50)" />
-  <circle class="pin" cx="50" cy="50" r="2.6" />
-</svg>
+{#if mode === "digital"}
+  <div class="digital" role="timer" aria-label="現在時間 {label}">
+    <span class="hm">{hm}</span><span class="sec">{sec}</span>
+  </div>
+{:else}
+  <div class="analog">
+    <svg class="clock" width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="現在時間 {label}">
+      <circle class="face" cx="50" cy="50" r="47" />
+      {#each Array(12) as _, i (i)}
+        <line class="tick" class:major={i % 3 === 0} x1="50" y1={i % 3 === 0 ? 9 : 10} x2="50" y2={i % 3 === 0 ? 16 : 14} transform="rotate({i * 30} 50 50)" />
+      {/each}
+      <line class="hand hour" x1="50" y1="54" x2="50" y2="28" transform="rotate({h * 30} 50 50)" />
+      <line class="hand minute" x1="50" y1="56" x2="50" y2="17" transform="rotate({m * 6} 50 50)" />
+      <line class="hand second" x1="50" y1="60" x2="50" y2="14" transform="rotate({s * 6} 50 50)" />
+      <circle class="pin" cx="50" cy="50" r="2.6" />
+    </svg>
+    <div class="small" aria-hidden="true"><span>{hm}</span><span class="sec">{sec}</span></div>
+  </div>
+{/if}
 
 <style>
-  .clock {
+  .analog {
     flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .clock {
     display: block;
+  }
+  .small,
+  .digital {
+    display: flex;
+    align-items: baseline;
+    gap: 1px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .small span:first-child {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .small .sec {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .digital {
+    flex: none;
+    gap: 2px;
+  }
+  .digital .hm {
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+  .digital .sec {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--faint);
   }
   .face {
     fill: var(--raised);

@@ -5,13 +5,12 @@
 
   let { today, onopen }: { today: string; onopen: () => void } = $props();
 
-  /** 主頁上方：最近的三個還沒到的倒數日 */
+  /** 主頁：加到主頁的倒數日，還沒到的（越近越前面）在前，已經過了的在後 */
   const next = $derived(
     countdowns.list
+      .filter((c) => c.pinned !== false)
       .map((c) => resolve(c, today))
-      .filter((c) => c.n >= 0)
-      .sort((a, b) => a.n - b.n)
-      .slice(0, 3),
+      .sort((a, b) => ((a.n >= 0) !== (b.n >= 0) ? (a.n >= 0 ? -1 : 1) : Math.abs(a.n) - Math.abs(b.n))),
   );
 </script>
 
@@ -21,7 +20,7 @@
       <button class="cd" onclick={onopen} title="{c.title}・{fullDate(c.target)}">
         <Icon name="hourglass" size={13} stroke={1.5} />
         <span class="name">{c.title}</span>
-        <span class="n" class:now={c.n === 0}>{c.n === 0 ? "今天" : `${c.n} 天`}</span>
+        <span class="n" class:now={c.n === 0} class:past={c.n < 0}>{c.n === 0 ? "今天" : c.n > 0 ? `${c.n} 天` : `已 ${-c.n} 天`}</span>
       </button>
     {/each}
   </div>
@@ -62,6 +61,9 @@
     font-weight: 700;
     color: var(--accent);
     font-variant-numeric: tabular-nums;
+  }
+  .n.past {
+    color: var(--sub);
   }
   .n.now {
     color: var(--warn);

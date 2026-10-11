@@ -2,11 +2,18 @@
   import { invoke } from "@tauri-apps/api/core";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
+  import Clock from "../components/Clock.svelte";
+  import { homePrefs, type ClockStyle } from "../lib/homePrefs.svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "../lib/links";
   import { localDate, monthDay } from "../lib/dates";
   import { mobile } from "../lib/platform";
   import { store } from "../lib/store.svelte";
   import type { Connector, Device, UpdateInfo } from "../lib/types";
+
+  const clockStyles: { id: ClockStyle; label: string }[] = [
+    { id: "analog", label: "指針" },
+    { id: "digital", label: "數位" },
+  ];
 
   /** 開啟設定精靈（new：第一次設定；update：更新雲端） */
   let { onsetup }: { onsetup: (mode: "new" | "update") => void } = $props();
@@ -211,6 +218,22 @@
     </section>
   {/if}
 
+  <section class="card">
+    <h2>主頁</h2>
+    <div class="toggle-row">
+      <div>
+        <div>時鐘樣式</div>
+        <div class="hint">顯示在主頁日期的右邊</div>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="時鐘樣式">
+        {#each clockStyles as c (c.id)}
+          <button role="radio" aria-checked={homePrefs.clock === c.id} class:on={homePrefs.clock === c.id} onclick={() => homePrefs.setClock(c.id)}>{c.label}</button>
+        {/each}
+      </div>
+    </div>
+    <div class="clock-preview"><Clock size={104} mode={homePrefs.clock} /></div>
+  </section>
+
   {#if p && mobile}
     <section class="card">
       <h2>主畫面小工具</h2>
@@ -330,6 +353,35 @@
     font-weight: 700;
     color: var(--sub);
     margin: 0 0 12px;
+  }
+  .seg {
+    flex: none;
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 9px;
+    background: var(--bg2);
+  }
+  .seg button {
+    height: 30px;
+    padding: 0 16px;
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .seg button.on {
+    background: var(--raised);
+    color: var(--text);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+  .clock-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 170px;
+    margin-top: 6px;
+    border-radius: 10px;
+    background: var(--bg2);
   }
   .card {
     background: var(--raised);

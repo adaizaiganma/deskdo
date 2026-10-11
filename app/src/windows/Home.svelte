@@ -5,6 +5,8 @@
   import Matrix from "../components/Matrix.svelte";
   import TodoPanel from "../components/TodoPanel.svelte";
   import { weekday } from "../lib/dates";
+  import { homePrefs } from "../lib/homePrefs.svelte";
+  import { quoteOf } from "../lib/quotes";
   import { store } from "../lib/store.svelte";
   import type { Todo } from "../lib/types";
 
@@ -22,6 +24,7 @@
     panel?.focus();
   }
 
+  const quote = $derived(quoteOf(today));
   const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
   const dueToday = $derived(store.open.filter((t) => t.due === today).length);
   const summary = $derived(
@@ -100,10 +103,15 @@
         <h1>{Number(today.slice(5, 7))}月{Number(today.slice(8))}日</h1>
         <span class="summary" class:warn={late > 0}>{summary}</span>
       </div>
-      <Clock size={128} />
+      <Clock size={120} mode={homePrefs.clock} />
     </div>
-    <CountdownStrip {today} onopen={oncountdowns} />
+    <figure class="quote">
+      <span class="qlabel">每日一言</span>
+      <blockquote>{quote.text}</blockquote>
+      <figcaption>— {quote.source}</figcaption>
+    </figure>
     <Matrix {today} {matches} onpick={(t) => (store.focus = t.id)} />
+    <CountdownStrip {today} onopen={oncountdowns} />
   </div>
 
   <!-- 可以聚焦的分隔線（ARIA 的 window splitter）：拖曳或用方向鍵調整寬度 -->
@@ -188,6 +196,32 @@
     color: var(--warn);
   }
 
+  .quote {
+    margin: 0 0 20px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: var(--bg2);
+  }
+  .qlabel {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--sub);
+    letter-spacing: 0.04em;
+  }
+  blockquote {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.6;
+  }
+  figcaption {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--faint);
+  }
+
   .resizer {
     flex: none;
     width: 10px;
@@ -245,6 +279,9 @@
     .hero :global(.clock) {
       width: 104px;
       height: 104px;
+    }
+    .hero :global(.digital .hm) {
+      font-size: 44px;
     }
   }
   @container (max-width: 720px) {

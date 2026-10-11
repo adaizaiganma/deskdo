@@ -12,6 +12,8 @@
   // 輸入欄的預設值只在打開頁面時取一次
   let date = $state(addDays(store.today, 30));
   let yearly = $state(false);
+  /** 新增的倒數日預設顯示在主頁 */
+  let pinned = $state(true);
   let titleInput = $state<HTMLInputElement>();
 
   const items = $derived(
@@ -24,9 +26,10 @@
   function add() {
     const t = title.trim();
     if (!t || !date) return;
-    countdowns.add({ title: t, date, yearly });
+    countdowns.add({ title: t, date, yearly, pinned });
     title = "";
     yearly = false;
+    pinned = true;
   }
 
   /** 正在編輯的那一張卡片 */
@@ -88,10 +91,12 @@
     <input class="text" bind:this={titleInput} bind:value={title} onkeydown={(e) => key(e, add)} placeholder="名稱，例如：期末考、生日" aria-label="名稱" enterkeyhint="done" />
     <input class="date" type="date" bind:value={date} aria-label="日期" />
     <label class="check"><input type="checkbox" bind:checked={yearly} />每年</label>
+    <label class="check"><input type="checkbox" bind:checked={pinned} />加到主頁</label>
     <button class="primary" onclick={add} disabled={!title.trim() || !date}><Icon name="plus" size={14} stroke={1.8} />新增</button>
   </div>
 
   {#if items.length}
+    <p class="pinned-note">主頁會顯示加到主頁的倒數日（{items.filter((c) => c.pinned !== false).length} 個）</p>
     <div class="cards">
       {#each items as c (c.id)}
         {#if editing?.id === c.id}
@@ -107,7 +112,8 @@
             </div>
           </div>
         {:else}
-          <button class="card" class:past={c.n < 0} class:now={c.n === 0} onclick={() => (editing = { id: c.id, title: c.title, date: c.date, yearly: c.yearly })} title="按一下編輯">
+          {@const onHome = c.pinned !== false}
+          <div class="card" class:past={c.n < 0} class:now={c.n === 0}>
             <span class="ctitle">{c.title}</span>
             <span class="big">
               {#if c.n === 0}
@@ -122,7 +128,15 @@
             {:else if c.n < 0}
               <span class="csub">今天是第 {-c.n + 1} 天</span>
             {/if}
-          </button>
+            <!-- 撐開剩下的高度，同一排卡片的按鈕才會對齊 -->
+            <span class="spacer"></span>
+            <div class="card-foot">
+              <button class="pin" class:on={onHome} aria-pressed={onHome} onclick={() => countdowns.setPinned(c.id, !onHome)}>
+                <Icon name="home" size={14} />{onHome ? "已在主頁" : "加到主頁"}
+              </button>
+              <button class="tbtn" onclick={() => (editing = { id: c.id, title: c.title, date: c.date, yearly: c.yearly })} aria-label="編輯「{c.title}」">編輯</button>
+            </div>
+          </div>
         {/if}
       {/each}
     </div>
@@ -284,7 +298,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
     gap: 12px;
-    margin-top: 18px;
+    margin-top: 10px;
   }
   .card {
     display: flex;
@@ -298,8 +312,43 @@
     box-shadow: var(--card-shadow);
     text-align: left;
   }
-  button.card:hover {
-    box-shadow: var(--card-shadow), 0 0 0 1.5px var(--accent-soft);
+  .spacer {
+    flex: 1;
+    min-height: 4px;
+  }
+  .card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .pin {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--bg2);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--sub);
+    transition: background 0.12s, color 0.12s;
+  }
+  .pin:hover {
+    color: var(--text);
+  }
+  .pin.on {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .pinned-note {
+    margin: 18px 10px 0;
+    font-size: 12.5px;
+    color: var(--sub);
   }
   .card.edit {
     gap: 8px;
