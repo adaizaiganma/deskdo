@@ -178,8 +178,19 @@
     // 還沒設定時直接打開主視窗顯示設定精靈
     if (store.prefs && !store.prefs.configured) invoke("open_main", { view: null });
     const off = listen<View>("navigate", (e) => go(e.payload));
+    // 手機：從主畫面小工具點了某一筆打開 App 時，切到「全部」並展開它
+    const openFromWidget = async () => {
+      const id = await invoke<string | null>("take_widget_todo");
+      if (!id || wizard) return;
+      query = "";
+      go("all");
+      store.focus = id;
+    };
+    const offResumed = mobile ? listen("resumed", openFromWidget) : null;
+    if (mobile) openFromWidget();
     return () => {
       off.then((f) => f());
+      offResumed?.then((f) => f());
     };
   });
 </script>

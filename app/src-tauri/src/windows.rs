@@ -435,6 +435,18 @@ pub fn open_main(app: AppHandle, view: Option<String>) {
     show_main(&app, view.as_deref());
 }
 
+/// 手機：在主畫面小工具上點了哪一筆待辦（App 打開後展開它）；拿過就清掉。電腦版沒有
+#[tauri::command]
+pub async fn take_widget_todo(app: AppHandle) -> Option<String> {
+    #[cfg(mobile)]
+    return crate::mobile::take_open_todo(&app);
+    #[cfg(desktop)]
+    {
+        let _ = app;
+        None
+    }
+}
+
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     #[cfg(desktop)]

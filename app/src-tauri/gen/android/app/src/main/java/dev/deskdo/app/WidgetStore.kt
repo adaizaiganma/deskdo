@@ -17,6 +17,8 @@ object WidgetStore {
     val after: String?,
     val mail: Boolean,
     val note: Boolean,
+    /** 在小工具上勾了完成、正在顯示打勾（只有小工具自己用，App 不會送這個） */
+    val completing: Boolean = false,
   )
 
   data class Folder(val name: String, val tags: List<String>)
@@ -65,6 +67,7 @@ object WidgetStore {
         after = str(it, "after"),
         mail = it.optBoolean("mail"),
         note = it.optBoolean("note"),
+        completing = it.optBoolean("completing"),
       )
     }
     val fa = o.optJSONArray("folders") ?: JSONArray()
@@ -83,19 +86,29 @@ object WidgetStore {
     )
   }
 
-  /** 在小工具上勾了完成：先從清單拿掉，回傳原本的內容；送出失敗時用 save 放回去 */
+  /** 在小工具上勾了完成：先標成打勾，送出成功再 remove，失敗就取消標記 */
   @Synchronized
-  fun remove(context: Context, id: String): String? {
-    val before = raw(context) ?: return null
-    val o = JSONObject(before)
-    val arr = o.optJSONArray("items") ?: return before
+  fun setCompleting(context: Context, id: String, on: Boolean) = edit(context) { arr ->
+    for (i in 0 until arr.length()) {
+      val it = arr.getJSONObject(i)
+      if (it.getString("id") == id) it.put("completing", on)
+    }
+    arr
+  }
+
+  @Synchronized
+  fun remove(context: Context, id: String) = edit(context) { arr ->
     val next = JSONArray()
     for (i in 0 until arr.length()) {
       val it = arr.getJSONObject(i)
       if (it.getString("id") != id) next.put(it)
     }
-    o.put("items", next)
+    next
+  }
+
+  private fun edit(context: Context, change: (JSONArray) -> JSONArray) {
+    val o = JSONObject(raw(context) ?: return)
+    o.put("items", change(o.optJSONArray("items") ?: return))
     save(context, o.toString())
-    return before
   }
 }

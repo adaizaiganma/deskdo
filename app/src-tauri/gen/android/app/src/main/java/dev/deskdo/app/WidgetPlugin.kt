@@ -4,6 +4,7 @@ import android.app.Activity
 import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
@@ -31,4 +32,17 @@ class WidgetPlugin(private val activity: Activity) : Plugin(activity) {
     }
     invoke.resolve()
   }
+
+  /** 小工具上點了哪一筆待辦（App 打開後展開它）；拿過就清掉 */
+  @Command
+  fun takeOpen(invoke: Invoke) {
+    val id = OpenRequest.todo
+    OpenRequest.todo = null
+    invoke.resolve(JSObject().put("id", id))
+  }
+}
+
+/** 小工具（DeskdoWidget）和 App 在同一個 process，點了待辦就記在這裡，App 前端回到前景時來拿 */
+object OpenRequest {
+  @Volatile var todo: String? = null
 }

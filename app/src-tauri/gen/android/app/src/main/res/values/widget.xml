@@ -15,6 +15,7 @@
     <color name="widget_warn">#FFC2410C</color>
     <!-- 篩選標籤的底色（文字色的 8%）；選中時反過來 -->
     <color name="widget_chip">#141E2126</color>
+    <color name="widget_on_accent">#FFFFFFFF</color>
     <color name="widget_on_text">#FFFFFFFF</color>
     <!-- App 的底色（狀態列、導覽列後面），和網頁的背景色一樣 -->
     <color name="app_bg">#FFFAFAF8</color>

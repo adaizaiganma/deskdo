@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { flip } from "svelte/animate";
   import { fly, slide } from "svelte/transition";
   import { closeOnBack } from "../lib/back.svelte";
@@ -43,6 +44,24 @@
     pinned = t ? { id: t.id, key: groupOf(t.due, today) } : null;
   }
   closeOnBack("editor", () => !!editingId, () => setEditing(null));
+
+  // 從主畫面小工具點進來的那一筆：展開並捲到畫面中間。剛打開 App 時資料可能還沒載入，等找到為止
+  $effect(() => {
+    const id = store.focus;
+    if (!id) return;
+    const t = store.find(id);
+    if (!t) {
+      if (store.snap.status !== "syncing") store.focus = null;
+      return;
+    }
+    untrack(() => {
+      store.focus = null;
+      if (t.done) return;
+      setEditing(id);
+      // 等展開的動畫跑完再捲，位置才準
+      setTimeout(() => document.querySelector(`[data-row="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 240);
+    });
+  });
   /**
    * 正在編輯、但不在清單上的步驟（還沒輪到，平常藏起來）：
    * 暫時顯示在它那一串目前可以做的那一步下方；那一步不在這個清單上時，顯示在最上面。

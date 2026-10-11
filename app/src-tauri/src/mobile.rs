@@ -93,6 +93,16 @@ fn widget_items(todos: &[Todo]) -> Vec<Item<'_>> {
         .collect()
 }
 
+/// 小工具上點了哪一筆待辦（WidgetPlugin.takeOpen）；要在非主執行緒呼叫，Kotlin 端在主執行緒執行
+pub fn take_open_todo(app: &AppHandle) -> Option<String> {
+    #[derive(serde::Deserialize)]
+    struct Open {
+        id: Option<String>,
+    }
+    let widget = app.try_state::<Widget>()?;
+    widget.0.run_mobile_plugin::<Open>("takeOpen", ()).ok()?.id
+}
+
 pub fn update_widget(app: &AppHandle, snap: &Snapshot) {
     let Some(widget) = app.try_state::<Widget>() else { return };
     let cfg = store::shared(app).config();

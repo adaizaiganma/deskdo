@@ -50,7 +50,7 @@ class DeskdoWidget : AppWidgetProvider() {
     when (intent.action) {
       ACTION_ITEM -> {
         val id = intent.getStringExtra(EXTRA_ID) ?: return
-        if (intent.getStringExtra(EXTRA_KIND) == "complete") complete(context, id) else openApp(context)
+        if (intent.getStringExtra(EXTRA_KIND) == "complete") complete(context, id) else openApp(context, id)
       }
       ACTION_FILTER -> {
         val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
@@ -63,8 +63,11 @@ class DeskdoWidget : AppWidgetProvider() {
 
   private fun complete(context: Context, id: String) {
     val data = WidgetStore.load(context) ?: return
-    val before = WidgetStore.remove(context, id)
+    if (data.items.find { it.id == id }?.completing != false) return // 不在清單上，或已經在處理
+    // 先打勾、把標題劃掉；送出成功後再從清單拿掉（至少停留一下，看得到勾了哪一筆）
+    WidgetStore.setCompleting(context, id, true)
     refreshAll(context)
+    val started = System.currentTimeMillis()
     val pending = goAsync()
     thread {
       val ok = try {
@@ -83,13 +86,17 @@ class DeskdoWidget : AppWidgetProvider() {
       } catch (e: Exception) {
         false
       }
-      if (!ok && before != null) {
-        WidgetStore.save(context, before)
-        refreshAll(context)
+      if (ok) {
+        val wait = COMPLETE_SHOW_MS - (System.currentTimeMillis() - started)
+        if (wait > 0) Thread.sleep(wait)
+        WidgetStore.remove(context, id)
+      } else {
+        WidgetStore.setCompleting(context, id, false)
         Handler(Looper.getMainLooper()).post {
           Toast.makeText(context, "無法連線，沒有完成", Toast.LENGTH_SHORT).show()
         }
       }
+      refreshAll(context)
       pending.finish()
     }
   }
@@ -160,6 +167,9 @@ class DeskdoWidget : AppWidgetProvider() {
     const val EXTRA_KIND = "kind"
     const val EXTRA_VALUE = "value"
 
+    /** 打勾後至少停留多久才從清單拿掉 */
+    private const val COMPLETE_SHOW_MS = 650L
+
     private fun prefs(context: Context) = context.getSharedPreferences("widget_filter", Context.MODE_PRIVATE)
 
     fun refreshAll(context: Context) {
@@ -176,7 +186,9 @@ class DeskdoWidget : AppWidgetProvider() {
       }
     }
 
-    private fun openApp(context: Context) {
+    /** 打開 App 並展開這一筆（App 前端回到前景時透過 WidgetPlugin.takeOpen 拿） */
+    private fun openApp(context: Context, todoId: String) {
+      OpenRequest.todo = todoId
       context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
@@ -404,7 +416,10 @@ class DeskdoWidget : AppWidgetProvider() {
       val high = item.priority == "high"
       val low = item.priority == "low"
       v.setTextViewText(R.id.title, item.title)
-      textColor(context, v, R.id.title, if (low || waitingFor != null) R.color.widget_faint else R.color.widget_text)
+      val faint = low || waitingFor != null || item.completing
+      textColor(context, v, R.id.title, if (faint) R.color.widget_faint else R.color.widget_text)
+      v.setInt(R.id.title, "setPaintFlags", Paint.ANTI_ALIAS_FLAG or (if (item.completing) Paint.STRIKE_THRU_TEXT_FLAG else 0))
+      v.setImageViewResource(R.id.check, if (item.completing) R.drawable.widget_check_done else R.drawable.widget_check)
 
       fun meta(id: Int, show: Boolean, text: String? = null) {
         v.setViewVisibility(id, if (show) View.VISIBLE else View.GONE)
