@@ -149,12 +149,12 @@
       </button>
       {#each groups as g (g.name)}
         <button class="chip" class:on={folder === g.name && !filter} class:open={folder === g.name} onclick={() => pickFolder(g.name)}>
-          <Icon name="folder" size={13} />{g.name}<span class="n">{g.count}</span>
+          <Icon name="folder" size={13} /><span class="clip" title={g.name}>{g.name}</span><span class="n">{g.count}</span>
         </button>
       {/each}
       {#each loose as f (f.tag)}
         <button class="chip" class:on={!folder && filter === f.tag} onclick={() => pickLoose(f.tag)}>
-          #{f.tag}<span class="n">{f.count}</span>
+          <span class="clip" title="#{f.tag}">#{f.tag}</span><span class="n">{f.count}</span>
         </button>
       {/each}
     </nav>
@@ -162,7 +162,7 @@
       <nav class="chips sub-chips" aria-label="「{current.name}」裡的標籤" use:wheelToHorizontal transition:slide={{ duration: 140 }}>
         {#each current.tags as f (f.tag)}
           <button class="chip" class:on={filter === f.tag} onclick={() => pickTag(f.tag)}>
-            #{f.tag}<span class="n">{f.count}</span>
+            <span class="clip" title="#{f.tag}">#{f.tag}</span><span class="n">{f.count}</span>
           </button>
         {/each}
       </nav>
@@ -312,6 +312,10 @@
   .chip:hover {
     color: var(--text);
   }
+  /* 名稱太長時截斷，整排還是可以左右捲動 */
+  .chip .clip {
+    max-width: 11em;
+  }
   .chip .n {
     font-size: 11px;
     opacity: 0.75;
@@ -343,6 +347,7 @@
   .scroll {
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 0 6px 0 8px;
   }
   .loading {

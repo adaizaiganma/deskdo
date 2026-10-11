@@ -245,7 +245,7 @@
             {#if low && !todo.done}
               <span class="mi faint">低優先</span>
             {/if}
-            {#if todo.tag}<span class="mi">#{todo.tag}</span>{/if}
+            {#if todo.tag}<span class="mi tagname" title="#{todo.tag}"><span class="clip">#{todo.tag}</span></span>{/if}
             {#if todo.source === "email"}<span class="mi"><Icon name="mail" size={12} stroke={1.5} />Gmail</span>{/if}
             {#if todo.note && !todo.done}<span class="mi" title={todo.note}><Icon name="note" size={12} stroke={1.5} />備註</span>{/if}
           </span>
@@ -281,8 +281,8 @@
       <div class="field">
         <span class="ficon"><Icon name="hash" size={14} stroke={1.5} /></span>
         {#if todo.tag}
-          <span class="pill on tag-on">
-            #{todo.tag}
+          <span class="pill on tag-on" title="#{todo.tag}">
+            <span class="clip">#{todo.tag}</span>
             <button onclick={() => pickTag(null)} aria-label="移除標籤"><Icon name="close" size={10} stroke={2} /></button>
           </span>
         {/if}
@@ -306,7 +306,7 @@
             {/if}
             {#each tagOptions as tag (tag)}
               <button class="cand" class:cur={todo.tag === tag} onclick={() => pickTag(tag)}>
-                <span class="ctitle">#{tag}</span>
+                <span class="ctitle" title="#{tag}">#{tag}</span>
                 {#if store.folderOf.get(tag)}<span class="ctag">{store.folderOf.get(tag)}</span>{/if}
                 {#if todo.tag === tag}<span class="ctag check">✓</span>{/if}
               </button>
@@ -622,7 +622,15 @@
     white-space: nowrap;
   }
   .tag-on {
+    max-width: 100%;
     padding-right: 4px;
+  }
+  .tag-on button {
+    flex: none;
+  }
+  .tagname {
+    max-width: 100%;
+    min-width: 0;
   }
   .tag-on button {
     width: 18px;

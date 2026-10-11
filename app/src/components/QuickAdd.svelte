@@ -87,10 +87,10 @@
       {/if}
     {:else}
       {#if due}<span class="chip"><Icon name="calendar" size={11} stroke={1.7} />{relativeDue(due, store.today)}</span>{/if}
-      {#if tag}<span class="chip">#{tag}</span>{/if}
+      {#if tag}<span class="chip" title="#{tag}"><span class="clip">#{tag}</span></span>{/if}
       {#if parsed?.priority === "high"}<span class="chip warn">高優先</span>{/if}
       {#if parsed?.priority === "low"}<span class="chip low">低優先</span>{/if}
-      {#if steps && steps.length > 1}<span class="chip">{steps.length} 個步驟：{steps.map((s) => s.title).join(" → ")}</span>{/if}
+      {#if steps && steps.length > 1}<span class="chip"><span class="clip">{steps.length} 個步驟：{steps.map((s) => s.title).join(" → ")}</span></span>{/if}
     {/if}
   </div>
 </div>
@@ -145,6 +145,7 @@
     display: inline-flex;
     gap: 4px;
     align-items: center;
+    max-width: 100%;
     animation: chip-in 0.18s ease;
   }
   .chip.warn {

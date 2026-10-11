@@ -201,6 +201,14 @@ button {
   opacity: 0.55;
   cursor: default;
 }
+/* 太長的名稱（標籤、資料夾）截斷成「…」；放在 flex 容器裡也有效 */
+.clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .link {
   color: var(--accent);
   font-size: 13px;

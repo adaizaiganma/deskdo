@@ -99,7 +99,7 @@
       <div class="tags">
         {#each f.tags as tag (tag)}
           <span class="pill" class:unused={!used.has(tag)} title={used.has(tag) ? "" : "目前沒有待辦用這個標籤"}>
-            #{tag}{#if countOf(tag)}<span class="n">{countOf(tag)}</span>{/if}
+            <span class="clip" title="#{tag}">#{tag}</span>{#if countOf(tag)}<span class="n">{countOf(tag)}</span>{/if}
             <button disabled={locked} onclick={() => takeOut(tag)} aria-label="移出「{tag}」"><Icon name="close" size={11} stroke={2} /></button>
           </span>
         {/each}
@@ -134,7 +134,7 @@
         {#each store.looseTags as tag (tag)}
           <button class="pill" class:on={moving === tag} disabled={locked || !folders.length}
             onclick={() => (moving = moving === tag ? null : tag)}>
-            #{tag}{#if countOf(tag)}<span class="n">{countOf(tag)}</span>{/if}
+            <span class="clip" title="#{tag}">#{tag}</span>{#if countOf(tag)}<span class="n">{countOf(tag)}</span>{/if}
           </button>
         {/each}
       </div>
@@ -258,6 +258,16 @@
     align-items: center;
     gap: 5px;
     color: var(--text);
+  }
+  .pill {
+    max-width: 100%;
+  }
+  .pill .n,
+  .pill button {
+    flex: none;
+  }
+  .pick {
+    max-width: 100%;
   }
   .pill .n {
     font-size: 11px;
