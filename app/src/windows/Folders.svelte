@@ -361,10 +361,17 @@
     {#if w && h}
       <svg width={w} height={h} viewBox="0 0 {W} {H}" aria-hidden="true">
         <defs>
-          <!-- 模糊後把透明度拉陡：靠近的圓會像細胞膜一樣黏在一起 -->
+          <!--
+            形狀：模糊後把透明度拉陡，靠近的圓會像細胞膜一樣黏在一起。
+            顏色：另外模糊得更開，取附近各個圓的平均色（feColorMatrix 處理的是還原透明度之後的顏色），
+            再填進形狀裡，兩個不同顏色的泡泡黏在一起時，接縫是漸層而不是一刀切。
+          -->
           <filter id="goo" filterUnits="userSpaceOnUse" x={-60} y={-60} width={W + 120} height={H + 120} color-interpolation-filters="sRGB">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="9" />
-            <feColorMatrix mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="soft" />
+            <feColorMatrix in="soft" mode="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 22 -9" result="shape" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="28" result="wide" />
+            <feColorMatrix in="wide" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 60 0" result="color" />
+            <feComposite in="color" in2="shape" operator="in" />
           </filter>
         </defs>
 

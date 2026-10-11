@@ -474,13 +474,13 @@
   .folder-row .nav {
     width: 100%;
   }
-  /* 收合箭頭疊在資料夾圖示左邊的留白上 */
+  /* 收合箭頭疊在資料夾圖示左邊的留白上（可點的範圍比箭頭寬，蓋到圖示的一半） */
   .caret {
     position: absolute;
-    left: -8px;
+    left: -10px;
     top: 0;
     bottom: 0;
-    width: 16px;
+    width: 22px;
     z-index: 1;
     display: grid;
     place-items: center;
@@ -666,6 +666,15 @@
   }
   :global(html.mobile) .search {
     height: 40px;
+  }
+  /* 手機：左邊的小箭頭很難點，改放在資料夾那一列的右邊，整個右端都可以點 */
+  :global(html.mobile) .caret {
+    left: auto;
+    right: 0;
+    width: 44px;
+  }
+  :global(html.mobile) .folder-row .nav {
+    padding-right: 44px;
   }
   :global(html.mobile) .search input {
     font-size: 15px;
