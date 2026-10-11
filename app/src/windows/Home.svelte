@@ -2,9 +2,12 @@
   import type { Snippet } from "svelte";
   import Clock from "../components/Clock.svelte";
   import CountdownStrip from "../components/CountdownStrip.svelte";
+  import DashGrid from "../components/DashGrid.svelte";
+  import Icon from "../components/Icon.svelte";
   import Matrix from "../components/Matrix.svelte";
   import TodoPanel from "../components/TodoPanel.svelte";
   import { weekday } from "../lib/dates";
+  import { homeLayout, WIDGETS, type WidgetId } from "../lib/homeLayout.svelte";
   import { homePrefs } from "../lib/homePrefs.svelte";
   import { quoteOf } from "../lib/quotes";
   import { store } from "../lib/store.svelte";
@@ -23,6 +26,9 @@
   export function focus() {
     panel?.focus();
   }
+
+  /** 調整版面：拖曳移動、調整大小、拿掉或加回組件 */
+  let editing = $state(false);
 
   const quote = $derived(quoteOf(today));
   const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
@@ -92,26 +98,47 @@
   }
 </script>
 
-<!-- 外層是 container，下面才能依自己的寬度切換排版 -->
-<div class="wrap">
-<div class="home" class:resizing>
-  <div class="left">
-    {@render top?.()}
-    <div class="hero">
-      <div class="when">
-        <span class="year">{Number(today.slice(0, 4))}年・{weekday(today)}</span>
-        <h1>{Number(today.slice(5, 7))}月{Number(today.slice(8))}日</h1>
-        <span class="summary" class:warn={late > 0}>{summary}</span>
-      </div>
-      <Clock size={120} mode={homePrefs.clock} />
+{#snippet widget(id: WidgetId)}
+  {#if id === "date"}
+    <div class="when">
+      <span class="year">{Number(today.slice(0, 4))}年・{weekday(today)}</span>
+      <h1>{Number(today.slice(5, 7))}月{Number(today.slice(8))}日</h1>
+      <span class="summary" class:warn={late > 0}>{summary}</span>
     </div>
+  {:else if id === "clock"}
+    <div class="clock-box"><Clock size={120} mode={homePrefs.clock} /></div>
+  {:else if id === "quote"}
     <figure class="quote">
       <span class="qlabel">每日一言</span>
       <blockquote>{quote.text}</blockquote>
       <figcaption>— {quote.source}</figcaption>
     </figure>
+  {:else if id === "matrix"}
     <Matrix {today} {matches} onpick={(t) => (store.focus = t.id)} />
+  {:else if id === "countdowns"}
     <CountdownStrip {today} onopen={oncountdowns} />
+  {/if}
+{/snippet}
+
+<!-- 外層是 container，下面才能依自己的寬度切換排版 -->
+<div class="wrap">
+<div class="home" class:resizing>
+  <div class="left">
+    {@render top?.()}
+    <div class="dash-bar">
+      {#if editing}
+        {#each homeLayout.hidden as id (id)}
+          <button class="add-w" onclick={() => homeLayout.add(id)}><Icon name="plus" size={12} stroke={1.8} />{WIDGETS[id].label}</button>
+        {/each}
+        <span class="grow"></span>
+        <button class="tbtn" onclick={() => homeLayout.reset()}>還原預設</button>
+        <button class="done" onclick={() => (editing = false)}>完成</button>
+      {:else}
+        <span class="grow"></span>
+        <button class="tbtn" onclick={() => (editing = true)} title="移動、調整大小、拿掉或加回組件"><Icon name="widget" size={14} />調整版面</button>
+      {/if}
+    </div>
+    <DashGrid {editing} content={widget} />
   </div>
 
   <!-- 可以聚焦的分隔線（ARIA 的 window splitter）：拖曳或用方向鍵調整寬度 -->
@@ -162,17 +189,52 @@
     overflow-y: auto;
     padding: 28px 24px 40px 32px;
   }
-  .hero {
+  /* 工具列：調整版面（編輯時多了加回組件、還原、完成） */
+  .dash-bar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 24px;
-    margin-bottom: 18px;
+    gap: 6px;
+    min-height: 30px;
+    margin-bottom: 20px;
   }
-  .when {
+  .grow {
     flex: 1;
+  }
+  .tbtn,
+  .add-w,
+  .done {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: var(--sub);
+  }
+  .tbtn:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+  .add-w {
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .done {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 500;
+  }
+
+  /* 組件的內容跟著格子的大小縮放（每格是 size container） */
+  .when {
+    height: 100%;
     min-width: 0;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 4px;
   }
   .year {
@@ -183,7 +245,7 @@
   h1 {
     margin: 0;
     white-space: nowrap;
-    font-size: 46px;
+    font-size: clamp(24px, min(13cqw, 38cqh), 56px);
     font-weight: 800;
     line-height: 1.1;
     letter-spacing: 0.01em;
@@ -196,8 +258,26 @@
     color: var(--warn);
   }
 
+  .clock-box {
+    height: 100%;
+    display: grid;
+    place-items: center;
+  }
+  .clock-box :global(.clock) {
+    width: min(100cqw, calc(100cqh - 36px));
+    height: auto;
+  }
+  .clock-box :global(.digital .hm) {
+    font-size: clamp(24px, min(24cqw, 70cqh), 80px);
+  }
   .quote {
-    margin: 0 0 20px;
+    height: 100%;
+    margin: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     padding: 12px 16px;
     border-radius: 12px;
     background: var(--bg2);
@@ -271,19 +351,6 @@
   }
 
   /* 太窄（或手機）：改成上下排，待辦清單放在下面 */
-  /* 左邊比較窄時，日期和時鐘縮小一點 */
-  @container (max-width: 980px) {
-    h1 {
-      font-size: 38px;
-    }
-    .hero :global(.clock) {
-      width: 104px;
-      height: 104px;
-    }
-    .hero :global(.digital .hm) {
-      font-size: 44px;
-    }
-  }
   @container (max-width: 720px) {
     .home {
       flex-direction: column;
@@ -306,8 +373,5 @@
   }
   :global(html.mobile) .left {
     padding: 4px 16px 8px;
-  }
-  :global(html.mobile) h1 {
-    font-size: 38px;
   }
 </style>

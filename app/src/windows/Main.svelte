@@ -40,7 +40,7 @@
   let search = $state<HTMLInputElement>();
   /** 電腦版：側邊欄收合成只剩圖示（每台電腦各自記住） */
   let narrow = $state(readFlag("main.sidebarCollapsed"));
-  /** 電腦版的搜尋框平常收起來，按放大鏡或 Ctrl+F 才打開 */
+  /** 電腦版的搜尋框平常收起來，按 Ctrl+F 才打開 */
   let searchOpen = $state(false);
   const showSearch = $derived(mobile || searchOpen || !!query);
   /** 手機版：側邊欄改成從左邊滑出的抽屜 */
@@ -259,12 +259,9 @@
     <aside class:open={drawer} class:narrow={narrow && !mobile}>
       {#if !mobile}
         <div class="side-top">
-          <button class="icon-btn" onclick={toggleSidebar} aria-label={narrow ? "展開側欄" : "收合側欄"} title={narrow ? "展開側欄" : "收合側欄"} aria-expanded={!narrow}>
+          <button class="icon-btn" onclick={toggleSidebar} aria-label={narrow ? "展開側欄" : "收合側欄"} title={narrow ? "展開側欄" : "收合側欄（Ctrl+F 搜尋）"} aria-expanded={!narrow}>
             <Icon name="menu" size={18} />
           </button>
-          {#if !narrow && !showSearch}
-            <button class="icon-btn" onclick={openSearch} aria-label="搜尋" title="搜尋（Ctrl+F）"><Icon name="search" /></button>
-          {/if}
         </div>
       {/if}
       {#if showSearch && !(narrow && !mobile)}

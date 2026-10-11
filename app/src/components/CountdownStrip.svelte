@@ -24,14 +24,27 @@
       </button>
     {/each}
   </div>
+{:else}
+  <button class="empty" onclick={onopen}>還沒有加到主頁的倒數日，到「倒數日」新增</button>
 {/if}
 
 <style>
   .strip {
+    height: 100%;
+    overflow-y: auto;
     display: flex;
     flex-wrap: wrap;
+    align-content: flex-start;
     gap: 8px;
-    padding: 0 2px 14px;
+    padding: 1px 2px;
+  }
+  .empty {
+    font-size: 12.5px;
+    color: var(--faint);
+    padding: 6px 2px;
+  }
+  .empty:hover {
+    color: var(--accent);
   }
   .cd {
     display: inline-flex;

@@ -14,8 +14,6 @@
   }
   let { today, matches, onpick }: Props = $props();
 
-  /** 每一格最多列幾筆 */
-  const SHOWN = 5;
   const URGENT_DAYS = 2;
 
   const PRIORITY_RANK = { high: 0, normal: 1, low: 2 } as const;
@@ -58,7 +56,7 @@
       <span class="qtitle">{q.title}</span>
       <span class="qcount">{q.items.length}</span>
     </div>
-    {#each q.items.slice(0, SHOWN) as t (t.id)}
+    {#each q.items as t (t.id)}
       {@const due = t.due ? rowDue(t.due, today) : null}
       <button class="item" onclick={() => onpick(t)} title={t.title}>
         <span class="ititle">{t.title}</span>
@@ -67,15 +65,15 @@
     {:else}
       <span class="none">沒有</span>
     {/each}
-    {#if q.items.length > SHOWN}
-      <span class="more">還有 {q.items.length - SHOWN} 項</span>
-    {/if}
   </div>
 {/snippet}
 
 <style>
+  /* 填滿組件的格子；每一格的待辦太多時在格子裡捲動 */
   .matrix {
-    margin-bottom: 18px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
   .cols,
   .grid {
@@ -83,7 +81,13 @@
     grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
   }
+  .grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
   .cols {
+    flex: none;
     margin-bottom: 6px;
     font-size: 11.5px;
     font-weight: 700;
@@ -104,7 +108,8 @@
     flex-direction: column;
     gap: 1px;
     min-width: 0;
-    min-height: 150px;
+    min-height: 0;
+    overflow-y: auto;
     padding: 10px 8px 8px;
     border-radius: 12px;
     background: var(--raised);
@@ -176,8 +181,7 @@
   .idue.soon {
     color: var(--accent);
   }
-  .none,
-  .more {
+  .none {
     padding: 4px 6px;
     font-size: 12px;
     color: var(--faint);
