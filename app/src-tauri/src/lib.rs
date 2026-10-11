@@ -93,7 +93,10 @@ pub fn run() {
             }
             windows::create_main(&handle)?;
             #[cfg(desktop)]
-            windows::refresh_autostart_path(&handle);
+            {
+                windows::refresh_autostart_path(&handle);
+                windows::show_main_if_new_version(&handle);
+            }
             store::emit(&handle);
             store::start_sync(handle.clone());
             updater::start(handle);

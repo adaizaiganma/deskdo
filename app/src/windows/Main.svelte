@@ -3,7 +3,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
   import Calendar from "../components/Calendar.svelte";
-  import CountdownStrip from "../components/CountdownStrip.svelte";
+
   import Icon, { type IconName } from "../components/Icon.svelte";
   import QuickAdd from "../components/QuickAdd.svelte";
   import Toast from "../components/Toast.svelte";
@@ -14,6 +14,7 @@
   import { store } from "../lib/store.svelte";
   import type { Todo } from "../lib/types";
   import Countdowns from "./Countdowns.svelte";
+  import Home from "./Home.svelte";
   import Folders from "./Folders.svelte";
   import Settings from "./Settings.svelte";
   import Setup from "./Setup.svelte";
@@ -128,20 +129,9 @@
       };
     }
     switch (view) {
-      case "home": {
-        const late = list.filter((t) => t.due && t.due < today).length;
-        const due = list.filter((t) => t.due === today).length;
-        return {
-          title: "主頁",
-          sub: [longDate(today), late && `${late} 項逾期`, due && `今天 ${due} 項`].filter(Boolean).join("・"),
-          todos: list.filter((t) => t.due),
-          done: store.doneToday,
-          defaultTag: null,
-          // 主頁只列有期限的待辦，沒寫期限就當成今天，免得新增完就看不到
-          defaultDue: today,
-          empty: "接下來沒有排定期限的待辦\n沒有期限的待辦在「全部」",
-        };
-      }
+      case "home":
+        // 主頁的內容在 Home.svelte，這裡只用標題（手機上方的列）
+        return { title: "主頁", sub: "", todos: [], done: null, defaultTag: null, defaultDue: null, empty: "" };
       case "calendar":
         return { title: "日曆", sub: "", todos: [], done: null, defaultTag: null, defaultDue: null, empty: "" };
       default:
@@ -212,6 +202,19 @@
 </script>
 
 <svelte:window onkeydown={onKey} />
+
+{#snippet banners()}
+  {#if store.appUpdate}
+    <button class="banner" onclick={() => store.installUpdate()} title={store.appUpdate.notes ?? ""}>
+      <Icon name="refresh" size={14} />{#if mobile}Deskdo {store.appUpdate.version} 推出了，按這裡下載並安裝{:else}Deskdo {store.appUpdate.version} 已經下載好，按這裡重新啟動並更新{/if}
+    </button>
+  {/if}
+  {#if store.cloudOutdated}
+    <button class="banner" onclick={() => (wizard = "update")}>
+      <Icon name="sparkle" size={14} />雲端有新版本，按這裡更新（需要登入 Cloudflare）
+    </button>
+  {/if}
+{/snippet}
 
 <div class="app">
   {#if !mobile}<TitleBar />{/if}
@@ -298,6 +301,8 @@
       {/if}
       {#if view === "settings"}
         <div class="scroll"><Settings onsetup={(mode) => (wizard = mode)} /></div>
+      {:else if view === "home"}
+        <Home bind:this={quickAdd} {today} {matches} top={banners} oncountdowns={() => go("countdown")} />
       {:else if view === "countdown"}
         <div class="scroll"><Countdowns {today} /></div>
       {:else if view === "folders"}
@@ -305,23 +310,11 @@
       {:else}
         <div class="scroll">
           <div class="page">
-            {#if store.appUpdate}
-              <button class="banner" onclick={() => store.installUpdate()} title={store.appUpdate.notes ?? ""}>
-                <Icon name="refresh" size={14} />{#if mobile}Deskdo {store.appUpdate.version} 推出了，按這裡下載並安裝{:else}Deskdo {store.appUpdate.version} 已經下載好，按這裡重新啟動並更新{/if}
-              </button>
-            {/if}
-            {#if store.cloudOutdated}
-              <button class="banner" onclick={() => (wizard = "update")}>
-                <Icon name="sparkle" size={14} />雲端有新版本，按這裡更新（需要登入 Cloudflare）
-              </button>
-            {/if}
+            {@render banners()}
             <header class:cal={view === "calendar"}>
               <h1>{page.title}</h1>
               {#if page.sub}<p>{page.sub}</p>{/if}
             </header>
-            {#if view === "home"}
-              <CountdownStrip {today} onopen={() => go("countdown")} />
-            {/if}
             {#if view === "all"}
               <div class="filters" role="tablist" aria-label="篩選">
                 {#each allFilters as f (f.id)}

@@ -74,6 +74,8 @@ pub struct Config {
     /// 視窗位置與大小，實體像素 [x, y, w, h]
     pub widget_bounds: Option<[i32; 4]>,
     pub main_bounds: Option<[i32; 4]>,
+    /// 上次啟動的版本；和現在的版本不同表示剛安裝或剛更新
+    pub last_version: Option<String>,
     /// 保留不認得的欄位（例如更早版本的 desktop_geometry），存檔時原樣寫回
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -89,6 +91,7 @@ impl Default for Config {
             desktop_opacity: 0.92,
             widget_bounds: None,
             main_bounds: None,
+            last_version: None,
             extra: Map::new(),
         }
     }

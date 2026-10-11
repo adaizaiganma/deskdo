@@ -430,6 +430,25 @@ fn restack_widget(w: &WebviewWindow) {
     let _ = w;
 }
 
+/// 剛安裝或剛更新後第一次啟動：打開主視窗。之後開機自動啟動時只顯示桌面小工具
+#[cfg(desktop)]
+pub fn show_main_if_new_version(app: &AppHandle) {
+    let version = app.package_info().version.to_string();
+    let first = {
+        let s = shared(app);
+        let mut c = s.config.lock().unwrap();
+        let first = c.last_version.as_deref() != Some(version.as_str());
+        if first {
+            c.last_version = Some(version);
+            c.save();
+        }
+        first
+    };
+    if first {
+        show_main(app, None);
+    }
+}
+
 #[tauri::command]
 pub fn open_main(app: AppHandle, view: Option<String>) {
     show_main(&app, view.as_deref());
