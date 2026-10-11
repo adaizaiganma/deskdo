@@ -105,13 +105,9 @@ pub fn run() {
         .run(|_app, event| match event {
             // 桌面版：視窗都收起來時不要結束，留在系統匣
             RunEvent::ExitRequested { api, code, .. } if code.is_none() && cfg!(desktop) => api.prevent_exit(),
-            // 手機版回到前景時馬上同步（可能剛在小工具上勾了完成），
-            // 也通知前端看看是不是從小工具點了某一筆進來
+            // 手機版回到前景時馬上同步（可能剛在小工具上勾了完成）
             #[cfg(mobile)]
-            RunEvent::Resumed => {
-                store::shared(_app).wake(true);
-                let _ = tauri::Emitter::emit(_app, "resumed", ());
-            }
+            RunEvent::Resumed => store::shared(_app).wake(true),
             _ => {}
         });
 }

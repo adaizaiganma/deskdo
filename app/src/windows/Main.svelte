@@ -186,11 +186,12 @@
       go("all");
       store.focus = id;
     };
-    const offResumed = mobile ? listen("resumed", openFromWidget) : null;
+    // App 剛啟動時自己拿；原本就在背景時，MainActivity.onResume 會發 deskdo-open
     if (mobile) openFromWidget();
+    addEventListener("deskdo-open", openFromWidget);
     return () => {
       off.then((f) => f());
-      offResumed?.then((f) => f());
+      removeEventListener("deskdo-open", openFromWidget);
     };
   });
 </script>
