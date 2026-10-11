@@ -19,12 +19,11 @@
   let checking = $state(false);
   let draftTitle = $state("");
   let draftNote = $state("");
-  let newTag = $state("");
   let titleInput = $state<HTMLInputElement>();
-  /** 下一步：new = 新增一筆接在後面，link = 從現有的待辦挑一筆 */
-  let stepMode = $state<"new" | "link" | null>(null);
-  let stepText = $state("");
-  let stepInput = $state<HTMLInputElement>();
+  /** 展開的選單：tag = 選標籤，new = 新增下一步，link = 從現有的待辦挑一筆接在後面 */
+  let panel = $state<"tag" | "new" | "link" | null>(null);
+  let query = $state("");
+  let panelInput = $state<HTMLInputElement>();
 
   const sending = $derived(todo.id.startsWith("tmp-"));
   const high = $derived(todo.priority === "high");
@@ -39,13 +38,13 @@
 
   /** 可以接在這一筆後面的待辦：排除自己、目前的下一步，以及它前面的步驟（會繞成圈） */
   const candidates = $derived.by(() => {
-    if (stepMode !== "link") return [];
+    if (panel !== "link") return [];
     const ancestors = new Set<string>();
     for (let p: Todo | undefined = todo; p; p = store.prevOf(p)) {
       if (ancestors.has(p.id)) break;
       ancestors.add(p.id);
     }
-    const q = stepText.trim().toLowerCase();
+    const q = query.trim().toLowerCase();
     return store.allOpen
       .filter((t) => !ancestors.has(t.id) && t.id !== next?.id && !t.id.startsWith("tmp-"))
       .filter((t) => !q || t.title.toLowerCase().includes(q) || t.tag?.toLowerCase().includes(q))
@@ -67,8 +66,7 @@
       if (now && !wasEditing) {
         draftTitle = todo.title;
         draftNote = todo.note ?? "";
-        newTag = "";
-        stepMode = null;
+        panel = null;
         queueMicrotask(() => titleInput?.focus());
       } else if (!now && wasEditing) {
         commit();
@@ -107,10 +105,35 @@
     if (!sending && !todo.done) onedit(todo.id);
   }
 
-  function addTag() {
-    const tag = newTag.trim().replace(/^[#＃]/, "");
-    if (tag) patch({ tag });
-    newTag = "";
+  /** 標籤清單：依資料夾排序，可以搜尋；搜尋的字不是現有標籤時，第一項是「新增」 */
+  const tagQuery = $derived(panel === "tag" ? query.trim().replace(/^[#＃]/, "").trim() : "");
+  const tagOptions = $derived.by(() => {
+    if (panel !== "tag") return [];
+    const q = tagQuery.toLowerCase();
+    return store.orderedTags.filter((t) => !q || t.toLowerCase().includes(q));
+  });
+  const canCreateTag = $derived(!!tagQuery && !store.tags.some((t) => t.toLowerCase() === tagQuery.toLowerCase()));
+
+  function openTags() {
+    panel = panel === "tag" ? null : "tag";
+    query = "";
+    queueMicrotask(() => panelInput?.focus());
+  }
+
+  function pickTag(tag: string | null) {
+    if (tag !== todo.tag) patch({ tag });
+    panel = null;
+  }
+
+  function tagKey(e: KeyboardEvent) {
+    if (e.isComposing) return;
+    if (e.key === "Escape") panel = null;
+    if (e.key === "Enter") {
+      const exact = store.tags.find((t) => t.toLowerCase() === tagQuery.toLowerCase());
+      if (exact) pickTag(exact);
+      else if (canCreateTag) pickTag(tagQuery);
+      else if (tagOptions.length === 1) pickTag(tagOptions[0]);
+    }
   }
 
   function setPriority(p: Todo["priority"]) {
@@ -120,31 +143,31 @@
 
   function startStep(mode: "new" | "link") {
     if (!store.canUseSteps()) return;
-    stepMode = stepMode === mode ? null : mode;
-    stepText = "";
-    queueMicrotask(() => stepInput?.focus());
+    panel = panel === mode ? null : mode;
+    query = "";
+    queueMicrotask(() => panelInput?.focus());
   }
 
   /** 新增下一步；可以用快速新增的語法（@期限、#標籤、!），沒寫標籤就沿用這一筆的 */
   function addStep() {
-    const step = parseQuickAdd(stepText, today);
+    const step = parseQuickAdd(query, today);
     if (!step) return;
     if (step.priority === "low" && !store.canUseLow()) return;
     store.add({ ...(todo.tag ? { tag: todo.tag } : {}), ...step, afterId: todo.id });
-    stepText = "";
-    stepMode = null;
+    query = "";
+    panel = null;
   }
 
   function link(t: Todo) {
     store.update(t.id, { afterId: todo.id });
-    stepMode = null;
+    panel = null;
   }
 
   function stepKey(e: KeyboardEvent) {
     if (e.isComposing) return;
-    if (e.key === "Escape") stepMode = null;
+    if (e.key === "Escape") panel = null;
     if (e.key === "Enter") {
-      if (stepMode === "new") addStep();
+      if (panel === "new") addStep();
       else if (candidates.length === 1) link(candidates[0]);
     }
   }
@@ -257,18 +280,42 @@
       </div>
       <div class="field">
         <span class="ficon"><Icon name="hash" size={14} stroke={1.5} /></span>
-        {#each store.orderedTags as tag (tag)}
-          <button class="pill" class:on={todo.tag === tag} onclick={() => patch({ tag: todo.tag === tag ? null : tag })}>#{tag}</button>
-        {/each}
-        <input
-          class="pill new-tag"
-          placeholder="新標籤"
-          bind:value={newTag}
-          onkeydown={(e) => !e.isComposing && e.key === "Enter" && addTag()}
-          onblur={addTag}
-          aria-label="新標籤"
-        />
+        {#if todo.tag}
+          <span class="pill on tag-on">
+            #{todo.tag}
+            <button onclick={() => pickTag(null)} aria-label="移除標籤"><Icon name="close" size={10} stroke={2} /></button>
+          </span>
+        {/if}
+        <button class="pill" class:on={panel === "tag"} onclick={openTags}>{todo.tag ? "更換標籤" : "選擇標籤"}</button>
       </div>
+      {#if panel === "tag"}
+        <div class="step-box" transition:slide={{ duration: 150 }}>
+          <input
+            class="step-input"
+            bind:this={panelInput}
+            bind:value={query}
+            onkeydown={tagKey}
+            placeholder="搜尋或新增標籤"
+            aria-label="搜尋或新增標籤"
+          />
+          <div class="cands">
+            {#if canCreateTag}
+              <button class="cand" onclick={() => pickTag(tagQuery)}>
+                <span class="ctitle"><Icon name="plus" size={11} stroke={1.8} /> 新增標籤「{tagQuery}」</span>
+              </button>
+            {/if}
+            {#each tagOptions as tag (tag)}
+              <button class="cand" class:cur={todo.tag === tag} onclick={() => pickTag(tag)}>
+                <span class="ctitle">#{tag}</span>
+                {#if store.folderOf.get(tag)}<span class="ctag">{store.folderOf.get(tag)}</span>{/if}
+                {#if todo.tag === tag}<span class="ctag check">✓</span>{/if}
+              </button>
+            {:else}
+              {#if !canCreateTag}<span class="none">還沒有標籤，輸入名稱就能新增</span>{/if}
+            {/each}
+          </div>
+        </div>
+      {/if}
       <div class="field">
         <span class="ficon"><Icon name="flag" size={14} stroke={1.5} /></span>
         <button class="pill" class:warn-on={high} onclick={() => setPriority(high ? "normal" : "high")}>! 高優先</button>
@@ -284,24 +331,24 @@
           <span class="step-info">接著：{next.title}</span>
           <button class="tbtn" onclick={() => store.update(next.id, { afterId: null })}>取消連接</button>
         {/if}
-        <button class="pill" class:on={stepMode === "new"} onclick={() => startStep("new")}>
+        <button class="pill" class:on={panel === "new"} onclick={() => startStep("new")}>
           <Icon name="plus" size={12} stroke={1.8} />{next ? "插入下一步" : "新增下一步"}
         </button>
-        <button class="pill" class:on={stepMode === "link"} onclick={() => startStep("link")}>
+        <button class="pill" class:on={panel === "link"} onclick={() => startStep("link")}>
           <Icon name="link" size={12} stroke={1.6} />連接已有待辦
         </button>
       </div>
-      {#if stepMode}
+      {#if panel === "new" || panel === "link"}
         <div class="step-box" transition:slide={{ duration: 150 }}>
           <input
             class="step-input"
-            bind:this={stepInput}
-            bind:value={stepText}
+            bind:this={panelInput}
+            bind:value={query}
             onkeydown={stepKey}
-            placeholder={stepMode === "new" ? "下一步要做什麼？例如：印預報 @週四" : "搜尋要接在後面的待辦"}
-            aria-label={stepMode === "new" ? "下一步" : "搜尋待辦"}
+            placeholder={panel === "new" ? "下一步要做什麼？例如：印預報 @週四" : "搜尋要接在後面的待辦"}
+            aria-label={panel === "new" ? "下一步" : "搜尋待辦"}
           />
-          {#if stepMode === "link"}
+          {#if panel === "link"}
             <div class="cands">
               {#each candidates as c (c.id)}
                 <button class="cand" onclick={() => link(c)}>
@@ -515,19 +562,6 @@
     outline: none;
     cursor: pointer;
   }
-  .new-tag {
-    width: 76px;
-    border: 0;
-    outline: none;
-  }
-  .new-tag:focus {
-    width: 120px;
-    background: var(--accent-soft);
-    color: var(--text);
-  }
-  .new-tag::placeholder {
-    color: var(--faint);
-  }
   .next {
     font-size: 11.5px;
     color: var(--faint);
@@ -586,6 +620,26 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .tag-on {
+    padding-right: 4px;
+  }
+  .tag-on button {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+  }
+  .tag-on button:hover {
+    background: var(--hover);
+  }
+  .cand.cur .ctitle {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .ctag.check {
+    color: var(--accent);
   }
   .ctag {
     flex: none;
