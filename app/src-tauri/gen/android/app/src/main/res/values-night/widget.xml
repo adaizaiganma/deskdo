@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_bg">#BF202227</color>
+    <color name="widget_text">#FFECEDEF</color>
+    <color name="widget_sub">#FFA3A8B1</color>
+    <color name="widget_faint">#FF8E949C</color>
+    <color name="widget_ring">#FF7D838D</color>
+    <color name="widget_accent">#FF6E9DFF</color>
+    <color name="widget_warn">#FFF2905C</color>
+    <color name="widget_chip">#1FECEDEF</color>
+    <color name="widget_on_accent">#FF1F2126</color>
+    <color name="widget_on_text">#FF1F2126</color>
+    <!-- App 的底色（狀態列、導覽列後面），和網頁的背景色一樣 -->
+    <color name="app_bg">#FF1F2126</color>
+</resources>

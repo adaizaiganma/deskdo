@@ -1,10 +1,11 @@
 //! 待辦資料的本機狀態：輪詢、樂觀更新、失敗時復原。
 //! 兩個視窗共用這一份資料；每次變動都會送出 "state" 事件。
 
+#[cfg(desktop)]
+use crate::tray;
 use crate::{
     api::{self, ApiResult},
     config::{self, Cache, Config},
-    tray,
 };
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
@@ -205,7 +206,10 @@ pub fn snapshot(app: &AppHandle) -> Snapshot {
 
 pub fn emit(app: &AppHandle) {
     let snap = snapshot(app);
+    #[cfg(desktop)]
     tray::update(app, &snap);
+    #[cfg(mobile)]
+    crate::mobile::update_widget(app, &snap);
     let _ = app.emit("state", &snap);
 }
 

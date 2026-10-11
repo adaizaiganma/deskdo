@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mobile } from "../lib/platform";
   import { relativeDue } from "../lib/dates";
   import { parseSteps } from "../lib/quickadd";
   import { store } from "../lib/store.svelte";
@@ -51,7 +52,7 @@
 <div class="quick">
   <label class="box">
     <span class="plus"><Icon name="plus" size={16} stroke={1.8} /></span>
-    <input bind:this={input} bind:value={text} onkeydown={onKey} placeholder="新增待辦，按 Enter 送出" aria-label="新增待辦" />
+    <input bind:this={input} bind:value={text} onkeydown={onKey} placeholder={mobile ? "新增待辦" : "新增待辦，按 Enter 送出"} aria-label="新增待辦" enterkeyhint="send" />
   </label>
   <div class="meta">
     <span class="hint" title="例如：交報告 #電路學 @週五 !">

@@ -26,6 +26,11 @@ const REDIRECT_PORT: u16 = 47613;
 /// 讀帳號、建立與更新 Worker（Workers Editor 只能改既有的 Worker，建立新的要 Admin）、建立與查詢 D1
 const SCOPES: &str = "account-settings.read workers-scripts.admin d1.write";
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+/// 換 token 時連不上網路，最多重試多久（見 exchange）
+const EXCHANGE_RETRY: Duration = Duration::from_secs(3 * 60);
+/// 手機上授權完成頁的「回到 Deskdo」（AndroidManifest.xml 裡 MainActivity 的 deskdo:// 連結）
+#[cfg(mobile)]
+const RETURN_URL: &str = "deskdo://setup";
 
 fn redirect_uri() -> String {
     format!("http://localhost:{REDIRECT_PORT}/callback")
@@ -171,8 +176,34 @@ pub async fn setup_oauth(app: AppHandle) -> Result<Vec<Account>, String> {
     respond(&mut stream, result.is_ok()).await;
     windows::show_main(&app, None);
 
-    let token = exchange(&app, &client_id, &result?, &verifier).await?;
+    let code = result?;
+    let token = exchange_retrying(&app, &client_id, &code, &verifier).await?;
     setup::connect(&app, token).await
+}
+
+/// 連不上 Cloudflare 時一直重試：Android 會切斷背景 App 的網路，
+/// 使用者還在瀏覽器裡時換 token 一定失敗，要等 Deskdo 回到前景
+async fn exchange_retrying(app: &AppHandle, client_id: &str, code: &str, verifier: &str) -> Result<String, String> {
+    let st = app.state::<SetupState>();
+    let deadline = tokio::time::Instant::now() + EXCHANGE_RETRY;
+    loop {
+        match exchange(app, client_id, code, verifier).await {
+            Err(Exchange::Offline) if tokio::time::Instant::now() < deadline => {}
+            Err(Exchange::Offline) => return Err("無法連線到 Cloudflare".into()),
+            Err(Exchange::Failed(e)) => return Err(e),
+            Ok(token) => return Ok(token),
+        }
+        tokio::select! {
+            _ = st.cancel.notified() => return Err("已取消登入".into()),
+            _ = tokio::time::sleep(Duration::from_secs(2)) => {}
+        }
+    }
+}
+
+enum Exchange {
+    /// 請求沒送出去（沒有網路、被系統擋住）
+    Offline,
+    Failed(String),
 }
 
 async fn read_request_line(stream: &mut TcpStream) -> String {
@@ -198,17 +229,26 @@ async fn read_request_line(stream: &mut TcpStream) -> String {
 
 async fn respond(stream: &mut TcpStream, ok: bool) {
     let (title, body) = if ok {
-        ("已連接 Cloudflare", "已完成登入，可以關閉這個分頁，回到 Deskdo 繼續設定。")
+        ("已連接 Cloudflare", if cfg!(mobile) { "已完成登入，回到 Deskdo 繼續設定。" } else { "已完成登入，可以關閉這個分頁，回到 Deskdo 繼續設定。" })
     } else {
         ("登入沒有完成", "請回到 Deskdo 再試一次。")
     };
+    // 手機上 App 要回到前景才能連網（見 exchange），所以給一個直接回去的按鈕，也試著自動切回去
+    #[cfg(mobile)]
+    let back = format!(
+        "<a class=\"btn\" href=\"{RETURN_URL}\">回到 Deskdo</a><script>location.href=\"{RETURN_URL}\"</script>"
+    );
+    #[cfg(desktop)]
+    let back = "";
     let html = format!(
         "<!doctype html><html lang=\"zh-Hant\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\">\
          <title>{title} · Deskdo</title>\
          <style>body{{font:16px system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;\
          background:#f6f6f4;color:#222}}@media(prefers-color-scheme:dark){{body{{background:#1c1d22;color:#eee}}}}\
-         main{{text-align:center;padding:24px}}h1{{font-size:22px;margin:0 0 8px}}p{{opacity:.75}}</style>\
-         <main><h1>{title}</h1><p>{body}</p></main></html>"
+         main{{text-align:center;padding:24px}}h1{{font-size:22px;margin:0 0 8px}}p{{opacity:.75}}\
+         .btn{{display:inline-block;margin-top:12px;padding:12px 28px;border-radius:999px;background:#2563eb;color:#fff;\
+         text-decoration:none;font-weight:600}}</style>\
+         <main><h1>{title}</h1><p>{body}</p>{back}</main></html>"
     );
     let resp = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{html}",
@@ -218,7 +258,7 @@ async fn respond(stream: &mut TcpStream, ok: bool) {
     let _ = stream.shutdown().await;
 }
 
-async fn exchange(app: &AppHandle, client_id: &str, code: &str, verifier: &str) -> Result<String, String> {
+async fn exchange(app: &AppHandle, client_id: &str, code: &str, verifier: &str) -> Result<String, Exchange> {
     let client = crate::store::shared(app).client.clone();
     let resp = client
         .post(TOKEN_URL)
@@ -232,15 +272,15 @@ async fn exchange(app: &AppHandle, client_id: &str, code: &str, verifier: &str) 
         .timeout(Duration::from_secs(30))
         .send()
         .await
-        .map_err(|_| "無法連線到 Cloudflare".to_string())?;
+        .map_err(|_| Exchange::Offline)?;
     let status = resp.status();
     let data: serde_json::Value = resp.json().await.unwrap_or_default();
     match data["access_token"].as_str() {
         Some(t) if status.is_success() => Ok(t.to_string()),
-        _ => Err(format!(
+        _ => Err(Exchange::Failed(format!(
             "Cloudflare 登入失敗：{}",
             data["error_description"].as_str().or(data["error"].as_str()).unwrap_or(status.as_str())
-        )),
+        ))),
     }
 }
 

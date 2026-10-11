@@ -1,21 +1,26 @@
-//! 兩個視窗：釘在桌面的小工具（widget），以及從系統匣開啟的主視窗（main）。
+//! 桌面版有兩個視窗：釘在桌面的小工具（widget），以及從系統匣開啟的主視窗（main）。
+//! 手機版只有全螢幕的 main；桌面專用的指令在手機上什麼都不做。
 
 use crate::{
     api, setup,
     store::{self, shared},
-    tray::TrayItems,
 };
+#[cfg(desktop)]
+use crate::tray::TrayItems;
 use serde::Serialize;
+use std::sync::atomic::Ordering;
+#[cfg(desktop)]
 use std::{
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64},
     time::Duration,
 };
-use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-    Window, WindowEvent,
-};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent};
+#[cfg(desktop)]
+use tauri::{PhysicalPosition, PhysicalSize, WebviewWindow};
+#[cfg(desktop)]
 use tauri_plugin_autostart::ManagerExt;
 
+#[cfg(desktop)]
 pub fn create_widget(app: &AppHandle) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, "widget", WebviewUrl::App("widget.html".into()))
         .title(crate::config::APP_TITLE)
@@ -52,6 +57,13 @@ pub fn create_widget(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(mobile)]
+pub fn create_main(app: &AppHandle) -> tauri::Result<()> {
+    WebviewWindowBuilder::new(app, "main", WebviewUrl::App("main.html".into())).build()?;
+    Ok(())
+}
+
+#[cfg(desktop)]
 pub fn create_main(app: &AppHandle) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("main.html".into()))
         .title(crate::config::APP_TITLE)
@@ -72,6 +84,7 @@ pub fn create_main(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(desktop)]
 fn restore_bounds(w: &WebviewWindow, bounds: Option<[i32; 4]>) -> bool {
     let Some([x, y, bw, bh]) = bounds else { return false };
     if bw < 100 || bh < 100 {
@@ -89,9 +102,11 @@ fn restore_bounds(w: &WebviewWindow, bounds: Option<[i32; 4]>) -> bool {
     visible
 }
 
+#[cfg(desktop)]
 static WIDGET_DARK: AtomicBool = AtomicBool::new(true);
 
 /// 依目前主題與不透明度設定套用毛玻璃；回傳是否支援
+#[cfg(desktop)]
 fn apply_widget_backdrop(app: &AppHandle) -> bool {
     #[cfg(windows)]
     if let Some(w) = app.get_webview_window("widget") {
@@ -105,6 +120,11 @@ fn apply_widget_backdrop(app: &AppHandle) -> bool {
 }
 
 pub fn show_main(app: &AppHandle, view: Option<&str>) {
+    #[cfg(mobile)]
+    if let Some(v) = view {
+        let _ = app.emit_to("main", "navigate", v);
+    }
+    #[cfg(desktop)]
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
         let _ = w.show();
@@ -115,6 +135,7 @@ pub fn show_main(app: &AppHandle, view: Option<&str>) {
     }
 }
 
+#[cfg(desktop)]
 pub fn quit(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -124,6 +145,9 @@ pub fn quit(app: &AppHandle) {
 }
 
 pub fn on_window_event(window: &Window, event: &WindowEvent) {
+    #[cfg(mobile)]
+    let _ = (window, event);
+    #[cfg(desktop)]
     match event {
         WindowEvent::CloseRequested { api, .. } => {
             // 關閉 = 收到系統匣；要結束請用系統匣選單
@@ -139,9 +163,11 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     }
 }
 
+#[cfg(desktop)]
 static BOUNDS_GEN: [AtomicU64; 2] = [AtomicU64::new(0), AtomicU64::new(0)];
 
 /// 拖曳或調整大小停下來 600ms 後才存檔
+#[cfg(desktop)]
 fn schedule_save_bounds(window: &Window) {
     let idx = match window.label() {
         "widget" => 0,
@@ -172,6 +198,7 @@ fn schedule_save_bounds(window: &Window) {
     });
 }
 
+#[cfg(desktop)]
 pub fn refresh_autostart_path(app: &AppHandle) {
     // 若已啟用，更新成目前執行檔的路徑（程式被搬移位置時）
     // 開發版不要動，否則會把正式的開機啟動路徑換成 target\debug 裡的 exe
@@ -186,6 +213,7 @@ pub fn refresh_autostart_path(app: &AppHandle) {
 }
 
 /// 刪除 HKCU\...\Run 裡改名前的「TodoWidget」；原本存在時回傳 true
+#[cfg(desktop)]
 fn remove_legacy_autostart() -> bool {
     #[cfg(windows)]
     unsafe {
@@ -225,6 +253,8 @@ pub struct Prefs {
     /// 測試版（和正式版分開安裝）
     beta: bool,
     app_version: String,
+    /// "windows"、"android"…：前端依此切換手機版版面、隱藏桌面專用的設定
+    platform: &'static str,
 }
 
 fn prefs(app: &AppHandle) -> Prefs {
@@ -238,13 +268,17 @@ fn prefs(app: &AppHandle) -> Prefs {
         poll_seconds: c.poll_seconds,
         show_desktop_widget: c.show_desktop_widget,
         desktop_opacity: c.desktop_opacity,
+        #[cfg(desktop)]
         autostart: app.autolaunch().is_enabled().unwrap_or(false),
+        #[cfg(mobile)]
+        autostart: false,
         done_sync_days: store::DONE_SYNC_DAYS,
         cloud_version: (cloud > 0).then_some(cloud),
         latest_cloud_version: setup::WORKER_VERSION,
         oauth_available: crate::oauth::available(),
         beta: crate::config::BETA,
         app_version: app.package_info().version.to_string(),
+        platform: std::env::consts::OS,
     }
 }
 
@@ -289,6 +323,14 @@ pub async fn save_connection(
 
 #[tauri::command]
 pub fn set_widget_visible(app: AppHandle, visible: bool) {
+    #[cfg(mobile)]
+    let _ = (app, visible);
+    #[cfg(desktop)]
+    set_widget_visible_desktop(app, visible);
+}
+
+#[cfg(desktop)]
+fn set_widget_visible_desktop(app: AppHandle, visible: bool) {
     {
         let s = shared(&app);
         let mut c = s.config.lock().unwrap();
@@ -309,18 +351,33 @@ pub fn set_widget_visible(app: AppHandle, visible: bool) {
 
 #[tauri::command]
 pub fn set_widget_opacity(app: AppHandle, opacity: f64) {
+    #[cfg(desktop)]
     {
         let s = shared(&app);
         let mut c = s.config.lock().unwrap();
         c.desktop_opacity = opacity.clamp(0.0, 1.0);
         c.save();
+        drop(c);
+        apply_widget_backdrop(&app);
+        emit_prefs(&app);
     }
-    apply_widget_backdrop(&app);
-    emit_prefs(&app);
+    #[cfg(mobile)]
+    let _ = (app, opacity);
 }
 
 #[tauri::command]
 pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    #[cfg(mobile)]
+    {
+        let _ = (app, enabled);
+        Err("手機版沒有開機啟動".into())
+    }
+    #[cfg(desktop)]
+    set_autostart_desktop(app, enabled)
+}
+
+#[cfg(desktop)]
+fn set_autostart_desktop(app: AppHandle, enabled: bool) -> Result<(), String> {
     let al = app.autolaunch();
     let r = if enabled { al.enable() } else { al.disable() };
     let now = al.is_enabled().unwrap_or(false);
@@ -334,6 +391,7 @@ pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
 /// 桌面小工具載入完成；依設定決定要不要顯示（避免先閃一個空白視窗）
 #[tauri::command]
 pub fn widget_ready(app: AppHandle) {
+    #[cfg(desktop)]
     if shared(&app).config().show_desktop_widget {
         if let Some(w) = app.get_webview_window("widget") {
             let _ = w.show();
@@ -345,8 +403,16 @@ pub fn widget_ready(app: AppHandle) {
 /// 主題變更時重新套用毛玻璃的底色；回傳是否支援毛玻璃
 #[tauri::command]
 pub fn set_widget_theme(app: AppHandle, dark: bool) -> bool {
-    WIDGET_DARK.store(dark, Ordering::Relaxed);
-    apply_widget_backdrop(&app)
+    #[cfg(desktop)]
+    {
+        WIDGET_DARK.store(dark, Ordering::Relaxed);
+        apply_widget_backdrop(&app)
+    }
+    #[cfg(mobile)]
+    {
+        let _ = (app, dark);
+        false
+    }
 }
 
 /// 主視窗是否套用了 Mica（Windows 10 不支援時前端改用實心背景）
@@ -355,6 +421,7 @@ pub fn get_effects(window: Window) -> bool {
     shared(window.app_handle()).fx_main.load(Ordering::Relaxed)
 }
 
+#[cfg(desktop)]
 fn restack_widget(w: &WebviewWindow) {
     #[cfg(windows)]
     if let Ok(h) = w.hwnd() {
@@ -368,7 +435,22 @@ pub fn open_main(app: AppHandle, view: Option<String>) {
     show_main(&app, view.as_deref());
 }
 
+/// 手機：在主畫面小工具上點了哪一筆待辦（App 打開後展開它）；拿過就清掉。電腦版沒有
+#[tauri::command]
+pub async fn take_widget_todo(app: AppHandle) -> Option<String> {
+    #[cfg(mobile)]
+    return crate::mobile::take_open_todo(&app);
+    #[cfg(desktop)]
+    {
+        let _ = app;
+        None
+    }
+}
+
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
+    #[cfg(desktop)]
     quit(&app);
+    #[cfg(mobile)]
+    let _ = app;
 }

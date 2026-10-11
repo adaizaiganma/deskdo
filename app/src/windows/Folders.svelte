@@ -120,6 +120,23 @@
     return f ? (hueOfFolder.get(f) ?? null) : null;
   }
 
+  /**
+   * 小泡泡外框的顏色：依離各個資料夾多近混色（在資料夾裡就是那個資料夾的顏色，離開越遠越接近灰色），
+   * 跟著位置連續變化，和細胞膜的漸層一致。回傳最近的資料夾顏色和混入的比例（0–1）
+   */
+  /** 兩個泡泡邊緣相距多遠開始混色（細胞膜差不多在這個距離開始黏在一起） */
+  const RING_REACH = 24;
+  function ringOf(t: TagView): { hue: number; mix: number } {
+    let best = { hue: 220, mix: 0 };
+    for (const f of view.folders) {
+      // 兩個圓邊緣之間的距離；負的表示重疊。重疊到大半進去了就完全是資料夾的顏色
+      const gap = Math.hypot(t.x - f.x, t.y - f.y) - f.r - t.r;
+      const mix = Math.min(1, Math.max(0, (RING_REACH - gap) / (RING_REACH + t.r * 1.5)));
+      if (mix > best.mix) best = { hue: f.hue, mix };
+    }
+    return best;
+  }
+
   // ---------- 存檔 ----------
 
   function save(next: Folder[]) {
@@ -361,10 +378,17 @@
     {#if w && h}
       <svg width={w} height={h} viewBox="0 0 {W} {H}" aria-hidden="true">
         <defs>
-          <!-- 模糊後把透明度拉陡：靠近的圓會像細胞膜一樣黏在一起 -->
+          <!--
+            形狀：模糊後把透明度拉陡，靠近的圓會像細胞膜一樣黏在一起。
+            顏色：另外模糊得更開，取附近各個圓的平均色（feColorMatrix 處理的是還原透明度之後的顏色），
+            再填進形狀裡，兩個不同顏色的泡泡黏在一起時，接縫是漸層而不是一刀切。
+          -->
           <filter id="goo" filterUnits="userSpaceOnUse" x={-60} y={-60} width={W + 120} height={H + 120} color-interpolation-filters="sRGB">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="9" />
-            <feColorMatrix mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="soft" />
+            <feColorMatrix in="soft" mode="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 22 -9" result="shape" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="28" result="wide" />
+            <feColorMatrix in="wide" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 60 0" result="color" />
+            <feComposite in="color" in2="shape" operator="in" />
           </filter>
         </defs>
 
@@ -396,13 +420,14 @@
         {#each view.tags as t (t.id)}
           {@const hue = hueOf(t)}
           {@const n = counts.get(t.id) ?? 0}
+          {@const ring = ringOf(t)}
           <g
             class="tag"
             class:loose={hue === null}
             class:lifted={view.drag === t.id}
             class:unused={!n}
             transform="translate({t.x} {t.y})"
-            style="--h:{hue ?? 220}"
+            style="--h:{hue ?? 220}; --rh:{ring.hue}; --rmix:{Math.round(ring.mix * 100)}%"
           >
             <title>#{t.id}{n ? `：${n} 項待辦` : "：目前沒有待辦"}</title>
             <circle r={t.r} />
@@ -572,20 +597,17 @@
   .tag {
     cursor: grab;
   }
+  /* 外框顏色跟著位置漸變（ringOf）：最近的資料夾顏色混入灰色 */
   .tag circle {
     fill: var(--raised);
-    stroke: hsl(var(--h) 55% 72%);
+    stroke: color-mix(in srgb, hsl(var(--rh) 55% 72%) var(--rmix), var(--ring));
     stroke-width: 1.2;
-  }
-  .tag.loose circle {
-    stroke: var(--ring);
   }
   .tag.lifted {
     filter: drop-shadow(0 4px 8px rgba(16, 24, 40, 0.22));
   }
   .tag.lifted circle {
-    stroke: var(--accent);
-    stroke-width: 2;
+    stroke-width: 1.8;
   }
   .tag.unused text {
     fill: var(--faint);
@@ -744,7 +766,7 @@
       fill: hsl(220 8% 25%);
     }
     .tag circle {
-      stroke: hsl(var(--h) 45% 55%);
+      stroke: color-mix(in srgb, hsl(var(--rh) 45% 55%) var(--rmix), var(--ring));
     }
     .pill {
       border-color: hsl(var(--h) 45% 50%);

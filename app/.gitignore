@@ -1,4 +1,5 @@
 node_modules/
 dist/
 src-tauri/target/
-src-tauri/gen/
+# gen/schemas 是建置時產生的；gen/android 是 Android 專案（含小工具的 Kotlin 程式），要進版控
+src-tauri/gen/schemas/

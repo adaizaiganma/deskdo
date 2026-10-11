@@ -10,6 +10,8 @@ class Store {
   prefs = $state<Prefs | null>(null);
   /** 已下載好的新版 App；有值時顯示「重新啟動並更新」 */
   appUpdate = $state<UpdateInfo | null>(null);
+  /** 要展開的待辦（手機上從主畫面小工具點進來）；清單展開它之後清掉 */
+  focus = $state<string | null>(null);
   #localToday = $state(localToday());
 
   /** 跨日時不必等伺服器，本機日期往前就跟著換 */

@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "../lib/links";
   import { localDate, monthDay } from "../lib/dates";
+  import { mobile } from "../lib/platform";
   import { store } from "../lib/store.svelte";
   import type { Connector, Device, UpdateInfo } from "../lib/types";
 
@@ -167,12 +168,12 @@
     </section>
 
     <section class="card">
-      <h2>已連線的電腦</h2>
+      <h2>已連線的裝置</h2>
       {#if devices}
         {#each devices as d (d.id)}
           <div class="toggle-row">
             <div>
-              <div>{d.name}{#if d.current}<span class="tag">這台電腦</span>{/if}</div>
+              <div>{d.name}{#if d.current}<span class="tag">{mobile ? "這支手機" : "這台電腦"}</span>{/if}</div>
               <div class="hint">{seen(d.lastSeenAt)}・{monthDay(localDate(d.createdAt) ?? store.today, store.today)} 加入</div>
             </div>
             {#if !d.current}
@@ -189,7 +190,7 @@
         {:else}
           <p class="hint">這個雲端是用舊版的方式（setup.ps1）部署的，沒有個別的電腦紀錄。</p>
         {/each}
-        <p class="hint">要在另一台電腦使用：安裝 Deskdo，用同一個 Cloudflare 帳號登入即可。移除後，那台電腦就不能再讀寫待辦。</p>
+        <p class="hint">要在另一台電腦或手機使用：安裝 Deskdo，用同一個 Cloudflare 帳號登入即可。移除後，那台裝置就不能再讀寫待辦。</p>
       {/if}
       {#if devicesError}<p class="result bad">{devicesError}</p>{/if}
     </section>
@@ -210,7 +211,12 @@
     </section>
   {/if}
 
-  {#if p}
+  {#if p && mobile}
+    <section class="card">
+      <h2>主畫面小工具</h2>
+      <p class="hint">在手機主畫面長按空白處，選「小工具」，找到 Deskdo 拖到主畫面。小工具會列出待辦，點圓圈就能完成。</p>
+    </section>
+  {:else if p}
     <section class="card">
       <h2>桌面小工具</h2>
       <div class="toggle-row">
@@ -243,6 +249,7 @@
 
     <section class="card">
       <h2>系統</h2>
+      {#if !mobile}
       <div class="toggle-row">
         <div>
           <div>開機時啟動</div>
@@ -250,21 +257,23 @@
         </div>
         <button class="switch" role="switch" aria-checked={p.autostart} aria-label="開機時啟動" onclick={() => setAutostart(!p.autostart)}><span></span></button>
       </div>
+      {/if}
       <div class="toggle-row">
         <div>
           <div>版本 {p.appVersion}{#if p.beta}（測試版）{/if}</div>
           <div class="hint">
-            {#if store.appUpdate}新版 {store.appUpdate.version} 已經下載好
+            {#if store.appUpdate}新版 {store.appUpdate.version} {mobile ? "可以下載了" : "已經下載好"}
             {:else if p.beta}測試版不會自動更新
-            {:else}{updateStatus || "每 6 小時自動檢查一次，有新版會在背景下載"}{/if}
+            {:else}{updateStatus || (mobile ? "每 6 小時自動檢查一次，有新版會提醒你" : "每 6 小時自動檢查一次，有新版會在背景下載")}{/if}
           </div>
         </div>
         {#if store.appUpdate}
-          <button class="primary" onclick={() => store.installUpdate()}>重新啟動並更新</button>
+          <button class="primary" onclick={() => store.installUpdate()}>{mobile ? "下載新版" : "重新啟動並更新"}</button>
         {:else if !p.beta}
           <button class="ghost" onclick={checkUpdate} disabled={updateStatus === "正在檢查…"}>檢查更新</button>
         {/if}
       </div>
+      {#if !mobile}
       <div class="toggle-row">
         <div>
           <div>結束程式</div>
@@ -272,6 +281,7 @@
         </div>
         <button class="ghost" onclick={() => invoke("quit_app")}>結束</button>
       </div>
+      {/if}
     </section>
   {/if}
 
