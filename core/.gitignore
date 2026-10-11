@@ -1,0 +1,3 @@
+node_modules/
+# 單獨對 core/rust 跑 cargo 時的輸出（平常由 desktop 的 target 編譯）
+rust/target/

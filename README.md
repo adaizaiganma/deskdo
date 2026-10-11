@@ -1,8 +1,8 @@
 # Deskdo
 
-貼在 Windows 桌面上的毛玻璃待辦清單，也有 Android 版（含主畫面小工具）。可以單獨使用，也可以透過 MCP 自訂連接器讓 Claude、ChatGPT 等 AI 助理讀寫。
+貼在 Windows 桌面上的毛玻璃待辦清單。Android 版（含主畫面小工具）在另一個 repo：[adaizaiganma/deskdo-android](https://github.com/adaizaiganma/deskdo-android)。可以單獨使用，也可以透過 MCP 自訂連接器讓 Claude、ChatGPT 等 AI 助理讀寫。
 
-**一般使用者**：到宣傳頁（`site/`，網址見 [發布](#4-發布)）或 [GitHub Releases](../../releases/latest) 下載安裝檔（Windows 是 `Deskdo_*_x64-setup.exe`，Android 是 `Deskdo_*_arm64.apk`）。第一次開啟時，設定精靈會帶你登入 Cloudflare，自動在你自己的帳號建立雲端。使用說明在宣傳頁的 `/guide`。
+**一般使用者**：到宣傳頁（`site/`，網址見 [發布](#4-發布)）或 [GitHub Releases](../../releases/latest) 下載安裝檔 `Deskdo_*_x64-setup.exe`（Android 版到 [deskdo-android 的 Releases](https://github.com/adaizaiganma/deskdo-android/releases/latest) 下載 APK）。第一次開啟時，設定精靈會帶你登入 Cloudflare，自動在你自己的帳號建立雲端。使用說明在宣傳頁的 `/guide`。
 
 ```
                          使用者自己的 Cloudflare 帳號
@@ -15,16 +15,17 @@ Deskdo（Windows）──REST────┘
 | 目錄 | 內容 |
 |---|---|
 | `worker/` | Cloudflare Worker（TypeScript）：`/mcp/<密鑰>` 給 AI 助理（任何支援遠端 MCP 的工具）、`/api/*` 給桌面 App |
-| `app/` | Deskdo 桌面 App（Tauri 2 + Svelte 5）：桌面小工具、主視窗、系統匣、設定精靈 |
+| `desktop/` | Deskdo 電腦版（Tauri 2 + Svelte 5）：桌面小工具、主視窗、系統匣 |
+| `core/` | 電腦版和 Android 版共用的核心：`core/src`（前端的 `@deskdo/core`：同步、資料格式、日期、快速新增的解析、倒數日）、`core/rust`（Rust crate `deskdo-core`：同步、設定檔、設定精靈、OAuth） |
 | `site/` | 宣傳頁（純靜態，用 Workers static assets 部署） |
 
 ---
 
 ## 1. 架構重點
 
-### 設定精靈（`app/src-tauri/src/setup.rs`、`cloudflare.rs`、`oauth.rs`）
+### 設定精靈（`core/rust/src/setup.rs`、`cloudflare.rs`、`oauth.rs`）
 
-- 建置時 `build.rs` 會把打包好的 Worker（`worker/dist/index.js`）、`worker/migrations/*.sql`、`WORKER_VERSION` 和 `wrangler.jsonc` 的相容性設定嵌進 exe。
+- 建置時 `core/rust/build.rs` 會把打包好的 Worker（`worker/dist/index.js`）、`worker/migrations/*.sql`、`WORKER_VERSION` 和 `wrangler.jsonc` 的相容性設定嵌進 exe。
 - 精靈用 Cloudflare OAuth（Authorization Code + PKCE，公開用戶端）或使用者貼上的 API token 取得權限，憑證只放在記憶體。
 - 部署步驟：workers.dev 子網域 → D1 → migrations（和 wrangler 相容的 `d1_migrations` 表）→ 登記這台電腦 → 上傳 Worker → 開啟網址 → 確認連線。每一步都可以重複執行，所以「重試」和第二台電腦加入都走同一條路。
 - 雲端已經是相同或更新的 Worker 版本時不會重新上傳，避免舊版 App 把雲端降級。上傳時用 `keep_bindings` 保留既有的 secret。
@@ -71,12 +72,13 @@ npm run dev                         # http://127.0.0.1:8787
 python tests\smoke_test.py          # 另開一個終端機；會清空本機資料庫
 npm run typecheck
 
-# 桌面 App
-cd app
+# 電腦版（core 和 desktop 是同一個 npm workspace，在根目錄安裝）
 npm install
-npm test                            # 快速新增解析
+cd core; npm test; cd ..            # 共用的邏輯（快速新增解析、日期…）
+cd desktop
+npm test
 npm run check                       # Svelte／TypeScript 型別檢查
-cd src-tauri; cargo test; cd ..     # 需要先 npm run build:worker
+cd src-tauri; cargo test -p deskdo -p deskdo-core; cd ..   # 需要先 npm run build:worker
 $env:DESKDO_HOME = "$env:TEMP\deskdo-dev"   # 另一個設定目錄，不影響正式設定
 npx tauri dev                       # 會先打包 Worker；改前端會即時更新
 ```
@@ -100,7 +102,7 @@ npx tauri dev                       # 會先打包 Worker；改前端會即時�
 給還沒發布的改動做實機測試，可以和正式版同時安裝：
 
 ```powershell
-cd app
+cd desktop
 $env:DESKDO_CF_CLIENT_ID = "<client id>"
 .\scripts\build-beta.ps1     # 輸出 Deskdo Beta_<版本>_x64-setup.exe
 ```
@@ -114,7 +116,8 @@ $env:DESKDO_CF_CLIENT_ID = "<client id>"
 - **改了 Worker 的行為或新增 migration**：`worker/src/version.ts` 的 `WORKER_VERSION` +1。已安裝的 App 會依這個數字提示使用者更新雲端。
 - **migration 只能新增**，不要修改已發布的檔案：App 和 wrangler 都靠檔名判斷有沒有套用過。
 - **Worker 要向下相容**：新版 App 可能連到還沒更新的雲端（例如 `/api/info` 不存在時視為版本 1）。
-- App 版本號在 `app/package.json`、`app/src-tauri/Cargo.toml`、`app/src-tauri/tauri.conf.json` 三處。
+- App 版本號在 `desktop/package.json`、`desktop/src-tauri/Cargo.toml`、`desktop/src-tauri/tauri.conf.json` 三處。
+- **改了 `core/`**：Android 版透過 git submodule（`upstream/`）使用這個 repo，要在 deskdo-android 更新 submodule 才會用到新的 core。改 core 時注意兩邊都還能編譯。
 
 ---
 
@@ -126,7 +129,7 @@ Cloudflare 後台 → 管理帳戶 → OAuth clients → 建立：
 
 | 欄位 | 值 |
 |---|---|
-| 名稱、Logo | Deskdo、`app/app-icon.svg` |
+| 名稱、Logo | Deskdo、`desktop/app-icon.svg` |
 | Client URL | 宣傳頁網址（網域要用 DNS TXT 驗證，才能設成 public） |
 | Redirect URI | `http://localhost:47613/callback` |
 | Scopes | Account Settings Read、Workers Admin、D1 Write（`account-settings.read`、`workers-scripts.admin`、`d1.write`），全部設為必要。Workers Editor 只能修改既有的 Worker，建立新的會回 403「No access to the specified resource」，所以要用 Admin |
@@ -141,9 +144,9 @@ git tag v0.6.0
 git push origin v0.6.0
 ```
 
-`.github/workflows/release.yml` 會在 Windows 上建置安裝檔、在 Ubuntu 上建置 Android APK，放進同一個 GitHub Release 草稿，確認後按發布。需要先在 repo 的 Actions 設定 variable `DESKDO_CF_CLIENT_ID`、兩個自動更新的簽章 secret（見下一節）和兩個 APK 簽名 secret（見下面的 Android）。在 Actions 頁面手動執行這個 workflow 時只打包 APK（放在 Artifacts），用來測試流程。
+`.github/workflows/release.yml` 會在 Windows 上建置安裝檔，放進 GitHub Release 草稿，確認後按發布。需要先在 repo 的 Actions 設定 variable `DESKDO_CF_CLIENT_ID` 和兩個自動更新的簽章 secret（見下一節）。
 
-本機建置：`cd app; $env:DESKDO_CF_CLIENT_ID = "<client id>"; npx tauri build`，輸出在 `app\src-tauri\target\release\bundle\nsis\`。因為會一起產生自動更新檔，本機建置也需要簽章私鑰：
+本機建置：`cd desktop; $env:DESKDO_CF_CLIENT_ID = "<client id>"; npx tauri build`，輸出在 `desktop\src-tauri\target\release\bundle\nsis\`。因為會一起產生自動更新檔，本機建置也需要簽章私鑰：
 
 ```powershell
 $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content ~\.tauri\deskdo-updater.key -Raw
@@ -154,9 +157,7 @@ $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = Get-Content ~\.tauri\deskdo-updater.ke
 
 ### Android
 
-- APK 用作者的金鑰簽名：`~\.tauri\deskdo-android.jks`（PKCS12，別名 `deskdo`），密碼在 `deskdo-android.jks.password`。同樣的內容存在 Actions secrets `ANDROID_KEYSTORE_BASE64`（.jks 轉 base64）、`ANDROID_KEYSTORE_PASSWORD`。**請備份**：換了金鑰，已安裝的 App 就不能直接更新，只能解除安裝再重裝。
-- 本機打包：`app/src-tauri/gen/android/keystore.properties`（不進 repo）寫 `storeFile=` 和 `passwordFile=`，Gradle 就會用它簽 release 版（見 `app/build.gradle.kts`）。Windows 沒開「開發人員模式」時 `tauri android build` 建不了 symlink，要自己把 `.so` 複製到 `jniLibs` 再跑 Gradle。
-- 更新：App 會檢查 GitHub `releases/latest` 有沒有新版的 `.apk`，有的話在主畫面提示，按了用瀏覽器下載安裝。
+在另一個 repo：[adaizaiganma/deskdo-android](https://github.com/adaizaiganma/deskdo-android)，有自己的版本號和 Release。
 
 ### 自動更新
 
