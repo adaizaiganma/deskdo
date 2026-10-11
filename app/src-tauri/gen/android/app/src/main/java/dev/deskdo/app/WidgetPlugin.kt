@@ -1,0 +1,21 @@
+package dev.deskdo.app
+
+import android.app.Activity
+import app.tauri.annotation.Command
+import app.tauri.annotation.TauriPlugin
+import app.tauri.plugin.Invoke
+import app.tauri.plugin.Plugin
+
+/**
+ * Rust（src/mobile.rs）每次資料變動時呼叫 update，把小工具要顯示的清單和連線設定整份交過來。
+ * 存起來之後，就算 App 沒在執行（例如重新開機後），小工具也能顯示、勾選完成。
+ */
+@TauriPlugin
+class WidgetPlugin(private val activity: Activity) : Plugin(activity) {
+  @Command
+  fun update(invoke: Invoke) {
+    WidgetStore.save(activity, invoke.getRawArgs())
+    DeskdoWidget.refreshAll(activity)
+    invoke.resolve()
+  }
+}

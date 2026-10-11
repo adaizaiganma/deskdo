@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_title">待辦事項</string>
+    <string name="widget_description">列出待辦事項，點圓圈直接完成</string>
+    <string name="widget_complete">完成</string>
+    <color name="widget_bg">#F5FFFFFF</color>
+    <color name="widget_text">#FF1E2126</color>
+    <color name="widget_sub">#FF5F656E</color>
+    <color name="widget_faint">#FF8E949C</color>
+    <color name="widget_ring">#FFBFC4CB</color>
+    <color name="widget_accent">#FF2563EB</color>
+    <color name="widget_warn">#FFC2410C</color>
+</resources>

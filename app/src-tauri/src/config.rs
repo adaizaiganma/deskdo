@@ -1,4 +1,4 @@
-//! 設定檔與快取，存放在 %APPDATA%\Deskdo。
+//! 設定檔與快取，存放在 %APPDATA%\Deskdo（手機版在 App 的資料目錄）。
 
 use crate::store::{Folder, Todo};
 use serde::{Deserialize, Serialize};
@@ -15,8 +15,16 @@ pub const BETA: bool = cfg!(deskdo_beta);
 /// 視窗標題、系統匣顯示的名稱
 pub const APP_TITLE: &str = if BETA { "待辦事項（測試版）" } else { "待辦事項" };
 
+static DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// 手機版：啟動時用 App 的資料目錄（要在第一次讀設定之前呼叫）
+#[cfg(mobile)]
+pub fn init_dir(dir: PathBuf) {
+    let _ = fs::create_dir_all(&dir);
+    let _ = DIR.set(dir);
+}
+
 pub fn config_dir() -> PathBuf {
-    static DIR: OnceLock<PathBuf> = OnceLock::new();
     DIR.get_or_init(|| {
         // DESKDO_HOME 可覆寫設定目錄（測試用）
         if let Some(dir) = std::env::var_os("DESKDO_HOME").map(PathBuf::from) {
