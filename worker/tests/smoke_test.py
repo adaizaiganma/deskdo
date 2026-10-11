@@ -148,6 +148,60 @@ check(err, "刪除不存在 → isError")
 s, _, _ = api("DELETE", f"/api/todos/{t1['id']}")
 check(s == 204, "REST DELETE → 204")
 
+# --- 低優先度 ---
+s, _, lo = api("POST", "/api/todos", {"title": "低優先項目", "priority": "low"})
+_, _, hi = api("POST", "/api/todos", {"title": "高優先項目", "priority": "high"})
+_, _, no = api("POST", "/api/todos", {"title": "普通項目"})
+check(s == 201 and lo["priority"] == "low", "POST 低優先")
+ids = {lo["id"], hi["id"], no["id"]}
+titles = [t["title"] for t in api("GET", "/api/todos?status=open")[2]["todos"] if t["id"] in ids]
+check(titles == ["高優先項目", "普通項目", "低優先項目"], f"排序：高、普通、低 {titles}")
+err, r = call("update_todo", {"id": no["id"], "priority": "low"})
+check(not err and r["priority"] == "low", "MCP update_todo 設為低優先")
+s, _, _ = api("POST", "/api/todos", {"title": "x", "priority": "urgent"})
+check(s == 400, "未知的優先度 → 400")
+for i in ids:
+    api("DELETE", f"/api/todos/{i}")
+
+# --- 接續的待辦（步驟） ---
+def todo(i):
+    return next(t for t in api("GET", "/api/todos")[2]["todos"] if t["id"] == i)
+
+_, _, A = api("POST", "/api/todos", {"title": "做預報"})
+s, _, B = api("POST", "/api/todos", {"title": "印預報", "afterId": A["id"]})
+check(s == 201 and B["afterId"] == A["id"], "POST afterId：印預報接在做預報後面")
+err, C = call("add_todo", {"title": "檢查預報", "after_id": A["id"]})
+check(not err and C["todo"]["afterId"] == A["id"] and todo(B["id"])["afterId"] == C["todo"]["id"],
+      "MCP add_todo after_id：插在中間（做預報 > 檢查 > 印預報）")
+C = C["todo"]
+err, r = call("list_todos", {})
+w = {t["title"]: t.get("waiting", False) for t in r["todos"]}
+check(not err and not w["做預報"] and w["檢查預報"] and w["印預報"], "list_todos 標記還沒輪到的步驟 waiting=true")
+s, _, b = api("PATCH", f"/api/todos/{A['id']}", {"afterId": B["id"]})
+check(s == 400 and "不能反過來接" in b["error"], "會繞成圈 → 400")
+s, _, _ = api("PATCH", f"/api/todos/{A['id']}", {"afterId": A["id"]})
+check(s == 400, "接在自己後面 → 400")
+s, _, _ = api("POST", "/api/todos", {"title": "x", "afterId": "nope"})
+check(s == 400, "前一步不存在 → 400")
+err, r = call("update_todo", {"id": A["id"], "after_id": "nope"})
+check(err, "MCP update_todo 前一步不存在 → 錯誤訊息")
+err, r = call("complete_todo", {"id": A["id"]})
+check(not err and r["next"]["id"] == C["id"], "MCP complete_todo 回傳接著要做的步驟")
+err, r = call("list_todos", {})
+w = {t["title"]: t.get("waiting", False) for t in r["todos"]}
+check(not w["檢查預報"] and w["印預報"], "完成前一步後，下一步不再等待")
+api("DELETE", f"/api/todos/{C['id']}")
+check(todo(B["id"])["afterId"] == A["id"], "刪掉中間一步，前後自動接起來")
+_, _, D = api("POST", "/api/todos", {"title": "買紙"})
+_, _, E = api("POST", "/api/todos", {"title": "裝訂", "afterId": D["id"]})
+s, _, b = api("PATCH", f"/api/todos/{D['id']}", {"afterId": A["id"]})
+check(s == 200 and b["afterId"] == A["id"] and todo(B["id"])["afterId"] == E["id"] and todo(E["id"])["afterId"] == D["id"],
+      "連接已有待辦：帶著自己的後續步驟插進去（做預報 > 買紙 > 裝訂 > 印預報）")
+s, _, b = api("PATCH", f"/api/todos/{D['id']}", {"afterId": None})
+check(s == 200 and b["afterId"] is None and todo(E["id"])["afterId"] == D["id"], "afterId=null 解除連接，後續步驟仍跟著")
+for t in (A, B, D, E):
+    api("DELETE", f"/api/todos/{t['id']}")
+
 # --- 裝置 token、D1 裡的 MCP 密鑰 ---
 s, _, b = api("GET", "/api/info")
 check(s == 200 and isinstance(b["version"], int), f"GET /api/info version={b['version']}")
@@ -181,6 +235,34 @@ s, _, _ = req("GET", BASE + "/api/todos", headers=dev)
 check(s == 401, "撤銷後 token 失效")
 s, _, _ = api("GET", "/api/nope")
 check(s == 404, "未知的 /api 路徑 → 404")
+
+# --- 標籤資料夾 ---
+s, _, b = api("GET", "/api/folders")
+check(s == 200 and b["folders"] == [], "還沒設定資料夾 → 空清單")
+s, h, _ = api("GET", "/api/todos")
+etag = h.get("ETag")
+s, _, b = api("PUT", "/api/folders", {"folders": [
+    {"name": "課程", "tags": ["#流體力學", "電子學", "流體力學"]},
+    {"name": "專案", "tags": ["電子學", "robotarm"]},
+    {"name": "空的", "tags": []},
+]})
+check(s == 200 and b["folders"] == [
+    {"name": "課程", "tags": ["流體力學", "電子學"]},
+    {"name": "專案", "tags": ["robotarm"]},
+    {"name": "空的", "tags": []},
+], "PUT /api/folders 去掉 #、同一個標籤只留第一個資料夾")
+s, h, b = api("GET", "/api/todos", headers={"If-None-Match": etag})
+check(s == 200 and b["folders"][0]["name"] == "課程", "改了資料夾 → 待辦清單的 ETag 失效並附上資料夾")
+err, r = call("list_todos", {})
+check(not err and r["folders"][1] == {"name": "專案", "tags": ["robotarm"]}, "MCP list_todos 回傳資料夾")
+s, _, _ = api("PUT", "/api/folders", {"folders": [{"name": "A", "tags": []}, {"name": "A", "tags": []}]})
+check(s == 400, "資料夾名稱重複 → 400")
+s, _, _ = api("PUT", "/api/folders", {"folders": [{"name": " ", "tags": []}]})
+check(s == 400, "資料夾名稱空白 → 400")
+s, _, _ = api("PUT", "/api/folders", {})
+check(s == 400, "沒有 folders → 400")
+s, _, b = api("PUT", "/api/folders", {"folders": []})
+check(s == 200 and b["folders"] == [], "清空資料夾")
 d1("DELETE FROM settings;")
 
 print("\nALL PASSED")

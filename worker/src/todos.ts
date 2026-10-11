@@ -8,7 +8,7 @@ export interface Env {
   TIMEZONE?: string;
 }
 
-export type Priority = "high" | "normal";
+export type Priority = "high" | "normal" | "low";
 export type Source = "manual" | "claude" | "email";
 export type Status = "open" | "done" | "all";
 
@@ -25,7 +25,12 @@ export interface Todo {
   updatedAt: string;
   source: Source;
   sourceRef: string | null;
+  /** 前一步的 id；前一步還沒完成時，這一筆要等它 */
+  afterId: string | null;
 }
+
+/** 接續關係不成立（找不到前一步、會繞成圈…），訊息直接給使用者看 */
+export class ChainError extends Error {}
 
 type TodoRow = Omit<Todo, "done"> & { done: number };
 
@@ -53,10 +58,11 @@ export const fields = {
   title: z.string().trim().min(1, "標題不能是空的").max(200),
   due: dateSchema.nullable(),
   tag: nullableText(50),
-  priority: z.enum(["high", "normal"]),
+  priority: z.enum(["high", "normal", "low"]),
   note: nullableText(4000),
   source: z.enum(["manual", "claude", "email"]),
   sourceRef: z.string().trim().min(1).max(200),
+  afterId: z.string().trim().min(1).max(40),
   status: z.enum(["open", "done", "all"]),
 };
 
@@ -68,6 +74,7 @@ export const addSchema = z.object({
   note: fields.note.optional(),
   source: fields.source.optional(),
   sourceRef: fields.sourceRef.optional(),
+  afterId: fields.afterId.optional(),
 });
 export type AddInput = z.infer<typeof addSchema>;
 
@@ -78,6 +85,8 @@ export const patchSchema = z.object({
   priority: fields.priority.optional(),
   note: fields.note.optional(),
   done: z.boolean().optional(),
+  /** 接在哪一筆後面；null 表示不再接在任何一筆後面 */
+  afterId: fields.afterId.nullable().optional(),
 });
 export type PatchInput = z.infer<typeof patchSchema>;
 
@@ -125,7 +134,7 @@ function fromRow(row: TodoRow): Todo {
 }
 
 // 只有前一個語句真的改到資料時才遞增版本號（在同一個 batch 交易中執行）
-const BUMP_VERSION = "UPDATE meta SET value = value + 1 WHERE key = 'version' AND changes() > 0";
+export const BUMP_VERSION = "UPDATE meta SET value = value + 1 WHERE key = 'version' AND changes() > 0";
 
 // ---------- 資料存取 ----------
 
@@ -185,7 +194,7 @@ export async function listTodos(env: Env, f: TodoFilter): Promise<Todo[]> {
     " ORDER BY done ASC," +
     " CASE WHEN done = 1 THEN doneAt END DESC," +
     " CASE WHEN due IS NULL THEN 1 ELSE 0 END, due ASC," +
-    " CASE priority WHEN 'high' THEN 0 ELSE 1 END, createdAt ASC" +
+    " CASE priority WHEN 'high' THEN 0 WHEN 'low' THEN 2 ELSE 1 END, createdAt ASC" +
     ` LIMIT ${limit}`;
 
   const { results } = await env.DB.prepare(sql).bind(...params).all<TodoRow>();
@@ -220,17 +229,27 @@ export async function addTodo(db: D1Database, input: AddInput): Promise<{ todo: 
     updatedAt: now,
     source: input.source ?? "manual",
     sourceRef: input.sourceRef ?? null,
+    afterId: input.afterId ?? null,
   };
+  if (todo.afterId && !(await getTodo(db, todo.afterId))) throw new ChainError("找不到要接在後面的那筆待辦");
 
   try {
     await db.batch([
       db
         .prepare(
-          `INSERT INTO todos (id, title, done, doneAt, due, tag, priority, note, createdAt, updatedAt, source, sourceRef)
-           VALUES (?, ?, 0, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO todos (id, title, done, doneAt, due, tag, priority, note, createdAt, updatedAt, source, sourceRef, afterId)
+           VALUES (?, ?, 0, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(todo.id, todo.title, todo.due, todo.tag, todo.priority, todo.note, now, now, todo.source, todo.sourceRef),
+        .bind(todo.id, todo.title, todo.due, todo.tag, todo.priority, todo.note, now, now, todo.source, todo.sourceRef, todo.afterId),
       db.prepare(BUMP_VERSION),
+      // 前一步原本就有下一步時，插在中間：原本的下一步改接在新的這筆後面
+      ...(todo.afterId
+        ? [
+            db
+              .prepare("UPDATE todos SET afterId = ?, updatedAt = ? WHERE afterId = ? AND id != ?")
+              .bind(todo.id, now, todo.afterId, todo.id),
+          ]
+        : []),
     ]);
   } catch (e) {
     // 兩個請求同時用同一個 sourceRef 新增時，唯一索引會擋下第二個
@@ -266,6 +285,15 @@ export async function updateTodo(db: D1Database, id: string, patch: PatchInput):
     const d = patch.done ? 1 : 0;
     params.push(d, d, now);
   }
+  const extra: D1PreparedStatement[] = [];
+  if (patch.afterId !== undefined) {
+    sets.push("afterId = ?");
+    params.push(patch.afterId);
+    if (patch.afterId !== null) {
+      if (!(await getTodo(db, id))) return null;
+      extra.push(...(await linkAfter(db, id, patch.afterId, now)));
+    }
+  }
   if (sets.length === 0) return getTodo(db, id);
 
   sets.push("updatedAt = ?");
@@ -274,14 +302,60 @@ export async function updateTodo(db: D1Database, id: string, patch: PatchInput):
   const [res] = await db.batch<TodoRow>([
     db.prepare(`UPDATE todos SET ${sets.join(", ")} WHERE id = ? RETURNING *`).bind(...params),
     db.prepare(BUMP_VERSION),
+    ...extra,
   ]);
   const row = res.results[0];
   return row ? fromRow(row) : null;
 }
 
-/** 刪除成功回傳被刪的那筆，找不到回傳 null。 */
+/**
+ * 檢查 id 能不能接在 afterId 後面，回傳要一起執行的語句。
+ * id 會帶著它自己後面的步驟一起移過去；afterId 原本的下一步改接在這串的最後一步後面。
+ */
+async function linkAfter(db: D1Database, id: string, afterId: string, now: string): Promise<D1PreparedStatement[]> {
+  if (afterId === id) throw new ChainError("不能接在自己後面");
+  if (!(await getTodo(db, afterId))) throw new ChainError("找不到要接在後面的那筆待辦");
+  // 往前找 afterId 的每一個前一步，遇到 id 就表示會繞成圈
+  const loop = await db
+    .prepare(
+      `WITH RECURSIVE up(id, afterId) AS (
+         SELECT id, afterId FROM todos WHERE id = ?
+         UNION SELECT t.id, t.afterId FROM todos t JOIN up ON t.id = up.afterId
+       ) SELECT 1 AS hit FROM up WHERE id = ?`,
+    )
+    .bind(afterId, id)
+    .first();
+  if (loop) throw new ChainError("這筆是它的後續步驟，不能反過來接");
+
+  const next = await db
+    .prepare("SELECT id FROM todos WHERE afterId = ? AND id != ?")
+    .bind(afterId, id)
+    .first<{ id: string }>();
+  if (!next) return [];
+  const tail = await db
+    .prepare(
+      `WITH RECURSIVE down(id, depth) AS (
+         SELECT ?, 0
+         UNION SELECT t.id, down.depth + 1 FROM todos t JOIN down ON t.afterId = down.id
+       ) SELECT id FROM down ORDER BY depth DESC LIMIT 1`,
+    )
+    .bind(id)
+    .first<{ id: string }>();
+  return [db.prepare("UPDATE todos SET afterId = ?, updatedAt = ? WHERE id = ?").bind(tail?.id ?? id, now, next.id)];
+}
+
+/** 未完成、而且後面有步驟在等它的待辦 id（這些步驟的下一步還不能做） */
+export async function openPredecessors(db: D1Database): Promise<Set<string>> {
+  const { results } = await db
+    .prepare("SELECT id FROM todos WHERE done = 0 AND id IN (SELECT afterId FROM todos WHERE afterId IS NOT NULL)")
+    .all<{ id: string }>();
+  return new Set(results.map((r) => r.id));
+}
+
+/** 刪除成功回傳被刪的那筆，找不到回傳 null。刪掉中間一步時，前後自動接起來。 */
 export async function deleteTodo(db: D1Database, id: string): Promise<Todo | null> {
-  const [res] = await db.batch<TodoRow>([
+  const [, res] = await db.batch<TodoRow>([
+    db.prepare("UPDATE todos SET afterId = (SELECT afterId FROM todos WHERE id = ?1) WHERE afterId = ?1").bind(id),
     db.prepare("DELETE FROM todos WHERE id = ? RETURNING *").bind(id),
     db.prepare(BUMP_VERSION),
   ]);

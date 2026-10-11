@@ -2,6 +2,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
   import Icon from "../components/Icon.svelte";
+  import { store } from "../lib/store.svelte";
 
   const win = getCurrentWindow();
   let maximized = $state(false);
@@ -23,6 +24,7 @@
       <path d="M9 16.6l5.1 5.1L23.7 11" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
     待辦事項
+    {#if store.prefs?.beta}<span class="beta">測試版</span>{/if}
   </div>
   <div class="controls">
     <button onclick={() => win.minimize()} aria-label="最小化"><Icon name="minimize" size={14} stroke={1.2} /></button>

@@ -43,12 +43,19 @@ Deskdo（Windows）──REST────┘
 | 端點 | 說明 |
 |---|---|
 | `GET /api/todos` | 支援 `If-None-Match`，沒變動時回 304；`?doneDays=N` 只回傳最近 N 天完成的（App 用 30） |
-| `POST /api/todos`、`PATCH /api/todos/:id`、`DELETE /api/todos/:id` | 新增、修改（只改有傳的欄位）、刪除 |
+| `POST /api/todos`、`PATCH /api/todos/:id`、`DELETE /api/todos/:id` | 新增、修改（只改有傳的欄位）、刪除。`afterId` 把待辦接在另一筆後面（見下方「接續的步驟」） |
+| `GET /api/folders`、`PUT /api/folders` | 標籤資料夾（整份取代；`GET /api/todos` 也會附上 `folders`）。存在 D1 `settings` 的 `tag_folders`，只影響顯示 |
 | `GET /api/info` | Worker 版本 |
 | `GET /api/connector`、`POST /api/connector/rotate` | AI 連接器網址、更換 |
 | `GET /api/devices`、`DELETE /api/devices/:id` | 已連線的電腦、撤銷 |
 
-MCP 工具（`worker/src/mcp.ts`）：`list_todos`、`add_todo`（`source_ref` 去重）、`update_todo`、`complete_todo`、`delete_todo`。
+**接續的步驟**（Worker v5，`todos.afterId`）：`afterId` 指向前一步，前一步還沒完成時，App 不顯示這一筆，也不算進數量。每筆最多一個前一步和一個下一步，由 Worker 維護：
+
+- 接到已經有下一步的待辦後面時，會插在中間。
+- 連接已有的待辦時，它後面的步驟會一起移過去；會繞成圈時回 400。
+- 刪掉中間一步時，前後自動接起來。
+
+MCP 工具（`worker/src/mcp.ts`）：`list_todos`（也回傳 `tags`、`folders`，還沒輪到的步驟標 `waiting`）、`add_todo`（`source_ref` 去重）、`update_todo`、`complete_todo`、`delete_todo`。
 
 ---
 
@@ -88,6 +95,18 @@ npx tauri dev                       # 會先打包 Worker；改前端會即時�
 
 `DESKDO_DEV_CF_TOKEN` 可以用 `npx wrangler login` 之後 wrangler 存的 OAuth token。測完記得到 Cloudflare 後台刪掉 `deskdo-test` 的 Worker 和 D1。
 
+### 測試版（Deskdo Beta）
+
+給還沒發布的改動做實機測試，可以和正式版同時安裝：
+
+```powershell
+cd app
+$env:DESKDO_CF_CLIENT_ID = "<client id>"
+.\scripts\build-beta.ps1     # 輸出 Deskdo Beta_<版本>_x64-setup.exe
+```
+
+測試版用自己的 identifier（`dev.deskdo.beta`）、設定目錄（`%APPDATA%\Deskdo Beta`）和雲端（`deskdo-beta`），標題列標示「測試版」，不會自動更新。
+
 ---
 
 ## 3. 改版注意事項
@@ -122,11 +141,25 @@ git tag v0.4.0
 git push origin v0.4.0
 ```
 
-`.github/workflows/release.yml` 會在 Windows 上建置並建立 GitHub Release 草稿，確認後按發布。需要先在 repo 的 Actions variables 設定 `DESKDO_CF_CLIENT_ID`。
+`.github/workflows/release.yml` 會在 Windows 上建置並建立 GitHub Release 草稿，確認後按發布。需要先在 repo 的 Actions 設定 variable `DESKDO_CF_CLIENT_ID` 和兩個簽章 secret（見下一節）。
 
-本機建置：`cd app; $env:DESKDO_CF_CLIENT_ID = "<client id>"; npx tauri build`，輸出在 `app\src-tauri\target\release\bundle\nsis\`。
+本機建置：`cd app; $env:DESKDO_CF_CLIENT_ID = "<client id>"; npx tauri build`，輸出在 `app\src-tauri\target\release\bundle\nsis\`。因為會一起產生自動更新檔，本機建置也需要簽章私鑰：
+
+```powershell
+$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content ~\.tauri\deskdo-updater.key -Raw
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = Get-Content ~\.tauri\deskdo-updater.key.password -Raw
+```
 
 安裝檔沒有程式碼簽章，使用者會看到 SmartScreen 警告（宣傳頁的常見問題有說明）。
+
+### 自動更新
+
+**發布 Release 就等於推送更新。** 已安裝的正式版會讀 `https://github.com/adaizaiganma/deskdo/releases/latest/download/latest.json`（由 tauri-action 產生），在背景下載新版，使用者按「重新啟動並更新」（主視窗提示、小工具 `⋯` 選單、系統匣選單或設定頁）就會安裝並重新開啟。草稿和 pre-release 不會被當成最新版。
+
+- App 啟動 20 秒後檢查一次，之後每 6 小時一次；設定頁也可以手動「檢查更新」。開發版和測試版（Deskdo Beta）不自動更新。
+- 更新檔用作者的私鑰簽章，App 用 `tauri.conf.json` 裡的公鑰驗證，簽章不符就不安裝。
+- 私鑰：`~\.tauri\deskdo-updater.key`，密碼在 `deskdo-updater.key.password`。同樣的內容存在 repo 的 Actions secrets `TAURI_SIGNING_PRIVATE_KEY`、`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。**請備份到密碼管理器**：私鑰遺失後，已安裝的 App 就收不到更新，只能請使用者手動重裝。
+- 雲端 Worker 不會跟著自動更新：新版 App 內建較新的 Worker 時，主視窗會出現「雲端有新版本」，使用者登入 Cloudflare 後更新。
 
 ### 宣傳頁
 

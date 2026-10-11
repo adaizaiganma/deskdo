@@ -201,10 +201,30 @@ button {
   opacity: 0.55;
   cursor: default;
 }
+/* 太長的名稱（標籤、資料夾）截斷成「…」；放在 flex 容器裡也有效 */
+.clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .link {
   color: var(--accent);
   font-size: 13px;
 }
 .link:hover {
   text-decoration: underline;
+}
+
+/* 測試版標示（標題列、小工具標題） */
+.beta {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
 }

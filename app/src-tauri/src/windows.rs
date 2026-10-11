@@ -18,7 +18,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 pub fn create_widget(app: &AppHandle) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, "widget", WebviewUrl::App("widget.html".into()))
-        .title("待辦事項")
+        .title(crate::config::APP_TITLE)
         .decorations(false)
         .transparent(true)
         .shadow(true)
@@ -54,7 +54,7 @@ pub fn create_widget(app: &AppHandle) -> tauri::Result<()> {
 
 pub fn create_main(app: &AppHandle) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("main.html".into()))
-        .title("待辦事項")
+        .title(crate::config::APP_TITLE)
         .decorations(false)
         .transparent(true)
         .shadow(true)
@@ -222,6 +222,9 @@ pub struct Prefs {
     latest_cloud_version: u32,
     /// 這個版本有沒有設定「使用 Cloudflare 登入」（沒有時精靈只能貼 API token）
     oauth_available: bool,
+    /// 測試版（和正式版分開安裝）
+    beta: bool,
+    app_version: String,
 }
 
 fn prefs(app: &AppHandle) -> Prefs {
@@ -240,6 +243,8 @@ fn prefs(app: &AppHandle) -> Prefs {
         cloud_version: (cloud > 0).then_some(cloud),
         latest_cloud_version: setup::WORKER_VERSION,
         oauth_available: crate::oauth::available(),
+        beta: crate::config::BETA,
+        app_version: app.package_info().version.to_string(),
     }
 }
 

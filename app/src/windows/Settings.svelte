@@ -5,7 +5,7 @@
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "../lib/links";
   import { localDate, monthDay } from "../lib/dates";
   import { store } from "../lib/store.svelte";
-  import type { Connector, Device } from "../lib/types";
+  import type { Connector, Device, UpdateInfo } from "../lib/types";
 
   /** 開啟設定精靈（new：第一次設定；update：更新雲端） */
   let { onsetup }: { onsetup: (mode: "new" | "update") => void } = $props();
@@ -43,6 +43,19 @@
       result = { ok: false, text: `已儲存，但連線失敗：${err}` };
     } finally {
       testing = false;
+    }
+  }
+
+  let updateStatus = $state("");
+
+  async function checkUpdate() {
+    updateStatus = "正在檢查…";
+    try {
+      const found = await invoke<UpdateInfo | null>("check_update");
+      if (found) store.appUpdate = found;
+      updateStatus = found ? "" : "已是最新版本";
+    } catch (e) {
+      updateStatus = String(e);
     }
   }
 
@@ -236,6 +249,21 @@
           <div class="hint">登入 Windows 後自動在系統匣執行</div>
         </div>
         <button class="switch" role="switch" aria-checked={p.autostart} aria-label="開機時啟動" onclick={() => setAutostart(!p.autostart)}><span></span></button>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div>版本 {p.appVersion}{#if p.beta}（測試版）{/if}</div>
+          <div class="hint">
+            {#if store.appUpdate}新版 {store.appUpdate.version} 已經下載好
+            {:else if p.beta}測試版不會自動更新
+            {:else}{updateStatus || "每 6 小時自動檢查一次，有新版會在背景下載"}{/if}
+          </div>
+        </div>
+        {#if store.appUpdate}
+          <button class="primary" onclick={() => store.installUpdate()}>重新啟動並更新</button>
+        {:else if !p.beta}
+          <button class="ghost" onclick={checkUpdate} disabled={updateStatus === "正在檢查…"}>檢查更新</button>
+        {/if}
       </div>
       <div class="toggle-row">
         <div>

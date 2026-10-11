@@ -5,18 +5,27 @@ export interface Todo {
   doneAt: string | null;
   due: string | null; // YYYY-MM-DD
   tag: string | null;
-  priority: "high" | "normal";
+  priority: Priority;
   note: string | null;
   createdAt: string;
   updatedAt: string;
   source: "manual" | "claude" | "email";
   sourceRef: string | null;
+  /** 前一步的 id；前一步還沒完成時，這一筆先不顯示（雲端版本 5 起） */
+  afterId?: string | null;
 }
 
 export type SyncStatus = "syncing" | "ok" | "offline" | "error";
 
+/** 標籤資料夾：只影響顯示，每筆待辦仍然只有一個標籤 */
+export interface Folder {
+  name: string;
+  tags: string[];
+}
+
 export interface Snapshot {
   todos: Todo[];
+  folders: Folder[];
   today: string;
   status: SyncStatus;
   message: string;
@@ -39,6 +48,15 @@ export interface Prefs {
   latestCloudVersion: number;
   /** 這個版本能不能「使用 Cloudflare 登入」 */
   oauthAvailable: boolean;
+  /** 測試版（Deskdo Beta，和正式版分開安裝） */
+  beta: boolean;
+  appVersion: string;
+}
+
+/** 已經下載好、等使用者按「更新」的新版 App */
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
 }
 
 // ---- 設定精靈 ----
@@ -83,12 +101,15 @@ export interface Device {
   current: boolean;
 }
 
-export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "tag" | "priority" | "note" | "done">>;
+export type Priority = "high" | "normal" | "low";
+
+export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "tag" | "priority" | "note" | "done" | "afterId">>;
 
 export interface NewTodo {
   title: string;
   due?: string;
   tag?: string;
-  priority?: "high";
+  priority?: "high" | "low";
   note?: string;
+  afterId?: string;
 }

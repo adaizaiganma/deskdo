@@ -1,12 +1,19 @@
 //! 設定檔與快取，存放在 %APPDATA%\Deskdo。
 
-use crate::store::Todo;
+use crate::store::{Folder, Todo};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path, path::PathBuf, sync::OnceLock};
 
 /// 改名前（TodoWidget）的設定目錄名稱；第一次啟動時把設定搬過來
 const LEGACY_DIR: &str = "TodoWidget";
+
+/// 測試版（建置時設定 DESKDO_CHANNEL=beta，見 scripts/build-beta.ps1）：
+/// 設定目錄、雲端名稱都和正式版分開，兩個可以同時安裝
+pub const BETA: bool = cfg!(deskdo_beta);
+
+/// 視窗標題、系統匣顯示的名稱
+pub const APP_TITLE: &str = if BETA { "待辦事項（測試版）" } else { "待辦事項" };
 
 pub fn config_dir() -> PathBuf {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
@@ -20,9 +27,13 @@ pub fn config_dir() -> PathBuf {
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
-        let dir = base.join("Deskdo");
+        // DESKDO_CONFIG_DIR（建置時）可以改目錄名稱，給測試自動更新之類的特殊建置用
+        let name = option_env!("DESKDO_CONFIG_DIR").unwrap_or(if BETA { "Deskdo Beta" } else { "Deskdo" });
+        let dir = base.join(name);
         let _ = fs::create_dir_all(&dir);
-        migrate_legacy(&base.join(LEGACY_DIR), &dir);
+        if name == "Deskdo" {
+            migrate_legacy(&base.join(LEGACY_DIR), &dir);
+        }
         dir
     })
     .clone()
@@ -99,6 +110,7 @@ impl Config {
 pub struct Cache {
     pub today: Option<String>,
     pub todos: Vec<Todo>,
+    pub folders: Vec<Folder>,
 }
 
 pub fn load_cache() -> Option<Cache> {

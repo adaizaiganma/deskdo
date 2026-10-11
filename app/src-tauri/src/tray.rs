@@ -1,6 +1,6 @@
 //! 系統匣圖示：圓角方塊加勾號，右下角顯示「今天到期＋逾期」的件數，有逾期時變紅。
 
-use crate::{store::Snapshot, windows};
+use crate::{config::APP_TITLE, store::Snapshot, windows};
 use std::sync::{Mutex, OnceLock};
 use tauri::{
     image::Image,
@@ -16,6 +16,8 @@ const SIZE: u32 = 32;
 pub struct TrayItems {
     pub widget: CheckMenuItem<Wry>,
     pub autostart: CheckMenuItem<Wry>,
+    /// 「檢查更新」；下載好新版後變成「重新啟動以更新到 x.y.z」
+    pub update: MenuItem<Wry>,
     badge: Mutex<Option<(u32, bool)>>,
 }
 
@@ -25,6 +27,7 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
     let sync = MenuItem::with_id(app, "sync", "立即同步", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "設定…", true, None::<&str>)?;
     let auto = CheckMenuItem::with_id(app, "autostart", "開機時啟動", true, autostart, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", "檢查更新", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "結束", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
@@ -36,6 +39,7 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
             &PredefinedMenuItem::separator(app)?,
             &settings,
             &auto,
+            &update,
             &PredefinedMenuItem::separator(app)?,
             &quit,
         ],
@@ -43,7 +47,7 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(render(None))
-        .tooltip("待辦事項")
+        .tooltip(APP_TITLE)
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, e| match e.id().as_ref() {
@@ -58,6 +62,7 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
                 let on = app.state::<TrayItems>().autostart.is_checked().unwrap_or(false);
                 let _ = windows::set_autostart(app.clone(), on);
             }
+            "update" => crate::updater::tray_clicked(app),
             "quit" => windows::quit(app),
             _ => {}
         })
@@ -68,7 +73,11 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
         })
         .build(app)?;
 
-    app.manage(TrayItems { widget, autostart: auto, badge: Mutex::new(None) });
+    // 開發版和測試版不自動更新，選單裡就不放這一項
+    if cfg!(debug_assertions) || crate::config::BETA {
+        let _ = menu.remove(&update);
+    }
+    app.manage(TrayItems { widget, autostart: auto, update, badge: Mutex::new(None) });
     Ok(())
 }
 
@@ -76,7 +85,13 @@ pub fn update(app: &AppHandle, snap: &Snapshot) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else { return };
     let Some(items) = app.try_state::<TrayItems>() else { return };
     let today = snap.today.as_str();
-    let open: Vec<_> = snap.todos.iter().filter(|t| !t.done).collect();
+    // 前一步還沒完成的步驟還不能做，不算進去
+    let open_ids: std::collections::HashSet<&str> = snap.todos.iter().filter(|t| !t.done).map(|t| t.id.as_str()).collect();
+    let open: Vec<_> = snap
+        .todos
+        .iter()
+        .filter(|t| !t.done && !t.after_id.as_deref().is_some_and(|p| open_ids.contains(p)))
+        .collect();
     let overdue = open.iter().filter(|t| t.due.as_deref().is_some_and(|d| d < today)).count() as u32;
     let due_today = open.iter().filter(|t| t.due.as_deref() == Some(today)).count() as u32;
 
@@ -87,7 +102,7 @@ pub fn update(app: &AppHandle, snap: &Snapshot) {
         let _ = tray.set_icon(Some(render(badge)));
     }
 
-    let mut tip = format!("待辦事項：{} 項未完成", open.len());
+    let mut tip = format!("{APP_TITLE}：{} 項未完成", open.len());
     if due_today > 0 {
         tip += &format!("\n今天到期 {due_today} 項");
     }
