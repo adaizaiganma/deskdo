@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
+  import Calendar from "../components/Calendar.svelte";
   import Icon, { type IconName } from "../components/Icon.svelte";
   import QuickAdd from "../components/QuickAdd.svelte";
   import Toast from "../components/Toast.svelte";
@@ -17,7 +18,7 @@
   import SyncStatus from "./SyncStatus.svelte";
   import TitleBar from "./TitleBar.svelte";
 
-  type View = "all" | "today" | "upcoming" | "nodue" | "done" | "settings" | "folders" | `tag:${string}` | `folder:${string}`;
+  type View = "all" | "today" | "upcoming" | "calendar" | "nodue" | "done" | "settings" | "folders" | `tag:${string}` | `folder:${string}`;
 
   let view = $state<View>("all");
   /**
@@ -28,7 +29,8 @@
   let wizard = $state<"new" | "update" | null>(null);
   let query = $state("");
   let showDone = $state(false);
-  let quickAdd = $state<ReturnType<typeof QuickAdd>>();
+  /** 目前頁面的快速新增（日曆頁的在日曆裡），Ctrl+N 用 */
+  let quickAdd = $state<{ focus(): void }>();
   let search = $state<HTMLInputElement>();
   /** 手機版：側邊欄改成從左邊滑出的抽屜 */
   let drawer = $state(false);
@@ -47,6 +49,7 @@
   const nav: { id: View; label: string; icon: IconName; count: () => number }[] = [
     { id: "today", label: "今天", icon: "sun", count: () => open.filter((t) => t.due && t.due <= today).length },
     { id: "upcoming", label: "即將到來", icon: "upcoming", count: () => open.filter((t) => t.due && t.due > today).length },
+    { id: "calendar", label: "日曆", icon: "calendar", count: () => 0 },
     { id: "all", label: "全部", icon: "inbox", count: () => open.length },
     { id: "nodue", label: "沒有期限", icon: "tray", count: () => open.filter((t) => !t.due).length },
     { id: "done", label: "已完成", icon: "done", count: () => 0 },
@@ -134,6 +137,8 @@
           defaultDue: null,
           empty: "接下來沒有排定期限的待辦",
         };
+      case "calendar":
+        return { title: "日曆", sub: "", todos: [], done: null, defaultTag: null, defaultDue: null, empty: "" };
       case "nodue":
         return { title: "沒有期限", sub: "", todos: list.filter((t) => !t.due), done: null, defaultTag: null, defaultDue: null, empty: "每件事都排好期限了" };
       case "done":
@@ -298,10 +303,13 @@
                 <Icon name="sparkle" size={14} />雲端有新版本，按這裡更新（需要登入 Cloudflare）
               </button>
             {/if}
-            <header>
+            <header class:cal={view === "calendar"}>
               <h1>{page.title}</h1>
               {#if page.sub}<p>{page.sub}</p>{/if}
             </header>
+            {#if view === "calendar"}
+              <Calendar bind:this={quickAdd} {today} {matches} searching={!!query.trim()} />
+            {:else}
             {#if view !== "done"}
               <QuickAdd bind:this={quickAdd} defaultTag={page.defaultTag} defaultDue={page.defaultDue} />
             {/if}
@@ -316,6 +324,7 @@
                 emptyText={query.trim() ? `找不到「${query.trim()}」` : page.empty}
               />
             {/key}
+            {/if}
           </div>
         </div>
       {/if}
@@ -473,14 +482,15 @@
   }
   .folder-row .nav {
     width: 100%;
+    padding-right: 30px;
   }
-  /* 收合箭頭疊在資料夾圖示左邊的留白上（可點的範圍比箭頭寬，蓋到圖示的一半） */
+  /* 收合箭頭放在資料夾那一列的右端（數字的右邊），整個右端都可以點 */
   .caret {
     position: absolute;
-    left: -10px;
+    right: 0;
     top: 0;
     bottom: 0;
-    width: 22px;
+    width: 30px;
     z-index: 1;
     display: grid;
     place-items: center;
@@ -636,6 +646,10 @@
   :global(html.mobile) .page header {
     padding-bottom: 10px;
   }
+  /* 日曆的月份列已經在最上面 */
+  :global(html.mobile) .page header.cal {
+    display: none;
+  }
   :global(html.mobile) aside {
     position: fixed;
     z-index: 30;
@@ -667,10 +681,8 @@
   :global(html.mobile) .search {
     height: 40px;
   }
-  /* 手機：左邊的小箭頭很難點，改放在資料夾那一列的右邊，整個右端都可以點 */
+  /* 手機：手指點的範圍再寬一點 */
   :global(html.mobile) .caret {
-    left: auto;
-    right: 0;
     width: 44px;
   }
   :global(html.mobile) .folder-row .nav {

@@ -45,7 +45,7 @@
   }
   closeOnBack("editor", () => !!editingId, () => setEditing(null));
 
-  // 從主畫面小工具點進來的那一筆：展開並捲到畫面中間。剛打開 App 時資料可能還沒載入，等找到為止
+  // 要展開的那一筆（從主畫面小工具或日曆點進來）：展開並捲到看得到的地方。剛打開 App 時資料可能還沒載入，等找到為止
   $effect(() => {
     const id = store.focus;
     if (!id) return;
@@ -59,7 +59,7 @@
       if (t.done) return;
       setEditing(id);
       // 等展開的動畫跑完再捲，位置才準
-      setTimeout(() => document.querySelector(`[data-row="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 240);
+      setTimeout(() => document.querySelector(`[data-row="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 240);
     });
   });
   /**

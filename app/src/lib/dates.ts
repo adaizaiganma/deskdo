@@ -137,3 +137,28 @@ export function localDate(iso: string | null): string | null {
   if (Number.isNaN(d.getTime())) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+/** "2026-10" 加減 n 個月 */
+export function addMonths(month: string, n: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const i = y * 12 + m - 1 + n;
+  return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`;
+}
+
+/** 月曆的格子：從 1 號那一週的週一，到月底那一週的週日 */
+export function monthGrid(month: string): string[] {
+  const first = `${month}-01`;
+  const last = addDays(`${addMonths(month, 1)}-01`, -1);
+  const start = addDays(first, -mondayIndex(first));
+  const end = addDays(last, 6 - mondayIndex(last));
+  return Array.from({ length: diffDays(start, end) + 1 }, (_, i) => addDays(start, i));
+}
+
+/** 日曆選到的那一天：今天／明天／昨天／3 天後／3 天前 */
+export function dayDistance(day: string, today: string): string {
+  const n = diffDays(today, day);
+  if (n === 0) return "今天";
+  if (n === 1) return "明天";
+  if (n === -1) return "昨天";
+  return n > 0 ? `${n} 天後` : `${-n} 天前`;
+}
