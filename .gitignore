@@ -1,4 +1,5 @@
-# 子目錄各自有 .gitignore（app/、worker/），這裡只放共通的
+# 子目錄各自有 .gitignore（desktop/、core/、worker/），這裡只放共通的
+node_modules/
 Thumbs.db
 desktop.ini
 .DS_Store

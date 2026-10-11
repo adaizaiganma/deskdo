@@ -1,0 +1,7 @@
+node_modules/
+dist/
+src-tauri/target/
+# 測試版（Deskdo Beta）另外建置的輸出
+src-tauri/target-beta/
+# gen/schemas 是建置時產生的
+src-tauri/gen/schemas/

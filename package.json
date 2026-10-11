@@ -1,0 +1,8 @@
+{
+  "name": "deskdo-workspace",
+  "private": true,
+  "workspaces": [
+    "core",
+    "desktop"
+  ]
+}

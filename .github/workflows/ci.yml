@@ -16,7 +16,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: app/src-tauri
+          workspaces: desktop/src-tauri
 
       - name: Worker
         working-directory: worker
@@ -25,14 +25,21 @@ jobs:
           npm run typecheck
           npm run bundle
 
-      - name: App (frontend)
-        working-directory: app
+      # core 和 desktop 是同一個 npm workspace（根目錄的 package.json）
+      - name: Install
+        run: npm ci
+
+      - name: Core (shared with Android)
+        working-directory: core
+        run: npm test
+
+      - name: Desktop (frontend)
+        working-directory: desktop
         run: |
-          npm ci
           npm run check
           npm test
 
-      # build.rs 會把上面打包好的 worker/dist/index.js 嵌進 exe
-      - name: App (Rust)
-        working-directory: app/src-tauri
-        run: cargo test
+      # core 的 build.rs 會把上面打包好的 worker/dist/index.js 嵌進 exe
+      - name: Desktop and core (Rust)
+        working-directory: desktop/src-tauri
+        run: cargo test -p deskdo -p deskdo-core

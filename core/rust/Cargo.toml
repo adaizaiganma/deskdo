@@ -1,0 +1,28 @@
+# 電腦版和 Android 版共用的核心：同步、設定檔、設定精靈（部署到 Cloudflare）、OAuth 登入。
+# 介面和平台功能（系統匣、桌面小工具、主畫面小工具、自動更新）在各自的 App 裡。
+[package]
+name = "deskdo-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "deskdo_core"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["time", "sync", "macros", "net", "io-util"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+sha2 = "0.10"
+base64 = "0.22"
+getrandom = "0.3"
+iana-time-zone = "0.1"
+tauri-plugin-opener = "2"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+reqwest = { version = "0.12", features = ["multipart", "json"] }
+
+# 手機上沒有系統的 OpenSSL，HTTPS 改用 rustls（憑證用內建的 webpki 根憑證）
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["multipart", "json", "rustls-tls", "charset", "http2"] }

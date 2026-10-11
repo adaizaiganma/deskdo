@@ -1,0 +1,21 @@
+{
+  "name": "@deskdo/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "電腦版和 Android 版共用的資料和邏輯：同步、資料格式、日期計算、快速新增的解析、倒數日",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@tauri-apps/api": "^2.12.2",
+    "svelte": "^5.57.2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "vitest": "^5.0.3"
+  }
+}
