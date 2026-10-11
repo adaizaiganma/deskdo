@@ -107,6 +107,15 @@
     setTimeout(() => (checking = false), 2000);
   }
 
+  let dateInput = $state<HTMLInputElement>();
+  function pickDate() {
+    try {
+      dateInput?.showPicker();
+    } catch {
+      dateInput?.focus();
+    }
+  }
+
   function openEditor() {
     if (!sending && !todo.done) onedit(todo.id);
   }
@@ -258,10 +267,11 @@
         {/if}
       </button>
       {#if due}
-        <span class="due {due.tone}" title={todo.due}>
+        <!-- 點期限也會展開；鍵盤使用者用標題那顆按鈕 -->
+        <button class="due {due.tone}" title={todo.due} tabindex="-1" onclick={openEditor} disabled={sending}>
           <span class="count">{due.count}</span>
           {#if due.date}<span class="date">{due.date}</span>{/if}
-        </span>
+        </button>
       {/if}
     {/if}
   </div>
@@ -278,13 +288,21 @@
         {#each dueChips as c (c.label)}
           <button class="pill" class:on={todo.due === c.value} onclick={() => patch({ due: c.value })}>{c.label}</button>
         {/each}
-        <input
-          type="date"
-          class="pill date"
-          value={todo.due ?? ""}
-          onchange={(e) => patch({ due: e.currentTarget.value || null })}
-          aria-label="選擇日期"
-        />
+        <!-- 沒有期限時，空的日期欄在手機上什麼都不顯示，所以蓋一顆「選擇日期」按鈕上去 -->
+        <span class="date-wrap">
+          <input
+            bind:this={dateInput}
+            type="date"
+            class="pill date-input"
+            class:empty={!todo.due}
+            value={todo.due ?? ""}
+            onchange={(e) => patch({ due: e.currentTarget.value || null })}
+            aria-label="選擇日期"
+          />
+          {#if !todo.due}
+            <button class="pill pick-date" onclick={pickDate} tabindex="-1">選擇日期</button>
+          {/if}
+        </span>
       </div>
       <div class="field">
         <span class="ficon"><Icon name="hash" size={14} stroke={1.5} /></span>
@@ -576,10 +594,22 @@
     display: grid;
     place-items: center;
   }
-  .date {
+  .date-input {
     border: 0;
     outline: none;
     cursor: pointer;
+  }
+  .date-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  /* 沒有期限：日期欄藏在「選擇日期」按鈕下面，日曆從這裡彈出 */
+  .date-input.empty {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    opacity: 0;
+    pointer-events: none;
   }
   /* 對齊標題（勾選框 20px + 間距 10px + 列的左邊距 10px） */
   .next {

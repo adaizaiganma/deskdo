@@ -19,7 +19,7 @@
 
   type View = "all" | "today" | "upcoming" | "nodue" | "done" | "settings" | "folders" | `tag:${string}` | `folder:${string}`;
 
-  let view = $state<View>("today");
+  let view = $state<View>("all");
   /**
    * 設定精靈：new = 第一次設定，update = 更新雲端。
    * 精靈部署到一半就會寫入設定（configured 變成 true），所以用自己的狀態決定何時關閉，
@@ -165,7 +165,7 @@
   function onKey(e: KeyboardEvent) {
     if (e.ctrlKey && e.key.toLowerCase() === "n") {
       e.preventDefault();
-      if (view === "settings" || view === "folders" || view === "done") go("today");
+      if (view === "settings" || view === "folders" || view === "done") go("all");
       queueMicrotask(() => quickAdd?.focus());
     } else if (e.ctrlKey && e.key.toLowerCase() === "f") {
       e.preventDefault();
@@ -192,7 +192,7 @@
     <div class="body solo">
       <Setup
         mode={wizard}
-        onfinish={() => ((wizard = null), go("today"))}
+        onfinish={() => ((wizard = null), go("all"))}
         oncancel={wizard === "update" ? () => (wizard = null) : undefined}
       />
     </div>
@@ -337,6 +337,8 @@
     overflow-y: auto;
   }
   .search {
+    /* 手機跳出鍵盤、側邊欄變矮時不要被壓扁 */
+    flex: none;
     display: flex;
     align-items: center;
     gap: 8px;
