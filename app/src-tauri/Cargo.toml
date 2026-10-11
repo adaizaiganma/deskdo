@@ -1,6 +1,6 @@
 [package]
 name = "deskdo"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 
 # Android（和 iOS）要把 App 編成函式庫，由系統的 Activity 載入；桌面版的 main.rs 也只是呼叫 run()

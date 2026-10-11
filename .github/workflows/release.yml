@@ -96,7 +96,12 @@ jobs:
           npx tauri android build --apk --target aarch64
           version=$(node -p "require('./src-tauri/tauri.conf.json').version")
           mkdir -p ../out
-          cp src-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release.apk "../out/Deskdo_${version}_arm64.apk"
+          # Linux 上輸出的是 universal 版（--target 只放 arm64），名稱沒有 -unsigned 表示已經簽好
+          apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-release.apk' | head -1)
+          test -n "$apk" || { echo "找不到簽好名的 APK"; exit 1; }
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$bt/apksigner" verify --print-certs "$apk" | grep "CN=Deskdo"
+          cp "$apk" "../out/Deskdo_${version}_arm64.apk"
 
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'workflow_dispatch'
