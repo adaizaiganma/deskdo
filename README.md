@@ -43,13 +43,19 @@ Deskdo（Windows）──REST────┘
 | 端點 | 說明 |
 |---|---|
 | `GET /api/todos` | 支援 `If-None-Match`，沒變動時回 304；`?doneDays=N` 只回傳最近 N 天完成的（App 用 30） |
-| `POST /api/todos`、`PATCH /api/todos/:id`、`DELETE /api/todos/:id` | 新增、修改（只改有傳的欄位）、刪除 |
+| `POST /api/todos`、`PATCH /api/todos/:id`、`DELETE /api/todos/:id` | 新增、修改（只改有傳的欄位）、刪除。`afterId` 把待辦接在另一筆後面（見下方「接續的步驟」） |
 | `GET /api/folders`、`PUT /api/folders` | 標籤資料夾（整份取代；`GET /api/todos` 也會附上 `folders`）。存在 D1 `settings` 的 `tag_folders`，只影響顯示 |
 | `GET /api/info` | Worker 版本 |
 | `GET /api/connector`、`POST /api/connector/rotate` | AI 連接器網址、更換 |
 | `GET /api/devices`、`DELETE /api/devices/:id` | 已連線的電腦、撤銷 |
 
-MCP 工具（`worker/src/mcp.ts`）：`list_todos`（也回傳 `tags` 和 `folders`）、`add_todo`（`source_ref` 去重）、`update_todo`、`complete_todo`、`delete_todo`。
+**接續的步驟**（Worker v5，`todos.afterId`）：`afterId` 指向前一步，前一步還沒完成時，App 不顯示這一筆，也不算進數量。每筆最多一個前一步和一個下一步，由 Worker 維護：
+
+- 接到已經有下一步的待辦後面時，會插在中間。
+- 連接已有的待辦時，它後面的步驟會一起移過去；會繞成圈時回 400。
+- 刪掉中間一步時，前後自動接起來。
+
+MCP 工具（`worker/src/mcp.ts`）：`list_todos`（也回傳 `tags`、`folders`，還沒輪到的步驟標 `waiting`）、`add_todo`（`source_ref` 去重）、`update_todo`、`complete_todo`、`delete_todo`。
 
 ---
 

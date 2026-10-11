@@ -1,6 +1,6 @@
 <script lang="ts">
   import { relativeDue } from "../lib/dates";
-  import { parseQuickAdd } from "../lib/quickadd";
+  import { parseSteps } from "../lib/quickadd";
   import { store } from "../lib/store.svelte";
   import Icon from "./Icon.svelte";
 
@@ -33,7 +33,8 @@
       localStorage.setItem(HINT_KEY, "1");
     } catch {}
   }
-  const parsed = $derived(parseQuickAdd(text, store.today));
+  const steps = $derived(parseSteps(text, store.today));
+  const parsed = $derived(steps?.[0] ?? null);
   const tag = $derived(parsed?.tag ?? (text.trim() ? defaultTag : null));
   const due = $derived(parsed?.due ?? (text.trim() ? defaultDue : null));
 
@@ -42,14 +43,18 @@
   }
 
   function submit() {
-    if (!parsed) return;
-    // 雲端還不支援低優先時保留輸入內容，提示先更新
-    if (parsed.priority === "low" && !store.canUseLow()) return;
-    store.add({
-      ...parsed,
-      ...(tag ? { tag } : {}),
-      ...(due ? { due } : {}),
-    });
+    if (!steps) return;
+    // 雲端還不支援時保留輸入內容，提示先更新
+    if (steps.some((s) => s.priority === "low") && !store.canUseLow()) return;
+    if (steps.length > 1 && !store.canUseSteps()) return;
+    // 預設的標籤和期限（目前篩選中的標籤、所在頁面的日期）只補在沒寫的步驟上
+    const filled = steps.map((s) => ({
+      ...s,
+      ...(!s.tag && defaultTag ? { tag: defaultTag } : {}),
+      ...(!s.due && defaultDue ? { due: defaultDue } : {}),
+    }));
+    if (filled.length > 1) store.addSteps(filled);
+    else store.add(filled[0]);
     text = "";
   }
 
@@ -76,6 +81,7 @@
           <span title="@今天 @明天 @週五 @下週三 @10/15"><b>@</b>期限</span>
           <span><b>!</b>高優先</span>
           <span><b>~</b>低優先</span>
+          <span title="例如：做預報 &gt; 印預報"><b>&gt;</b>下一步</span>
         </span>
         <button class="hint-close" onclick={dismissHint}>不再顯示</button>
       {/if}
@@ -84,6 +90,7 @@
       {#if tag}<span class="chip">#{tag}</span>{/if}
       {#if parsed?.priority === "high"}<span class="chip warn">高優先</span>{/if}
       {#if parsed?.priority === "low"}<span class="chip low">低優先</span>{/if}
+      {#if steps && steps.length > 1}<span class="chip">{steps.length} 個步驟：{steps.map((s) => s.title).join(" → ")}</span>{/if}
     {/if}
   </div>
 </div>

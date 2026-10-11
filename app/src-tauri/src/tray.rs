@@ -85,7 +85,13 @@ pub fn update(app: &AppHandle, snap: &Snapshot) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else { return };
     let Some(items) = app.try_state::<TrayItems>() else { return };
     let today = snap.today.as_str();
-    let open: Vec<_> = snap.todos.iter().filter(|t| !t.done).collect();
+    // 前一步還沒完成的步驟還不能做，不算進去
+    let open_ids: std::collections::HashSet<&str> = snap.todos.iter().filter(|t| !t.done).map(|t| t.id.as_str()).collect();
+    let open: Vec<_> = snap
+        .todos
+        .iter()
+        .filter(|t| !t.done && !t.after_id.as_deref().is_some_and(|p| open_ids.contains(p)))
+        .collect();
     let overdue = open.iter().filter(|t| t.due.as_deref().is_some_and(|d| d < today)).count() as u32;
     let due_today = open.iter().filter(|t| t.due.as_deref() == Some(today)).count() as u32;
 

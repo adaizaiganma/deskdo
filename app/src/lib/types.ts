@@ -11,6 +11,8 @@ export interface Todo {
   updatedAt: string;
   source: "manual" | "claude" | "email";
   sourceRef: string | null;
+  /** 前一步的 id；前一步還沒完成時，這一筆先不顯示（雲端版本 5 起） */
+  afterId?: string | null;
 }
 
 export type SyncStatus = "syncing" | "ok" | "offline" | "error";
@@ -101,7 +103,7 @@ export interface Device {
 
 export type Priority = "high" | "normal" | "low";
 
-export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "tag" | "priority" | "note" | "done">>;
+export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "tag" | "priority" | "note" | "done" | "afterId">>;
 
 export interface NewTodo {
   title: string;
@@ -109,4 +111,5 @@ export interface NewTodo {
   tag?: string;
   priority?: "high" | "low";
   note?: string;
+  afterId?: string;
 }

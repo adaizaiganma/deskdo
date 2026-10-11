@@ -6,6 +6,7 @@ import {
   addDays,
   addSchema,
   addTodo,
+  ChainError,
   dateSchema,
   deleteTodo,
   fields,
@@ -63,6 +64,15 @@ function methodNotAllowed(allow: string): Response {
  *   DELETE /api/devices/:id        撤銷某台電腦的 token
  */
 export async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
+  try {
+    return await route(req, env, url);
+  } catch (e) {
+    if (e instanceof ChainError) return json({ error: e.message }, 400);
+    throw e;
+  }
+}
+
+async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const caller = await authorize(req, env);
   if (!caller) return json({ error: "unauthorized" }, 401);
 

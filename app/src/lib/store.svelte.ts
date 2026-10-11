@@ -14,7 +14,17 @@ class Store {
 
   /** 跨日時不必等伺服器，本機日期往前就跟著換 */
   today = $derived(this.snap.today > this.#localToday ? this.snap.today : this.#localToday);
-  open = $derived(this.snap.todos.filter((t) => !t.done));
+  /** 所有未完成的，包含還沒輪到的步驟 */
+  allOpen = $derived(this.snap.todos.filter((t) => !t.done));
+  /** 前一步還沒完成、先不顯示的步驟 */
+  waiting = $derived.by(() => {
+    const ids = new Set(this.allOpen.map((t) => t.id));
+    return new Set(this.allOpen.filter((t) => t.afterId && ids.has(t.afterId)).map((t) => t.id));
+  });
+  /** 現在可以做的待辦（清單、數量都用這個） */
+  open = $derived(this.allOpen.filter((t) => !this.waiting.has(t.id)));
+  /** 前一步 id → 接著的那一步（未完成的） */
+  nextOf = $derived(new Map(this.allOpen.flatMap((t) => (t.afterId ? [[t.afterId, t] as const] : []))));
   done = $derived(
     this.snap.todos.filter((t) => t.done).sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? "")),
   );
@@ -33,6 +43,8 @@ class Store {
   overdueCount = $derived(this.open.filter((t) => t.due && t.due < this.today).length);
   /** 雲端版本 3 起才支援低優先；還不知道版本時先放行 */
   supportsLow = $derived((this.prefs?.cloudVersion ?? 3) >= 3);
+  /** 雲端版本 5 起才有接續的步驟 */
+  supportsSteps = $derived((this.prefs?.cloudVersion ?? 5) >= 5);
   /** 雲端版本 4 起才能儲存資料夾 */
   supportsFolders = $derived((this.prefs?.cloudVersion ?? 4) >= 4);
   cloudOutdated = $derived(
@@ -68,6 +80,27 @@ class Store {
     return this.#call("set_folders", { folders });
   }
 
+  /** 要建立步驟前先問；雲端太舊時提示更新並回傳 false */
+  canUseSteps(): boolean {
+    if (!this.supportsSteps) toast.error("接續的步驟需要先更新雲端：到「設定 → 雲端」按「更新雲端」");
+    return this.supportsSteps;
+  }
+
+  /** 依序新增好幾個步驟，每一步接在前一步後面 */
+  async addSteps(steps: NewTodo[]) {
+    let prev: string | undefined;
+    for (const step of steps) {
+      const created = await this.add(prev ? { ...step, afterId: prev } : step);
+      if (!created?.id) return; // 失敗時已經顯示錯誤，後面的就不送了
+      prev = created.id;
+    }
+  }
+
+  /** 前一步（如果有的話） */
+  prevOf(todo: Todo): Todo | undefined {
+    return todo.afterId ? this.find(todo.afterId) : undefined;
+  }
+
   find(id: string): Todo | undefined {
     return this.snap.todos.find((t) => t.id === id);
   }
@@ -82,8 +115,10 @@ class Store {
 
   /** 完成；畫面底部會出現「復原」 */
   complete(todo: Todo) {
+    const next = this.nextOf.get(todo.id);
     this.update(todo.id, { done: true });
-    toast.show(`已完成「${todo.title}」`, { undo: () => this.update(todo.id, { done: false }) });
+    const msg = next ? `已完成「${todo.title}」，接著：${next.title}` : `已完成「${todo.title}」`;
+    toast.show(msg, { undo: () => this.update(todo.id, { done: false }) });
   }
 
   reopen(todo: Todo) {

@@ -163,6 +163,45 @@ check(s == 400, "未知的優先度 → 400")
 for i in ids:
     api("DELETE", f"/api/todos/{i}")
 
+# --- 接續的待辦（步驟） ---
+def todo(i):
+    return next(t for t in api("GET", "/api/todos")[2]["todos"] if t["id"] == i)
+
+_, _, A = api("POST", "/api/todos", {"title": "做預報"})
+s, _, B = api("POST", "/api/todos", {"title": "印預報", "afterId": A["id"]})
+check(s == 201 and B["afterId"] == A["id"], "POST afterId：印預報接在做預報後面")
+err, C = call("add_todo", {"title": "檢查預報", "after_id": A["id"]})
+check(not err and C["todo"]["afterId"] == A["id"] and todo(B["id"])["afterId"] == C["todo"]["id"],
+      "MCP add_todo after_id：插在中間（做預報 > 檢查 > 印預報）")
+C = C["todo"]
+err, r = call("list_todos", {})
+w = {t["title"]: t.get("waiting", False) for t in r["todos"]}
+check(not err and not w["做預報"] and w["檢查預報"] and w["印預報"], "list_todos 標記還沒輪到的步驟 waiting=true")
+s, _, b = api("PATCH", f"/api/todos/{A['id']}", {"afterId": B["id"]})
+check(s == 400 and "不能反過來接" in b["error"], "會繞成圈 → 400")
+s, _, _ = api("PATCH", f"/api/todos/{A['id']}", {"afterId": A["id"]})
+check(s == 400, "接在自己後面 → 400")
+s, _, _ = api("POST", "/api/todos", {"title": "x", "afterId": "nope"})
+check(s == 400, "前一步不存在 → 400")
+err, r = call("update_todo", {"id": A["id"], "after_id": "nope"})
+check(err, "MCP update_todo 前一步不存在 → 錯誤訊息")
+err, r = call("complete_todo", {"id": A["id"]})
+check(not err and r["next"]["id"] == C["id"], "MCP complete_todo 回傳接著要做的步驟")
+err, r = call("list_todos", {})
+w = {t["title"]: t.get("waiting", False) for t in r["todos"]}
+check(not w["檢查預報"] and w["印預報"], "完成前一步後，下一步不再等待")
+api("DELETE", f"/api/todos/{C['id']}")
+check(todo(B["id"])["afterId"] == A["id"], "刪掉中間一步，前後自動接起來")
+_, _, D = api("POST", "/api/todos", {"title": "買紙"})
+_, _, E = api("POST", "/api/todos", {"title": "裝訂", "afterId": D["id"]})
+s, _, b = api("PATCH", f"/api/todos/{D['id']}", {"afterId": A["id"]})
+check(s == 200 and b["afterId"] == A["id"] and todo(B["id"])["afterId"] == E["id"] and todo(E["id"])["afterId"] == D["id"],
+      "連接已有待辦：帶著自己的後續步驟插進去（做預報 > 買紙 > 裝訂 > 印預報）")
+s, _, b = api("PATCH", f"/api/todos/{D['id']}", {"afterId": None})
+check(s == 200 and b["afterId"] is None and todo(E["id"])["afterId"] == D["id"], "afterId=null 解除連接，後續步驟仍跟著")
+for t in (A, B, D, E):
+    api("DELETE", f"/api/todos/{t['id']}")
+
 # --- 裝置 token、D1 裡的 MCP 密鑰 ---
 s, _, b = api("GET", "/api/info")
 check(s == 200 and isinstance(b["version"], int), f"GET /api/info version={b['version']}")

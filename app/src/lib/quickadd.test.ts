@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { groupTodos, rowDue } from "./dates";
-import { parseDue, parseQuickAdd } from "./quickadd";
+import { parseDue, parseQuickAdd, parseSteps } from "./quickadd";
 import type { Priority, Todo } from "./types";
 
 const TODAY = "2026-10-10"; // 週六
@@ -36,6 +36,40 @@ describe("parseQuickAdd", () => {
 
   test("unparseable date stays in title", () => {
     expect(parseQuickAdd("寄信給 @someone", TODAY)).toEqual({ title: "寄信給 @someone" });
+  });
+});
+
+describe("parseSteps", () => {
+  test("single step is the same as parseQuickAdd", () => {
+    expect(parseSteps("買牛奶 #生活", TODAY)).toEqual([{ title: "買牛奶", tag: "生活" }]);
+  });
+
+  test("tag and priority written once apply to every step", () => {
+    expect(parseSteps("做預報 > 印預報 #機工實驗 !", TODAY)).toEqual([
+      { title: "做預報", tag: "機工實驗", priority: "high" },
+      { title: "印預報", tag: "機工實驗", priority: "high" },
+    ]);
+  });
+
+  test("a step's own tag wins", () => {
+    expect(parseSteps("寫程式 #robotarm ＞ 寫報告 #自動控制", TODAY)).toEqual([
+      { title: "寫程式", tag: "robotarm" },
+      { title: "寫報告", tag: "自動控制" },
+    ]);
+  });
+
+  test("steps without a due date take the next step's, trailing ones the previous", () => {
+    expect(parseSteps("讀講義 → 做預報 @週三 > 印預報 @週四 > 交預報", TODAY)).toEqual([
+      { title: "讀講義", due: "2026-10-14" },
+      { title: "做預報", due: "2026-10-14" },
+      { title: "印預報", due: "2026-10-15" },
+      { title: "交預報", due: "2026-10-15" },
+    ]);
+  });
+
+  test("empty steps are ignored while typing", () => {
+    expect(parseSteps("做預報 >", TODAY)).toEqual([{ title: "做預報" }]);
+    expect(parseSteps(" > ", TODAY)).toBeNull();
   });
 });
 

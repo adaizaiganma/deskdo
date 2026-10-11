@@ -8,6 +8,10 @@
  * - `!` 或 `！`          高優先
  * - `~` 或 `～`          低優先
  * 其餘文字為標題。各部分以空白分隔，順序不限。
+ *
+ * 用 `>`（或 `＞`、`→`）隔開好幾個步驟，後一步要等前一步完成才出現：
+ *
+ *     做預報 @週三 > 印預報 @週四 #機工實驗
  */
 import { addDays, diffDays, mondayIndex } from "./dates";
 import type { NewTodo } from "./types";
@@ -70,4 +74,32 @@ export function parseQuickAdd(text: string, today: string): NewTodo | null {
   const title = titleParts.join(" ").trim();
   if (!title) return null;
   return { ...fields, title };
+}
+
+const STEP_SEPARATOR = /\s*(?:>|＞|→)\s*/;
+
+/**
+ * 拆成好幾個步驟。標籤和優先度寫一次就套用到每一步（某一步自己有寫的除外）；
+ * 沒寫期限的步驟用後面最近一步的期限（要在下一步之前做完），最後幾步沒寫的用前面的。
+ * 沒有任何步驟時回傳 null。
+ */
+export function parseSteps(text: string, today: string): NewTodo[] | null {
+  const steps = text
+    .split(STEP_SEPARATOR)
+    .map((part) => parseQuickAdd(part, today))
+    .filter((s): s is NewTodo => s !== null);
+  if (!steps.length) return null;
+
+  const tag = steps.find((s) => s.tag)?.tag;
+  const priority = steps.find((s) => s.priority)?.priority;
+  const dues = steps.map((s) => s.due);
+  return steps.map((s, i) => {
+    const due = s.due ?? dues.slice(i + 1).find(Boolean) ?? dues.slice(0, i).reverse().find(Boolean);
+    return {
+      ...s,
+      ...(s.tag || !tag ? {} : { tag }),
+      ...(s.priority || !priority ? {} : { priority }),
+      ...(due ? { due } : {}),
+    };
+  });
 }

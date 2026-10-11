@@ -1,7 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { slide } from "svelte/transition";
-  import { addDays, localDate, monthDay, nextMonday, rowDue } from "../lib/dates";
+  import { addDays, localDate, monthDay, nextMonday, relativeDue, rowDue } from "../lib/dates";
+  import { parseQuickAdd } from "../lib/quickadd";
   import { store } from "../lib/store.svelte";
   import type { Todo, TodoPatch } from "../lib/types";
   import Icon from "./Icon.svelte";
@@ -20,6 +21,10 @@
   let draftNote = $state("");
   let newTag = $state("");
   let titleInput = $state<HTMLInputElement>();
+  /** 下一步：new = 新增一筆接在後面，link = 從現有的待辦挑一筆 */
+  let stepMode = $state<"new" | "link" | null>(null);
+  let stepText = $state("");
+  let stepInput = $state<HTMLInputElement>();
 
   const sending = $derived(todo.id.startsWith("tmp-"));
   const high = $derived(todo.priority === "high");
@@ -28,6 +33,24 @@
   const checked = $derived(todo.done || checking);
   const source = $derived({ email: "來自 Gmail", claude: "由 AI 助理新增", manual: "手動新增" }[todo.source] ?? "");
   const created = $derived(localDate(todo.createdAt));
+  const next = $derived(todo.done ? undefined : store.nextOf.get(todo.id));
+  /** 前一步還沒完成（平常不會顯示，搜尋時才看得到） */
+  const waitingFor = $derived(store.waiting.has(todo.id) ? store.prevOf(todo) : undefined);
+
+  /** 可以接在這一筆後面的待辦：排除自己、目前的下一步，以及它前面的步驟（會繞成圈） */
+  const candidates = $derived.by(() => {
+    if (stepMode !== "link") return [];
+    const ancestors = new Set<string>();
+    for (let p: Todo | undefined = todo; p; p = store.prevOf(p)) {
+      if (ancestors.has(p.id)) break;
+      ancestors.add(p.id);
+    }
+    const q = stepText.trim().toLowerCase();
+    return store.allOpen
+      .filter((t) => !ancestors.has(t.id) && t.id !== next?.id && !t.id.startsWith("tmp-"))
+      .filter((t) => !q || t.title.toLowerCase().includes(q) || t.tag?.toLowerCase().includes(q))
+      .slice(0, 8);
+  });
 
   const dueChips = $derived([
     { label: "今天", value: today },
@@ -45,6 +68,7 @@
         draftTitle = todo.title;
         draftNote = todo.note ?? "";
         newTag = "";
+        stepMode = null;
         queueMicrotask(() => titleInput?.focus());
       } else if (!now && wasEditing) {
         commit();
@@ -92,6 +116,37 @@
   function setPriority(p: Todo["priority"]) {
     if (p === "low" && !store.canUseLow()) return;
     patch({ priority: p });
+  }
+
+  function startStep(mode: "new" | "link") {
+    if (!store.canUseSteps()) return;
+    stepMode = stepMode === mode ? null : mode;
+    stepText = "";
+    queueMicrotask(() => stepInput?.focus());
+  }
+
+  /** 新增下一步；可以用快速新增的語法（@期限、#標籤、!），沒寫標籤就沿用這一筆的 */
+  function addStep() {
+    const step = parseQuickAdd(stepText, today);
+    if (!step) return;
+    if (step.priority === "low" && !store.canUseLow()) return;
+    store.add({ ...(todo.tag ? { tag: todo.tag } : {}), ...step, afterId: todo.id });
+    stepText = "";
+    stepMode = null;
+  }
+
+  function link(t: Todo) {
+    store.update(t.id, { afterId: todo.id });
+    stepMode = null;
+  }
+
+  function stepKey(e: KeyboardEvent) {
+    if (e.isComposing) return;
+    if (e.key === "Escape") stepMode = null;
+    if (e.key === "Enter") {
+      if (stepMode === "new") addStep();
+      else if (candidates.length === 1) link(candidates[0]);
+    }
   }
 
   /**
@@ -153,8 +208,11 @@
         disabled={sending}
       >
         <span class="title" class:struck={checked}>{todo.title}</span>
-        {#if high || low || todo.tag || todo.source === "email" || todo.note || todo.done}
+        {#if high || low || todo.tag || todo.source === "email" || todo.note || todo.done || waitingFor}
           <span class="meta">
+            {#if waitingFor}
+              <span class="mi faint"><Icon name="link" size={12} stroke={1.5} />等「{waitingFor.title}」完成</span>
+            {/if}
             {#if todo.done && todo.doneAt}
               <span>{monthDay(localDate(todo.doneAt) ?? today, today)} 完成</span>
             {/if}
@@ -168,6 +226,9 @@
             {#if todo.source === "email"}<span class="mi"><Icon name="mail" size={12} stroke={1.5} />Gmail</span>{/if}
             {#if todo.note && !todo.done}<span class="mi" title={todo.note}><Icon name="note" size={12} stroke={1.5} />備註</span>{/if}
           </span>
+        {/if}
+        {#if next}
+          <span class="next">↳ 接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today)}` : ""}</span>
         {/if}
       </button>
       {#if due}
@@ -213,6 +274,48 @@
         <button class="pill" class:warn-on={high} onclick={() => setPriority(high ? "normal" : "high")}>! 高優先</button>
         <button class="pill" class:on={low} onclick={() => setPriority(low ? "normal" : "low")}>~ 低優先</button>
       </div>
+      <div class="field steps">
+        <span class="ficon"><Icon name="link" size={14} stroke={1.5} /></span>
+        {#if waitingFor}
+          <span class="step-info">前一步：{waitingFor.title}</span>
+          <button class="tbtn" onclick={() => patch({ afterId: null })}>取消連接</button>
+        {/if}
+        {#if next}
+          <span class="step-info">接著：{next.title}</span>
+          <button class="tbtn" onclick={() => store.update(next.id, { afterId: null })}>取消連接</button>
+        {/if}
+        <button class="pill" class:on={stepMode === "new"} onclick={() => startStep("new")}>
+          <Icon name="plus" size={12} stroke={1.8} />{next ? "插入下一步" : "新增下一步"}
+        </button>
+        <button class="pill" class:on={stepMode === "link"} onclick={() => startStep("link")}>
+          <Icon name="link" size={12} stroke={1.6} />連接已有待辦
+        </button>
+      </div>
+      {#if stepMode}
+        <div class="step-box" transition:slide={{ duration: 150 }}>
+          <input
+            class="step-input"
+            bind:this={stepInput}
+            bind:value={stepText}
+            onkeydown={stepKey}
+            placeholder={stepMode === "new" ? "下一步要做什麼？例如：印預報 @週四" : "搜尋要接在後面的待辦"}
+            aria-label={stepMode === "new" ? "下一步" : "搜尋待辦"}
+          />
+          {#if stepMode === "link"}
+            <div class="cands">
+              {#each candidates as c (c.id)}
+                <button class="cand" onclick={() => link(c)}>
+                  <span class="ctitle">{c.title}</span>
+                  {#if c.tag}<span class="ctag">#{c.tag}</span>{/if}
+                  {#if c.due}<span class="ctag">{relativeDue(c.due, today)}</span>{/if}
+                </button>
+              {:else}
+                <span class="none">沒有符合的待辦</span>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
       <textarea class="note" placeholder="備註…" bind:value={draftNote} onblur={commit} aria-label="備註"></textarea>
       <div class="foot">
         <span>{source}{created ? ` · ${monthDay(created, today)} 建立` : ""}</span>
@@ -423,6 +526,75 @@
     color: var(--text);
   }
   .new-tag::placeholder {
+    color: var(--faint);
+  }
+  .next {
+    font-size: 11.5px;
+    color: var(--faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .step-info {
+    font-size: 12px;
+    color: var(--sub);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .step-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: -3px;
+  }
+  .step-input {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12.5px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--bg2);
+    outline: none;
+  }
+  .step-input:focus {
+    box-shadow: 0 0 0 1.5px var(--accent);
+  }
+  .cands {
+    display: flex;
+    flex-direction: column;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .cand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-align: left;
+    font-size: 12.5px;
+  }
+  .cand:hover {
+    background: var(--hover);
+  }
+  .ctitle {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ctag {
+    flex: none;
+    font-size: 11px;
+    color: var(--faint);
+  }
+  .none {
+    padding: 6px 10px;
+    font-size: 12px;
     color: var(--faint);
   }
   .note {

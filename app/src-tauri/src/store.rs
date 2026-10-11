@@ -41,6 +41,8 @@ pub struct Todo {
     pub updated_at: String,
     pub source: String,
     pub source_ref: Option<String>,
+    /// 前一步的 id；前一步還沒完成時，這一筆先不顯示（雲端版本 5 起）
+    pub after_id: Option<String>,
 }
 
 /// 標籤資料夾（只影響顯示；順序就是顯示順序）
@@ -155,13 +157,34 @@ impl Inner {
 
     fn snapshot(&self) -> Snapshot {
         Snapshot {
-            todos: self.todos.iter().filter(|t| !self.hidden.contains(&t.id)).cloned().collect(),
+            todos: self.visible_todos(),
             folders: self.folders.clone(),
             today: self.today(),
             status: self.status,
             message: self.message.clone(),
             last_sync: self.last_sync.clone(),
         }
+    }
+
+    /// 去掉等待刪除的項目；接在它們後面的步驟改接到它們的前一步（和雲端真的刪除後一樣）
+    fn visible_todos(&self) -> Vec<Todo> {
+        let after_of = |id: &str| self.todos.iter().find(|t| t.id == id).and_then(|t| t.after_id.clone());
+        self.todos
+            .iter()
+            .filter(|t| !self.hidden.contains(&t.id))
+            .map(|t| {
+                let mut t = t.clone();
+                let mut guard = 0;
+                while let Some(prev) = t.after_id.clone().filter(|p| self.hidden.contains(p)) {
+                    t.after_id = after_of(&prev);
+                    guard += 1;
+                    if guard > self.hidden.len() {
+                        break;
+                    }
+                }
+                t
+            })
+            .collect()
     }
 
     fn replace(&mut self, id: &str, new: Option<Todo>) {
@@ -360,6 +383,7 @@ pub async fn add_todo(app: AppHandle, fields: Map<String, Value>) -> Result<Todo
         created_at: now.clone(),
         updated_at: now,
         source: "manual".into(),
+        after_id: str_field(&fields, "afterId"),
         ..Default::default()
     };
     {
@@ -379,13 +403,28 @@ pub async fn add_todo(app: AppHandle, fields: Map<String, Value>) -> Result<Todo
     };
     let id2 = tmp_id.clone();
     let c2 = created.clone();
-    finish(&app, fail, move |g| g.replace(&tmp_id, c2), move |g| g.replace(&id2, None))?;
+    finish(
+        &app,
+        fail,
+        move |g| {
+            // 前一步原本就有下一步時，雲端會把新的這筆插在中間；本機先跟著改，下一次同步再確認
+            if let Some(c) = &c2 {
+                if let Some(prev) = &c.after_id {
+                    for t in g.todos.iter_mut().filter(|t| t.after_id.as_ref() == Some(prev) && t.id != tmp_id) {
+                        t.after_id = Some(c.id.clone());
+                    }
+                }
+            }
+            g.replace(&tmp_id, c2)
+        },
+        move |g| g.replace(&id2, None),
+    )?;
     Ok(created.unwrap_or_default())
 }
 
 #[tauri::command]
 pub async fn update_todo(app: AppHandle, id: String, patch: Map<String, Value>) -> Result<(), String> {
-    const ALLOWED: [&str; 6] = ["title", "due", "tag", "priority", "note", "done"];
+    const ALLOWED: [&str; 7] = ["title", "due", "tag", "priority", "note", "done", "afterId"];
     let patch: Map<String, Value> = patch.into_iter().filter(|(k, _)| ALLOWED.contains(&k.as_str())).collect();
     if id.starts_with("tmp-") || patch.is_empty() {
         return Ok(());
@@ -467,7 +506,7 @@ pub async fn delete_todo(app: AppHandle, id: String) -> Result<(), String> {
 
     tokio::time::sleep(DELETE_DELAY).await;
 
-    let (idx, todo) = {
+    let (idx, todo, relinked) = {
         let mut g = s.inner.lock().unwrap();
         if !g.hidden.remove(&id) {
             return Ok(()); // 已復原
@@ -476,8 +515,14 @@ pub async fn delete_todo(app: AppHandle, id: String) -> Result<(), String> {
             return Ok(());
         };
         let t = g.todos.remove(idx);
+        // 刪掉中間一步時，雲端會把前後接起來；本機先跟著改，失敗時再改回來
+        let mut relinked = Vec::new();
+        for next in g.todos.iter_mut().filter(|n| n.after_id.as_ref() == Some(&t.id)) {
+            next.after_id = t.after_id.clone();
+            relinked.push(next.id.clone());
+        }
         g.pending += 1;
-        (idx, t)
+        (idx, t, relinked)
     };
     emit(&app);
 
@@ -487,6 +532,9 @@ pub async fn delete_todo(app: AppHandle, id: String) -> Result<(), String> {
     // 404：別處已經刪掉了，也算成功
     let fail = if r.status == 404 { None } else { failure(&r).map(|m| (r.offline(), m)) };
     finish(&app, fail, |_| {}, move |g| {
+        for next in g.todos.iter_mut().filter(|n| relinked.contains(&n.id)) {
+            next.after_id = Some(todo.id.clone());
+        }
         let i = idx.min(g.todos.len());
         g.todos.insert(i, todo);
     })

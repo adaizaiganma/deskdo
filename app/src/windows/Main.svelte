@@ -35,6 +35,8 @@
   });
   const today = $derived(store.today);
   const open = $derived(store.open);
+  /** 頁面上列出的待辦：搜尋時也找得到還沒輪到的步驟 */
+  const list = $derived(query.trim() ? store.allOpen : store.open);
   const doneDays = $derived(store.prefs?.doneSyncDays ?? 30);
 
   const nav: { id: View; label: string; icon: IconName; count: () => number }[] = [
@@ -86,7 +88,7 @@
       return {
         title: name,
         sub: `${open.filter(inFolder).length} 項待辦`,
-        todos: open.filter(inFolder),
+        todos: list.filter(inFolder),
         done: store.done.filter(inFolder),
         defaultTag: null,
         defaultDue: null,
@@ -98,7 +100,7 @@
       return {
         title: `#${tag}`,
         sub: `${open.filter((t) => t.tag === tag).length} 項待辦`,
-        todos: open.filter((t) => t.tag === tag),
+        todos: list.filter((t) => t.tag === tag),
         done: store.done.filter((t) => t.tag === tag),
         defaultTag: tag,
         defaultDue: null,
@@ -110,7 +112,7 @@
         return {
           title: "今天",
           sub: longDate(today),
-          todos: open.filter((t) => t.due && t.due <= today),
+          todos: list.filter((t) => t.due && t.due <= today),
           done: store.doneToday,
           defaultTag: null,
           defaultDue: today,
@@ -120,14 +122,14 @@
         return {
           title: "即將到來",
           sub: "依期限排序",
-          todos: open.filter((t) => t.due && t.due > today),
+          todos: list.filter((t) => t.due && t.due > today),
           done: null,
           defaultTag: null,
           defaultDue: null,
           empty: "接下來沒有排定期限的待辦",
         };
       case "nodue":
-        return { title: "沒有期限", sub: "", todos: open.filter((t) => !t.due), done: null, defaultTag: null, defaultDue: null, empty: "每件事都排好期限了" };
+        return { title: "沒有期限", sub: "", todos: list.filter((t) => !t.due), done: null, defaultTag: null, defaultDue: null, empty: "每件事都排好期限了" };
       case "done":
         return {
           title: "已完成",
@@ -139,7 +141,7 @@
           empty: `最近 ${doneDays} 天沒有完成的項目`,
         };
       default:
-        return { title: "全部", sub: `${open.length} 項待辦`, todos: open, done: store.done, defaultTag: null, defaultDue: null, empty: "沒有待辦事項\n享受一下空白吧" };
+        return { title: "全部", sub: `${open.length} 項待辦`, todos: list, done: store.done, defaultTag: null, defaultDue: null, empty: "沒有待辦事項\n享受一下空白吧" };
     }
   });
 
