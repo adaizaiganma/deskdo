@@ -14,6 +14,24 @@ val tauriProperties = Properties().apply {
     }
 }
 
+/**
+ * 正式版的簽名金鑰（金鑰和密碼都不在 repo 裡）：
+ * - GitHub Actions：環境變數 DESKDO_KEYSTORE（.jks 的路徑）和 DESKDO_KEYSTORE_PASSWORD
+ * - 本機：android/keystore.properties（已在 .gitignore），寫 storeFile= 和 passwordFile=（存密碼的檔案）
+ * 都沒有時 release 版不簽名（只能自己用 apksigner 簽）。PKCS12 金鑰的密碼和金鑰庫密碼相同，別名是 deskdo
+ */
+val releaseKeystore: Pair<File, String>? = run {
+    System.getenv("DESKDO_KEYSTORE")?.takeIf { it.isNotBlank() }?.let { path ->
+        return@run File(path) to (System.getenv("DESKDO_KEYSTORE_PASSWORD") ?: "")
+    }
+    val propFile = rootProject.file("keystore.properties")
+    if (!propFile.exists()) return@run null
+    val props = Properties().apply { propFile.inputStream().use { load(it) } }
+    val store = props.getProperty("storeFile") ?: return@run null
+    val password = props.getProperty("passwordFile")?.let { File(it).readText().trim() } ?: return@run null
+    File(store) to password
+}
+
 android {
     compileSdk = 37
     namespace = "dev.deskdo.app"
@@ -24,6 +42,16 @@ android {
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        releaseKeystore?.let { (store, password) ->
+            create("release") {
+                storeFile = store
+                storePassword = password
+                keyAlias = "deskdo"
+                keyPassword = password
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -39,6 +67,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             optimization {
                enable = true
             }
