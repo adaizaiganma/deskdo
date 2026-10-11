@@ -7,6 +7,7 @@
   import Toast from "../components/Toast.svelte";
   import TodoList from "../components/TodoList.svelte";
   import { longDate } from "../lib/dates";
+  import { mobile } from "../lib/platform";
   import { store } from "../lib/store.svelte";
   import type { Todo } from "../lib/types";
   import Folders from "./Folders.svelte";
@@ -28,6 +29,8 @@
   let showDone = $state(false);
   let quickAdd = $state<ReturnType<typeof QuickAdd>>();
   let search = $state<HTMLInputElement>();
+  /** 手機版：側邊欄改成從左邊滑出的抽屜 */
+  let drawer = $state(false);
 
   const needsSetup = $derived(!!store.prefs && !store.prefs.configured);
   $effect(() => {
@@ -154,6 +157,7 @@
   function go(v: View) {
     view = v;
     showDone = v === "done";
+    drawer = false;
   }
 
   function onKey(e: KeyboardEvent) {
@@ -181,7 +185,7 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="app">
-  <TitleBar />
+  {#if !mobile}<TitleBar />{/if}
   {#if wizard}
     <div class="body solo">
       <Setup
@@ -192,7 +196,8 @@
     </div>
   {:else}
   <div class="body">
-    <aside>
+    {#if drawer}<button class="scrim" onclick={() => (drawer = false)} aria-label="關閉選單"></button>{/if}
+    <aside class:open={drawer}>
       <label class="search">
         <Icon name="search" size={14} />
         <input bind:this={search} bind:value={query} placeholder="搜尋" onkeydown={(e) => e.key === "Escape" && (query = "")} />
@@ -255,6 +260,13 @@
     </aside>
 
     <main>
+      {#if mobile}
+        <div class="mbar">
+          <button class="icon-btn" onclick={() => (drawer = true)} aria-label="選單"><Icon name="menu" size={20} /></button>
+          <span class="mtitle">{view === "settings" ? "設定" : view === "folders" ? "整理標籤" : page.title}</span>
+          {#if query.trim()}<button class="mquery" onclick={() => (query = "")}>「{query.trim()}」<Icon name="close" size={12} /></button>{/if}
+        </div>
+      {/if}
       {#if view === "settings"}
         <div class="scroll"><Settings onsetup={(mode) => (wizard = mode)} /></div>
       {:else if view === "folders"}
@@ -264,7 +276,7 @@
           <div class="page">
             {#if store.appUpdate}
               <button class="banner" onclick={() => store.installUpdate()} title={store.appUpdate.notes ?? ""}>
-                <Icon name="refresh" size={14} />Deskdo {store.appUpdate.version} 已經下載好，按這裡重新啟動並更新
+                <Icon name="refresh" size={14} />{#if mobile}Deskdo {store.appUpdate.version} 推出了，按這裡下載並安裝{:else}Deskdo {store.appUpdate.version} 已經下載好，按這裡重新啟動並更新{/if}
               </button>
             {/if}
             {#if store.cloudOutdated}
@@ -543,5 +555,101 @@
     color: var(--accent);
     font-size: 13px;
     text-align: left;
+  }
+
+  /* ---- 手機版 ---- */
+  .mbar,
+  .scrim {
+    display: none;
+  }
+  :global(html.mobile) .mbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 52px;
+    padding: 0 8px;
+    flex: none;
+  }
+  :global(html.mobile) .mbar .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+  .mtitle {
+    font-size: 17px;
+    font-weight: 700;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mquery {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: var(--bg2);
+    font-size: 12.5px;
+    color: var(--sub);
+    max-width: 45%;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  :global(html.mobile) main {
+    display: flex;
+    flex-direction: column;
+    border: none;
+    border-radius: 0;
+  }
+  :global(html.mobile) main > .scroll,
+  :global(html.mobile) main > :global(.page) {
+    flex: 1;
+    min-height: 0;
+  }
+  :global(html.mobile) .page {
+    padding: 4px 16px 80px;
+  }
+  /* 標題已經在上方的列裡 */
+  :global(html.mobile) .page header h1 {
+    display: none;
+  }
+  :global(html.mobile) .page header {
+    padding-bottom: 10px;
+  }
+  :global(html.mobile) aside {
+    position: fixed;
+    z-index: 30;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(300px, 84vw);
+    padding-top: 14px;
+    background: var(--raised);
+    box-shadow: var(--pop-shadow);
+    transform: translateX(calc(-100% - 40px));
+    transition: transform 0.22s ease;
+  }
+  :global(html.mobile) aside.open {
+    transform: none;
+  }
+  :global(html.mobile) .scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    background: rgba(0, 0, 0, 0.35);
+  }
+  /* 手指點的地方大一點 */
+  :global(html.mobile) .nav {
+    min-height: 42px;
+    font-size: 15px;
+  }
+  :global(html.mobile) .search {
+    height: 40px;
+  }
+  :global(html.mobile) .search input {
+    font-size: 15px;
   }
 </style>

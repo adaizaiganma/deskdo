@@ -455,6 +455,30 @@ fn migration_batch(name: &str, sql: &str) -> String {
 }
 
 fn device_name() -> String {
+    #[cfg(target_os = "android")]
+    {
+        // 例如「Google Pixel 8」
+        let prop = |k: &str| {
+            std::process::Command::new("getprop")
+                .arg(k)
+                .output()
+                .ok()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                .filter(|s| !s.is_empty())
+        };
+        let model = prop("ro.product.model");
+        let maker = prop("ro.product.manufacturer").map(|m| {
+            let mut c = m.chars();
+            c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+        });
+        return match (maker, model) {
+            (Some(m), Some(d)) if d.to_lowercase().starts_with(&m.to_lowercase()) => d,
+            (Some(m), Some(d)) => format!("{m} {d}"),
+            (_, Some(d)) => d,
+            _ => "Android 手機".into(),
+        };
+    }
+    #[allow(unreachable_code)]
     std::env::var("COMPUTERNAME").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "Windows 電腦".into())
 }
 

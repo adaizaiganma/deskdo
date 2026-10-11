@@ -7,13 +7,27 @@ import java.io.File
 
 /** 小工具的資料：App 最後一次交過來的清單（widget.json，放在 App 自己的資料夾） */
 object WidgetStore {
-  data class Item(val id: String, val title: String, val due: String?, val tag: String?, val priority: String)
+  data class Item(
+    val id: String,
+    val title: String,
+    val due: String?,
+    val tag: String?,
+    val priority: String,
+    /** 還沒完成的前一步；有的話這一步還沒輪到 */
+    val after: String?,
+    val mail: Boolean,
+    val note: Boolean,
+  )
+
+  data class Folder(val name: String, val tags: List<String>)
 
   data class Data(
     val apiBase: String,
     val apiToken: String,
     val today: String,
     val configured: Boolean,
+    val folders: List<Folder>,
+    /** 所有還沒完成的，已經依期限排好 */
     val items: List<Item>,
   )
 
@@ -48,13 +62,23 @@ object WidgetStore {
         due = str(it, "due"),
         tag = str(it, "tag"),
         priority = it.optString("priority", "normal"),
+        after = str(it, "after"),
+        mail = it.optBoolean("mail"),
+        note = it.optBoolean("note"),
       )
+    }
+    val fa = o.optJSONArray("folders") ?: JSONArray()
+    val folders = (0 until fa.length()).map { i ->
+      val f = fa.getJSONObject(i)
+      val tags = f.optJSONArray("tags") ?: JSONArray()
+      Folder(f.optString("name"), (0 until tags.length()).map { tags.getString(it) })
     }
     return Data(
       apiBase = o.optString("apiBase"),
       apiToken = o.optString("apiToken"),
       today = o.optString("today"),
       configured = o.optBoolean("configured"),
+      folders = folders,
       items = items,
     )
   }

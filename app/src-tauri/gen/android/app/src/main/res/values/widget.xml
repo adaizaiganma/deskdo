@@ -3,11 +3,31 @@
     <string name="widget_title">待辦事項</string>
     <string name="widget_description">列出待辦事項，點圓圈直接完成</string>
     <string name="widget_complete">完成</string>
-    <color name="widget_bg">#F5FFFFFF</color>
+    <string name="widget_high">高優先</string>
+    <string name="widget_low">低優先</string>
+    <string name="widget_note">備註</string>
+    <color name="widget_bg">#BFFFFFFF</color>
     <color name="widget_text">#FF1E2126</color>
     <color name="widget_sub">#FF5F656E</color>
-    <color name="widget_faint">#FF8E949C</color>
-    <color name="widget_ring">#FFBFC4CB</color>
+    <color name="widget_faint">#FF767C85</color>
+    <color name="widget_ring">#FF959BA4</color>
     <color name="widget_accent">#FF2563EB</color>
     <color name="widget_warn">#FFC2410C</color>
+    <!-- 篩選標籤的底色（文字色的 8%）；選中時反過來 -->
+    <color name="widget_chip">#141E2126</color>
+    <color name="widget_on_text">#FFFFFFFF</color>
+    <!-- App 的底色（狀態列、導覽列後面），和網頁的背景色一樣 -->
+    <color name="app_bg">#FFFAFAF8</color>
+
+    <!-- 待辦標題下面的小字（優先、標籤、Gmail…），預設不顯示 -->
+    <style name="WidgetMeta">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginEnd">10dp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textSize">11.5sp</item>
+        <item name="android:drawablePadding">3dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:visibility">gone</item>
+    </style>
 </resources>

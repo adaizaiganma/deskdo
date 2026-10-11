@@ -4,7 +4,7 @@
 //! 所以每次都把要顯示的待辦、連線設定整份寫給它，它自己存起來；
 //! 在小工具上勾選完成時，它直接呼叫雲端的 API，App 下次回到前景時再同步。
 
-use crate::store::{self, Snapshot, Todo};
+use crate::store::{self, Folder, Snapshot, Todo};
 use serde::Serialize;
 use std::{collections::HashSet, sync::Mutex};
 use tauri::{
@@ -12,8 +12,8 @@ use tauri::{
     AppHandle, Manager, Wry,
 };
 
-/// 小工具最多顯示幾筆（太多也捲不完，完整清單在 App 裡）
-const WIDGET_LIMIT: usize = 60;
+/// 最多交給小工具幾筆（太多也捲不完，完整清單在 App 裡）
+const WIDGET_LIMIT: usize = 300;
 
 struct Widget(PluginHandle<Wry>);
 
@@ -42,6 +42,7 @@ struct WidgetData<'a> {
     api_token: &'a str,
     today: &'a str,
     configured: bool,
+    folders: &'a [Folder],
     items: Vec<Item<'a>>,
 }
 
@@ -52,22 +53,23 @@ struct Item<'a> {
     due: Option<&'a str>,
     tag: Option<&'a str>,
     priority: &'a str,
+    /// 還沒完成的前一步的 id；有的話這一步還沒輪到（只在依標籤、資料夾篩選時顯示，淡色）
+    after: Option<&'a str>,
+    mail: bool,
+    note: bool,
 }
 
-/// 小工具要顯示的：還沒完成、而且已經輪到的（前一步還沒完成的步驟先不顯示），
-/// 依期限排（沒有期限的放最後），同一天高優先在前、低優先在後
-fn widget_items(todos: &[Todo]) -> Vec<&Todo> {
+/// 小工具要的：所有還沒完成的，依期限排好（沒有期限的放最後，同一天高優先在前、低優先在後），
+/// 分組由小工具自己做。每一筆附上它在等的前一步（還沒輪到的步驟只在篩選時顯示）
+fn widget_items(todos: &[Todo]) -> Vec<Item<'_>> {
     let open: HashSet<&str> = todos.iter().filter(|t| !t.done).map(|t| t.id.as_str()).collect();
     let rank = |p: &str| match p {
         "high" => 0,
         "low" => 2,
         _ => 1,
     };
-    let mut items: Vec<&Todo> = todos
-        .iter()
-        .filter(|t| !t.done && !t.after_id.as_deref().is_some_and(|a| open.contains(a)))
-        .collect();
-    items.sort_by(|a, b| {
+    let mut sorted: Vec<&Todo> = todos.iter().filter(|t| !t.done).collect();
+    sorted.sort_by(|a, b| {
         (a.due.is_none(), a.due.as_deref(), rank(&a.priority), a.created_at.as_str()).cmp(&(
             b.due.is_none(),
             b.due.as_deref(),
@@ -75,8 +77,20 @@ fn widget_items(todos: &[Todo]) -> Vec<&Todo> {
             b.created_at.as_str(),
         ))
     });
-    items.truncate(WIDGET_LIMIT);
-    items
+    sorted.truncate(WIDGET_LIMIT);
+    sorted
+        .into_iter()
+        .map(|t| Item {
+            id: &t.id,
+            title: &t.title,
+            due: t.due.as_deref(),
+            tag: t.tag.as_deref(),
+            priority: &t.priority,
+            after: t.after_id.as_deref().filter(|a| open.contains(a)),
+            mail: t.source == "email",
+            note: t.note.as_deref().is_some_and(|n| !n.trim().is_empty()),
+        })
+        .collect()
 }
 
 pub fn update_widget(app: &AppHandle, snap: &Snapshot) {
@@ -87,10 +101,8 @@ pub fn update_widget(app: &AppHandle, snap: &Snapshot) {
         api_token: &cfg.api_token,
         today: &snap.today,
         configured: cfg.configured(),
-        items: widget_items(&snap.todos)
-            .into_iter()
-            .map(|t| Item { id: &t.id, title: &t.title, due: t.due.as_deref(), tag: t.tag.as_deref(), priority: &t.priority })
-            .collect(),
+        folders: &snap.folders,
+        items: widget_items(&snap.todos),
     };
     let Ok(json) = serde_json::to_string(&data) else { return };
     {

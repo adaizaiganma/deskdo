@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mobile } from "../lib/platform";
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { openUrl } from "@tauri-apps/plugin-opener";
@@ -37,7 +38,7 @@
     { id: "subdomain", label: "設定 workers.dev 網址" },
     { id: "database", label: "準備資料庫" },
     { id: "migrate", label: "建立資料表" },
-    { id: "device", label: "登記這台電腦" },
+    { id: "device", label: mobile ? "登記這支手機" : "登記這台電腦" },
     { id: "upload", label: "上傳 Deskdo 雲端程式" },
     { id: "route", label: "開啟網址" },
     { id: "verify", label: "確認連線" },
@@ -161,7 +162,7 @@
           </svg>
         </div>
         <h1>歡迎使用 Deskdo</h1>
-        <p class="lead">只要設定一次，待辦就能在多台電腦同步；想要的話，也能讓 Claude、ChatGPT 等 AI 助理幫你管理。</p>
+        <p class="lead">只要設定一次，待辦就能在電腦和手機之間同步；想要的話，也能讓 Claude、ChatGPT 等 AI 助理幫你管理。</p>
         <ul class="points">
           <li><Icon name="sparkle" size={15} /><span>待辦存在<b>你自己的 Cloudflare 帳號</b>，Deskdo 和開發者都看不到你的資料。</span></li>
           <li><Icon name="done" size={15} /><span>Cloudflare 免費方案就夠用，不需要綁信用卡。</span></li>
@@ -243,7 +244,7 @@
           {#if inspection.mode === "update"}
             <p class="lead">將更新 <b>{inspection.script}</b> 到版本 {store.prefs?.latestCloudVersion}，資料不會變動。</p>
           {:else if inspection.existing}
-            <p class="lead">這個帳號已經有 Deskdo 雲端（可能是另一台電腦設定的），會把這台電腦加入，資料不會變動。</p>
+            <p class="lead">這個帳號已經有 Deskdo 雲端（可能是另一台電腦設定的），會把{mobile ? "這支手機" : "這台電腦"}加入，資料不會變動。</p>
           {/if}
 
           {#if !inspection.subdomain}
