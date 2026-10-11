@@ -1,13 +1,14 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import Clock from "../components/Clock.svelte";
-  import CountdownStrip from "../components/CountdownStrip.svelte";
+  import CountdownCard from "../components/CountdownCard.svelte";
   import DashGrid from "../components/DashGrid.svelte";
   import Icon from "../components/Icon.svelte";
   import Matrix from "../components/Matrix.svelte";
   import TodoPanel from "../components/TodoPanel.svelte";
   import { weekday } from "../lib/dates";
-  import { homeLayout, WIDGETS, type WidgetId } from "../lib/homeLayout.svelte";
+  import { countdowns } from "../lib/countdowns.svelte";
+  import { BASE, countdownId, homeLayout, isCountdown, spec, type WidgetId } from "../lib/homeLayout.svelte";
   import { homePrefs } from "../lib/homePrefs.svelte";
   import { quoteOf } from "../lib/quotes";
   import { store } from "../lib/store.svelte";
@@ -27,8 +28,45 @@
     panel?.focus();
   }
 
-  /** 調整版面：拖曳移動、調整大小、拿掉或加回組件 */
+  /** 調整版面：拖曳移動、調整大小、拿掉或加回組件（從右鍵選單進入） */
   let editing = $state(false);
+
+  // ---- 左半的右鍵選單：調整版面、拿掉這個組件、加回組件、還原預設 ----
+  let menu = $state<{ x: number; y: number; id: WidgetId | null } | null>(null);
+  /** 可以加回來的：拿掉的組件，和還沒加到主頁的倒數日 */
+  const addable = $derived<{ id: WidgetId; label: string }[]>([
+    ...homeLayout.hidden.map((id) => ({ id, label: BASE[id].label })),
+    ...countdowns.list.filter((c) => c.pinned === false).map((c) => ({ id: `cd:${c.id}` as const, label: c.title })),
+  ]);
+
+  function openMenu(e: MouseEvent) {
+    e.preventDefault();
+    const cell = (e.target as HTMLElement).closest<HTMLElement>("[data-widget]");
+    menu = { x: e.clientX, y: e.clientY, id: (cell?.dataset.widget as WidgetId | undefined) ?? null };
+  }
+
+  function act(fn: () => void) {
+    fn();
+    menu = null;
+  }
+
+  /** 選單別超出視窗 */
+  function place(node: HTMLElement) {
+    const r = node.getBoundingClientRect();
+    if (r.right > innerWidth - 8) node.style.left = `${Math.max(8, innerWidth - 8 - r.width)}px`;
+    if (r.bottom > innerHeight - 8) node.style.top = `${Math.max(8, innerHeight - 8 - r.height)}px`;
+    node.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+  }
+
+  function onWindowKey(e: KeyboardEvent) {
+    if (e.key !== "Escape") return;
+    if (menu) menu = null;
+    else if (editing) editing = false;
+  }
+
+  function onWindowDown(e: PointerEvent) {
+    if (menu && !(e.target as HTMLElement).closest(".ctx")) menu = null;
+  }
 
   const quote = $derived(quoteOf(today));
   const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
@@ -103,42 +141,40 @@
     <div class="when">
       <span class="year">{Number(today.slice(0, 4))}年・{weekday(today)}</span>
       <h1>{Number(today.slice(5, 7))}月{Number(today.slice(8))}日</h1>
-      <span class="summary" class:warn={late > 0}>{summary}</span>
+      <span class="summary" class:warn={late > 0} title={summary}>{summary}</span>
     </div>
   {:else if id === "clock"}
     <div class="clock-box"><Clock size={120} mode={homePrefs.clock} /></div>
   {:else if id === "quote"}
     <figure class="quote">
-      <span class="qlabel">每日一言</span>
+      <figcaption><span class="qlabel">每日一言</span>{quote.source}</figcaption>
       <blockquote>{quote.text}</blockquote>
-      <figcaption>— {quote.source}</figcaption>
     </figure>
   {:else if id === "matrix"}
     <Matrix {today} {matches} onpick={(t) => (store.focus = t.id)} />
-  {:else if id === "countdowns"}
-    <CountdownStrip {today} onopen={oncountdowns} />
+  {:else if isCountdown(id)}
+    <CountdownCard id={countdownId(id)} {today} onopen={oncountdowns} />
   {/if}
 {/snippet}
+
+<svelte:window onkeydown={onWindowKey} onpointerdown={onWindowDown} onblur={() => (menu = null)} />
 
 <!-- 外層是 container，下面才能依自己的寬度切換排版 -->
 <div class="wrap">
 <div class="home" class:resizing>
-  <div class="left">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="left" oncontextmenu={openMenu} onscroll={() => (menu = null)}>
     {@render top?.()}
-    <div class="dash-bar">
-      {#if editing}
-        {#each homeLayout.hidden as id (id)}
-          <button class="add-w" onclick={() => homeLayout.add(id)}><Icon name="plus" size={12} stroke={1.8} />{WIDGETS[id].label}</button>
-        {/each}
-        <span class="grow"></span>
-        <button class="tbtn" onclick={() => homeLayout.reset()}>還原預設</button>
-        <button class="done" onclick={() => (editing = false)}>完成</button>
-      {:else}
-        <span class="grow"></span>
-        <button class="tbtn" onclick={() => (editing = true)} title="移動、調整大小、拿掉或加回組件"><Icon name="widget" size={14} />調整版面</button>
-      {/if}
-    </div>
     <DashGrid {editing} content={widget} />
+    {#if editing}
+      <!-- 浮在下面，不佔版面 -->
+      <div class="edit-dock">
+        <div class="edit-bar">
+          <span>拖曳移動・拖右下角調整大小・按右鍵加回組件</span>
+          <button class="done" onclick={() => (editing = false)}>完成</button>
+        </div>
+      </div>
+    {/if}
   </div>
 
   <!-- 可以聚焦的分隔線（ARIA 的 window splitter）：拖曳或用方向鍵調整寬度 -->
@@ -165,6 +201,35 @@
 </div>
 </div>
 
+{#if menu}
+  {@const m = menu}
+  <div class="ctx" role="menu" aria-label="主頁版面" style:left="{m.x}px" style:top="{m.y}px" use:place>
+    {#if m.id}
+      <div class="mhead">{spec(m.id).label}</div>
+    {/if}
+    <button role="menuitem" onclick={() => act(() => (editing = !editing))}>
+      <Icon name="widget" size={14} />{editing ? "完成調整" : "調整版面"}
+    </button>
+    {#if m.id}
+      {@const id = m.id}
+      <button role="menuitem" onclick={() => act(() => homeLayout.remove(id))}>
+        <Icon name="close" size={14} />{isCountdown(id) ? "從主頁拿掉" : "拿掉這個組件"}
+      </button>
+    {/if}
+    {#if addable.length}
+      <div class="sep"></div>
+      <div class="mhead">加回組件</div>
+      {#each addable as a (a.id)}
+        <button role="menuitem" onclick={() => act(() => homeLayout.add(a.id))}>
+          <Icon name={isCountdown(a.id) ? "hourglass" : "plus"} size={14} /><span class="clip">{a.label}</span>
+        </button>
+      {/each}
+    {/if}
+    <div class="sep"></div>
+    <button role="menuitem" onclick={() => act(() => homeLayout.reset())}><Icon name="refresh" size={14} />還原預設版面</button>
+  </div>
+{/if}
+
 <style>
   .wrap {
     height: 100%;
@@ -189,53 +254,100 @@
     overflow-y: auto;
     padding: 28px 24px 40px 32px;
   }
-  /* 工具列：調整版面（編輯時多了加回組件、還原、完成） */
-  .dash-bar {
+  /* 調整版面時浮在左半下方的提示列 */
+  .edit-dock {
+    position: sticky;
+    bottom: 16px;
+    margin-top: 20px;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    min-height: 30px;
-    margin-bottom: 20px;
+    justify-content: center;
+    z-index: 6;
+    pointer-events: none;
   }
-  .grow {
-    flex: 1;
-  }
-  .tbtn,
-  .add-w,
-  .done {
-    display: inline-flex;
+  .edit-bar {
+    pointer-events: auto;
+    display: flex;
     align-items: center;
-    gap: 5px;
-    height: 30px;
-    padding: 0 12px;
-    border-radius: 8px;
+    gap: 12px;
+    padding: 6px 6px 6px 16px;
+    border-radius: 999px;
+    background: var(--raised);
+    box-shadow: var(--pop-shadow);
     font-size: 12.5px;
     color: var(--sub);
-  }
-  .tbtn:hover {
-    background: var(--hover);
-    color: var(--text);
-  }
-  .add-w {
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
+    white-space: nowrap;
   }
   .done {
+    height: 30px;
+    padding: 0 16px;
+    border-radius: 999px;
     background: var(--accent);
     color: #fff;
+    font-size: 12.5px;
     font-weight: 500;
   }
 
-  /* 組件的內容跟著格子的大小縮放（每格是 size container） */
+  .ctx {
+    position: fixed;
+    z-index: 50;
+    width: 200px;
+    padding: 5px;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--pop-shadow);
+  }
+  .ctx button {
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: left;
+    color: var(--text);
+  }
+  .ctx button:hover,
+  .ctx button:focus-visible {
+    background: var(--hover);
+    outline: none;
+  }
+  .ctx :global(svg) {
+    flex: none;
+    color: var(--sub);
+  }
+  .mhead {
+    padding: 6px 10px 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--line);
+  }
+  .clip {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 日期和一言的字是固定大小，不跟著組件縮放；放不下就截斷或捲動 */
   .when {
     height: 100%;
     min-width: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 4px;
+    gap: 2px;
   }
   .year {
     font-size: 14px;
@@ -245,12 +357,15 @@
   h1 {
     margin: 0;
     white-space: nowrap;
-    font-size: clamp(24px, min(13cqw, 38cqh), 56px);
+    font-size: 44px;
     font-weight: 800;
     line-height: 1.1;
     letter-spacing: 0.01em;
   }
   .summary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 13px;
     color: var(--sub);
   }
@@ -258,6 +373,7 @@
     color: var(--warn);
   }
 
+  /* 時鐘是圖，跟著組件的大小縮放 */
   .clock-box {
     height: 100%;
     display: grid;
@@ -274,32 +390,31 @@
     height: 100%;
     margin: 0;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 12px 16px;
+    gap: 4px;
+    padding: 10px 16px;
     border-radius: 12px;
     background: var(--bg2);
   }
-  .qlabel {
-    display: block;
-    margin-bottom: 4px;
+  figcaption {
+    display: flex;
+    gap: 8px;
     font-size: 11.5px;
+    color: var(--faint);
+  }
+  .qlabel {
     font-weight: 700;
     color: var(--sub);
     letter-spacing: 0.04em;
   }
   blockquote {
     margin: 0;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 500;
-    line-height: 1.6;
-  }
-  figcaption {
-    margin-top: 4px;
-    font-size: 12px;
-    color: var(--faint);
+    line-height: 1.5;
   }
 
   .resizer {

@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { bottomOf, clampBox, COLS, compact, GAP, homeLayout, ROW_HEIGHT, WIDGETS, type Box, type WidgetId } from "../lib/homeLayout.svelte";
+  import { bottomOf, clampBox, compact, GAP, homeLayout, span, spec, STEP, type Box, type WidgetId } from "../lib/homeLayout.svelte";
   import Icon from "./Icon.svelte";
 
   /**
-   * 主頁左半的組件格子。editing 時可以拖曳組件移動、拖右下角調整大小、拿掉組件；
-   * 其他組件會自動讓開並往上靠攏。
+   * 主頁左半的組件格子。格子大小固定，寬度放得下幾欄就幾欄。
+   * editing 時可以拖曳組件移動、拖右下角調整大小、拿掉組件；其他組件會自動讓開並往上靠攏。
    */
   interface Props {
     editing: boolean;
@@ -13,33 +13,41 @@
   }
   let { editing, content }: Props = $props();
 
+  /** 外框的寬度（含左右各 8px 的 padding） */
   let width = $state(0);
-  const colW = $derived(Math.max(0, (width - GAP * (COLS - 1)) / COLS));
+  const cols = $derived(Math.max(1, Math.floor((width - 16 + GAP) / STEP)));
+  $effect(() => {
+    if (width) homeLayout.cols = cols;
+  });
 
   /** 拖曳中：組件跟著指標走，其他組件照 layout 讓開，虛線框是放開後的位置 */
   let drag = $state<{ id: WidgetId; mode: "move" | "resize"; orig: Box; dx: number; dy: number; layout: Box[] } | null>(null);
-  const items = $derived(drag ? drag.layout : homeLayout.items);
-  const height = $derived(Math.max(0, bottomOf(items) * (ROW_HEIGHT + GAP) - GAP));
+  const shown = $derived(homeLayout.items);
+  const items = $derived(drag ? drag.layout : shown);
+  const height = $derived(Math.max(0, span(bottomOf(items))));
+  /** 最小尺寸比視窗還寬的時候，讓格子可以橫向捲動 */
+  const minWidth = $derived(Math.max(0, span(items.reduce((n, b) => Math.max(n, b.x + b.w), 0))));
 
   function rect(b: Box) {
-    return {
-      left: b.x * (colW + GAP),
-      top: b.y * (ROW_HEIGHT + GAP),
-      width: b.w * colW + (b.w - 1) * GAP,
-      height: b.h * ROW_HEIGHT + (b.h - 1) * GAP,
-    };
+    return { left: b.x * STEP, top: b.y * STEP, width: span(b.w), height: span(b.h) };
   }
 
   /** 拖曳中的組件畫在指標的位置（不對齊格子） */
   function floating(b: Box) {
     const r = rect(drag!.orig);
     if (drag!.mode === "move") return { ...r, left: r.left + drag!.dx, top: r.top + drag!.dy };
-    const min = WIDGETS[b.id];
-    return {
-      ...r,
-      width: Math.max(min.minW * colW + (min.minW - 1) * GAP, r.width + drag!.dx),
-      height: Math.max(min.minH * ROW_HEIGHT + (min.minH - 1) * GAP, r.height + drag!.dy),
-    };
+    const min = spec(b.id);
+    return { ...r, width: Math.max(span(min.minW), r.width + drag!.dx), height: Math.max(span(min.minH), r.height + drag!.dy) };
+  }
+
+  /** 移動或調整大小後的位置，不超出右邊 */
+  function moved(b: Box, mode: "move" | "resize", dx: number, dy: number): Box {
+    if (mode === "resize") {
+      const next = clampBox({ ...b, w: b.w + dx, h: b.h + dy });
+      return { ...next, w: Math.max(spec(b.id).minW, Math.min(next.w, cols - b.x)) };
+    }
+    const next = clampBox({ ...b, x: b.x + dx, y: b.y + dy });
+    return { ...next, x: Math.max(0, Math.min(next.x, cols - next.w)) };
   }
 
   function start(e: PointerEvent, b: Box, mode: "move" | "resize") {
@@ -50,20 +58,14 @@
     target.setPointerCapture(e.pointerId);
     const x0 = e.clientX;
     const y0 = e.clientY;
-    drag = { id: b.id, mode, orig: b, dx: 0, dy: 0, layout: homeLayout.items };
-    const stepX = colW + GAP;
-    const stepY = ROW_HEIGHT + GAP;
+    const base = shown;
+    drag = { id: b.id, mode, orig: b, dx: 0, dy: 0, layout: base };
     const move = (ev: PointerEvent) => {
       if (!drag) return;
       const dx = ev.clientX - x0;
       const dy = ev.clientY - y0;
-      const next =
-        mode === "move"
-          ? clampBox({ ...b, x: b.x + Math.round(dx / stepX), y: b.y + Math.round(dy / stepY) })
-          : clampBox({ ...b, w: b.w + Math.round(dx / stepX), h: b.h + Math.round(dy / stepY) });
-      // 調整大小時不能超出右邊
-      if (mode === "resize") next.w = Math.min(next.w, COLS - b.x);
-      drag = { ...drag, dx, dy, layout: compact(homeLayout.items.map((x) => (x.id === b.id ? next : x)), b.id) };
+      const next = moved(b, mode, Math.round(dx / STEP), Math.round(dy / STEP));
+      drag = { ...drag, dx, dy, layout: compact(base.map((x) => (x.id === b.id ? next : x)), b.id) };
     };
     const end = () => {
       if (drag) homeLayout.set(drag.layout);
@@ -83,12 +85,13 @@
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
     if (!d) return;
     e.preventDefault();
-    const next = e.shiftKey ? clampBox({ ...b, w: Math.min(b.w + d[0], COLS - b.x), h: b.h + d[1] }) : clampBox({ ...b, x: b.x + d[0], y: b.y + d[1] });
-    homeLayout.set(compact(homeLayout.items.map((x) => (x.id === b.id ? next : x)), b.id));
+    const next = moved(b, e.shiftKey ? "resize" : "move", d[0], d[1]);
+    homeLayout.set(compact(shown.map((x) => (x.id === b.id ? next : x)), b.id));
   }
 </script>
 
-<div class="grid" class:editing class:dragging={!!drag} bind:clientWidth={width} style:height="{height}px">
+<div class="scroller" bind:clientWidth={width}>
+<div class="grid" class:editing class:dragging={!!drag} style:height="{height}px" style:min-width="{minWidth}px">
   {#each items as b (b.id)}
     {@const lifted = drag?.id === b.id}
     {@const r = lifted ? floating(b) : rect(b)}
@@ -99,7 +102,8 @@
     <!-- 編輯時整個組件可以拖曳；鍵盤用方向鍵 -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_static_element_interactions -->
     <div
-      class="cell w-{b.id}"
+      class="cell"
+      data-widget={b.id}
       class:lifted
       style:left="{r.left}px"
       style:top="{r.top}px"
@@ -107,14 +111,14 @@
       style:height="{r.height}px"
       tabindex={editing ? 0 : undefined}
       role={editing ? "group" : undefined}
-      aria-label={editing ? `${WIDGETS[b.id].label}：拖曳移動，方向鍵移動，Shift 加方向鍵調整大小` : undefined}
+      aria-label={editing ? `${spec(b.id).label}：拖曳移動，方向鍵移動，Shift 加方向鍵調整大小` : undefined}
       onpointerdown={(e) => start(e, b, "move")}
       onkeydown={(e) => key(e, b)}
     >
       <div class="content">{@render content(b.id)}</div>
       {#if editing}
-        <span class="name">{WIDGETS[b.id].label}</span>
-        <button class="remove" onpointerdown={(e) => e.stopPropagation()} onclick={() => homeLayout.remove(b.id)} aria-label="拿掉「{WIDGETS[b.id].label}」" title="拿掉">
+        <span class="name">{spec(b.id).label}</span>
+        <button class="remove" onpointerdown={(e) => e.stopPropagation()} onclick={() => homeLayout.remove(b.id)} aria-label="拿掉「{spec(b.id).label}」" title="拿掉">
           <Icon name="close" size={12} stroke={2} />
         </button>
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -123,8 +127,15 @@
     </div>
   {/each}
 </div>
+</div>
 
 <style>
+  .scroller {
+    overflow-x: auto;
+    /* 編輯時的名稱標籤和 × 按鈕會超出組件一點 */
+    padding: 14px 8px 8px;
+    margin: -14px -8px -8px;
+  }
   .grid {
     position: relative;
     min-height: 120px;
