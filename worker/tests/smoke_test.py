@@ -196,6 +196,34 @@ s, _, _ = req("GET", BASE + "/api/todos", headers=dev)
 check(s == 401, "撤銷後 token 失效")
 s, _, _ = api("GET", "/api/nope")
 check(s == 404, "未知的 /api 路徑 → 404")
+
+# --- 標籤資料夾 ---
+s, _, b = api("GET", "/api/folders")
+check(s == 200 and b["folders"] == [], "還沒設定資料夾 → 空清單")
+s, h, _ = api("GET", "/api/todos")
+etag = h.get("ETag")
+s, _, b = api("PUT", "/api/folders", {"folders": [
+    {"name": "課程", "tags": ["#流體力學", "電子學", "流體力學"]},
+    {"name": "專案", "tags": ["電子學", "robotarm"]},
+    {"name": "空的", "tags": []},
+]})
+check(s == 200 and b["folders"] == [
+    {"name": "課程", "tags": ["流體力學", "電子學"]},
+    {"name": "專案", "tags": ["robotarm"]},
+    {"name": "空的", "tags": []},
+], "PUT /api/folders 去掉 #、同一個標籤只留第一個資料夾")
+s, h, b = api("GET", "/api/todos", headers={"If-None-Match": etag})
+check(s == 200 and b["folders"][0]["name"] == "課程", "改了資料夾 → 待辦清單的 ETag 失效並附上資料夾")
+err, r = call("list_todos", {})
+check(not err and r["folders"][1] == {"name": "專案", "tags": ["robotarm"]}, "MCP list_todos 回傳資料夾")
+s, _, _ = api("PUT", "/api/folders", {"folders": [{"name": "A", "tags": []}, {"name": "A", "tags": []}]})
+check(s == 400, "資料夾名稱重複 → 400")
+s, _, _ = api("PUT", "/api/folders", {"folders": [{"name": " ", "tags": []}]})
+check(s == 400, "資料夾名稱空白 → 400")
+s, _, _ = api("PUT", "/api/folders", {})
+check(s == 400, "沒有 folders → 400")
+s, _, b = api("PUT", "/api/folders", {"folders": []})
+check(s == 200 and b["folders"] == [], "清空資料夾")
 d1("DELETE FROM settings;")
 
 print("\nALL PASSED")

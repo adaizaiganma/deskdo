@@ -15,8 +15,15 @@ export interface Todo {
 
 export type SyncStatus = "syncing" | "ok" | "offline" | "error";
 
+/** 標籤資料夾：只影響顯示，每筆待辦仍然只有一個標籤 */
+export interface Folder {
+  name: string;
+  tags: string[];
+}
+
 export interface Snapshot {
   todos: Todo[];
+  folders: Folder[];
   today: string;
   status: SyncStatus;
   message: string;

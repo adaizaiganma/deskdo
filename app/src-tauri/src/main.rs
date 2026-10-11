@@ -40,6 +40,7 @@ fn main() {
             store::update_todo,
             store::delete_todo,
             store::undo_delete,
+            store::set_folders,
             setup::setup_token,
             oauth::setup_oauth,
             setup::setup_cancel,

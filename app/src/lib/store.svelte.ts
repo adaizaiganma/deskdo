@@ -2,11 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { localDate, localToday } from "./dates";
 import { toast } from "./toast.svelte";
-import type { NewTodo, Prefs, Snapshot, Todo, TodoPatch, UpdateInfo } from "./types";
+import type { Folder, NewTodo, Prefs, Snapshot, Todo, TodoPatch, UpdateInfo } from "./types";
 
 /** 資料都在 Rust 端；這裡只保留最新快照，修改一律透過 invoke */
 class Store {
-  snap = $state<Snapshot>({ todos: [], today: localToday(), status: "syncing", message: "", lastSync: null });
+  snap = $state<Snapshot>({ todos: [], folders: [], today: localToday(), status: "syncing", message: "", lastSync: null });
   prefs = $state<Prefs | null>(null);
   /** 已下載好的新版 App；有值時顯示「重新啟動並更新」 */
   appUpdate = $state<UpdateInfo | null>(null);
@@ -20,9 +20,21 @@ class Store {
   );
   doneToday = $derived(this.done.filter((t) => localDate(t.doneAt) === this.today));
   tags = $derived([...new Set(this.snap.todos.flatMap((t) => (t.tag ? [t.tag] : [])))].sort((a, b) => a.localeCompare(b, "zh-Hant")));
+  folders = $derived(this.snap.folders ?? []);
+  /** 標籤 → 所在的資料夾 */
+  folderOf = $derived(new Map(this.folders.flatMap((f) => f.tags.map((t) => [t, f.name] as const))));
+  /** 不在任何資料夾裡的標籤 */
+  looseTags = $derived(this.tags.filter((t) => !this.folderOf.has(t)));
+  /** 依資料夾排序的標籤（資料夾裡的照資料夾順序，其餘照名稱） */
+  orderedTags = $derived([
+    ...this.folders.flatMap((f) => f.tags.filter((t) => this.tags.includes(t))),
+    ...this.looseTags,
+  ]);
   overdueCount = $derived(this.open.filter((t) => t.due && t.due < this.today).length);
   /** 雲端版本 3 起才支援低優先；還不知道版本時先放行 */
   supportsLow = $derived((this.prefs?.cloudVersion ?? 3) >= 3);
+  /** 雲端版本 4 起才能儲存資料夾 */
+  supportsFolders = $derived((this.prefs?.cloudVersion ?? 4) >= 4);
   cloudOutdated = $derived(
     !!this.prefs?.configured && this.prefs.cloudVersion !== null && this.prefs.cloudVersion < this.prefs.latestCloudVersion,
   );
@@ -50,6 +62,10 @@ class Store {
   canUseLow(): boolean {
     if (!this.supportsLow) toast.error("低優先需要先更新雲端：到「設定 → 雲端」按「更新雲端」");
     return this.supportsLow;
+  }
+
+  setFolders(folders: Folder[]) {
+    return this.#call("set_folders", { folders });
   }
 
   find(id: string): Todo | undefined {

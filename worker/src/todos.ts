@@ -125,7 +125,7 @@ function fromRow(row: TodoRow): Todo {
 }
 
 // 只有前一個語句真的改到資料時才遞增版本號（在同一個 batch 交易中執行）
-const BUMP_VERSION = "UPDATE meta SET value = value + 1 WHERE key = 'version' AND changes() > 0";
+export const BUMP_VERSION = "UPDATE meta SET value = value + 1 WHERE key = 'version' AND changes() > 0";
 
 // ---------- 資料存取 ----------
 

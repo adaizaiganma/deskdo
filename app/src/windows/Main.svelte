@@ -9,12 +9,13 @@
   import { longDate } from "../lib/dates";
   import { store } from "../lib/store.svelte";
   import type { Todo } from "../lib/types";
+  import Folders from "./Folders.svelte";
   import Settings from "./Settings.svelte";
   import Setup from "./Setup.svelte";
   import SyncStatus from "./SyncStatus.svelte";
   import TitleBar from "./TitleBar.svelte";
 
-  type View = "all" | "today" | "upcoming" | "nodue" | "done" | "settings" | `tag:${string}`;
+  type View = "all" | "today" | "upcoming" | "nodue" | "done" | "settings" | "folders" | `tag:${string}` | `folder:${string}`;
 
   let view = $state<View>("today");
   /**
@@ -44,9 +45,31 @@
     { id: "done", label: "已完成", icon: "done", count: () => 0 },
   ];
 
-  const tagCounts = $derived(
-    store.tags.map((tag) => ({ tag, count: open.filter((t) => t.tag === tag).length })),
+  const countOf = (tag: string) => open.filter((t) => t.tag === tag).length;
+  /** 側欄：資料夾（只列出目前有用到的標籤），接著是未分類的標籤 */
+  const sideFolders = $derived(
+    store.folders.map((f) => {
+      const tags = f.tags.filter((t) => store.tags.includes(t)).map((tag) => ({ tag, count: countOf(tag) }));
+      return { name: f.name, tags, count: tags.reduce((n, t) => n + t.count, 0) };
+    }),
   );
+  const looseCounts = $derived(store.looseTags.map((tag) => ({ tag, count: countOf(tag) })));
+
+  /** 收合的資料夾（每台電腦各自記住） */
+  let collapsed = $state<string[]>(readCollapsed());
+  function readCollapsed(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem("main.collapsedFolders") ?? "[]");
+    } catch {
+      return [];
+    }
+  }
+  function toggleFolder(name: string) {
+    collapsed = collapsed.includes(name) ? collapsed.filter((n) => n !== name) : [...collapsed, name];
+    try {
+      localStorage.setItem("main.collapsedFolders", JSON.stringify(collapsed));
+    } catch {}
+  }
 
   function matches(t: Todo): boolean {
     const q = query.trim().toLowerCase();
@@ -56,6 +79,20 @@
 
   /** 每個頁面要顯示的內容 */
   const page = $derived.by(() => {
+    if (view.startsWith("folder:")) {
+      const name = view.slice(7);
+      const tags = new Set(store.folders.find((f) => f.name === name)?.tags);
+      const inFolder = (t: Todo) => !!t.tag && tags.has(t.tag);
+      return {
+        title: name,
+        sub: `${open.filter(inFolder).length} 項待辦`,
+        todos: open.filter(inFolder),
+        done: store.done.filter(inFolder),
+        defaultTag: null,
+        defaultDue: null,
+        empty: tags.size ? "這個資料夾沒有待辦" : "這個資料夾還沒有標籤\n到「整理標籤」把標籤放進來",
+      };
+    }
     if (view.startsWith("tag:")) {
       const tag = view.slice(4);
       return {
@@ -106,6 +143,11 @@
     }
   });
 
+  // 正在看的資料夾被改名或刪除了就回到「全部」
+  $effect(() => {
+    if (view.startsWith("folder:") && !store.folders.some((f) => `folder:${f.name}` === view)) go("all");
+  });
+
   function go(v: View) {
     view = v;
     showDone = v === "done";
@@ -114,7 +156,7 @@
   function onKey(e: KeyboardEvent) {
     if (e.ctrlKey && e.key.toLowerCase() === "n") {
       e.preventDefault();
-      if (view === "settings" || view === "done") go("today");
+      if (view === "settings" || view === "folders" || view === "done") go("today");
       queueMicrotask(() => quickAdd?.focus());
     } else if (e.ctrlKey && e.key.toLowerCase() === "f") {
       e.preventDefault();
@@ -163,10 +205,35 @@
         {/each}
       </nav>
 
-      {#if tagCounts.length}
-        <h4>標籤</h4>
+      {#if store.tags.length || store.folders.length}
+        <div class="h4-row">
+          <h4>標籤</h4>
+          <button class="tidy" class:on={view === "folders"} onclick={() => go("folders")} title="用資料夾整理標籤">整理</button>
+        </div>
         <nav class="tags">
-          {#each tagCounts as t (t.tag)}
+          {#each sideFolders as f (f.name)}
+            {@const shut = collapsed.includes(f.name)}
+            <div class="folder-row">
+              <button class="caret" class:shut onclick={() => toggleFolder(f.name)} aria-label={shut ? "展開" : "收合"} aria-expanded={!shut}>
+                <Icon name="chevron" size={12} />
+              </button>
+              <button class="nav" class:on={view === `folder:${f.name}`} onclick={() => go(`folder:${f.name}`)}>
+                <span class="nicon"><Icon name="folder" /></span>
+                <span class="nlabel">{f.name}</span>
+                {#if f.count}<span class="ncount">{f.count}</span>{/if}
+              </button>
+            </div>
+            {#if !shut}
+              {#each f.tags as t (t.tag)}
+                <button class="nav inner" class:on={view === `tag:${t.tag}`} onclick={() => go(`tag:${t.tag}`)}>
+                  <span class="nicon hash">#</span>
+                  <span class="nlabel">{t.tag}</span>
+                  {#if t.count}<span class="ncount">{t.count}</span>{/if}
+                </button>
+              {/each}
+            {/if}
+          {/each}
+          {#each looseCounts as t (t.tag)}
             <button class="nav" class:on={view === `tag:${t.tag}`} onclick={() => go(`tag:${t.tag}`)}>
               <span class="nicon hash">#</span>
               <span class="nlabel">{t.tag}</span>
@@ -187,6 +254,8 @@
     <main>
       {#if view === "settings"}
         <div class="scroll"><Settings onsetup={(mode) => (wizard = mode)} /></div>
+      {:else if view === "folders"}
+        <div class="scroll"><Folders onupdatecloud={() => (wizard = "update")} /></div>
       {:else}
         <div class="scroll">
           <div class="page">
@@ -347,6 +416,57 @@
     font-weight: 700;
     color: var(--faint);
     letter-spacing: 0.04em;
+  }
+  .h4-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 18px 4px 6px 0;
+  }
+  .h4-row h4 {
+    margin: 0 10px;
+  }
+  .tidy {
+    font-size: 11.5px;
+    color: var(--faint);
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  .tidy:hover,
+  .tidy.on {
+    color: var(--accent);
+    background: var(--hover);
+  }
+  .folder-row {
+    position: relative;
+  }
+  .folder-row .nav {
+    width: 100%;
+  }
+  /* 收合箭頭疊在資料夾圖示左邊的留白上 */
+  .caret {
+    position: absolute;
+    left: -8px;
+    top: 0;
+    bottom: 0;
+    width: 16px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    color: var(--faint);
+  }
+  .caret:hover {
+    color: var(--text);
+  }
+  .caret :global(svg) {
+    transform: rotate(90deg);
+    transition: transform 0.15s;
+  }
+  .caret.shut :global(svg) {
+    transform: rotate(0deg);
+  }
+  .nav.inner {
+    padding-left: 30px;
   }
   .side-foot {
     margin-top: auto;

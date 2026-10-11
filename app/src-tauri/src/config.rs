@@ -1,6 +1,6 @@
 //! 設定檔與快取，存放在 %APPDATA%\Deskdo。
 
-use crate::store::Todo;
+use crate::store::{Folder, Todo};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path, path::PathBuf, sync::OnceLock};
@@ -110,6 +110,7 @@ impl Config {
 pub struct Cache {
     pub today: Option<String>,
     pub todos: Vec<Todo>,
+    pub folders: Vec<Folder>,
 }
 
 pub fn load_cache() -> Option<Cache> {

@@ -43,10 +43,19 @@ pub struct Todo {
     pub source_ref: Option<String>,
 }
 
+/// 標籤資料夾（只影響顯示；順序就是顯示順序）
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Folder {
+    pub name: String,
+    pub tags: Vec<String>,
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub todos: Vec<Todo>,
+    pub folders: Vec<Folder>,
     pub today: String,
     /// "syncing" | "ok" | "offline" | "error"
     pub status: &'static str,
@@ -56,6 +65,7 @@ pub struct Snapshot {
 
 pub struct Inner {
     todos: Vec<Todo>,
+    folders: Vec<Folder>,
     server_today: Option<String>,
     status: &'static str,
     message: String,
@@ -85,6 +95,7 @@ impl Shared {
         Self {
             inner: Mutex::new(Inner {
                 todos: cache.todos,
+                folders: cache.folders,
                 server_today: cache.today,
                 status: "syncing",
                 message: String::new(),
@@ -145,6 +156,7 @@ impl Inner {
     fn snapshot(&self) -> Snapshot {
         Snapshot {
             todos: self.todos.iter().filter(|t| !self.hidden.contains(&t.id)).cloned().collect(),
+            folders: self.folders.clone(),
             today: self.today(),
             status: self.status,
             message: self.message.clone(),
@@ -254,7 +266,17 @@ async fn refresh(app: &AppHandle) {
                         .cloned()
                         .and_then(|v| serde_json::from_value(v).ok())
                         .unwrap_or_default();
-                    config::save_cache(&Cache { today: g.server_today.clone(), todos: g.todos.clone() });
+                    // 雲端版本 4 起才有資料夾；舊版沒有這個欄位就當作沒有資料夾
+                    g.folders = data
+                        .get("folders")
+                        .cloned()
+                        .and_then(|v| serde_json::from_value(v).ok())
+                        .unwrap_or_default();
+                    config::save_cache(&Cache {
+                        today: g.server_today.clone(),
+                        todos: g.todos.clone(),
+                        folders: g.folders.clone(),
+                    });
                 }
             }
             g.status = "ok";
@@ -402,6 +424,34 @@ pub async fn update_todo(app: AppHandle, id: String, patch: Map<String, Value>) 
             }
         },
         move |g| g.replace(&id2, Some(old)),
+    )
+}
+
+/// 整份取代標籤資料夾
+#[tauri::command]
+pub async fn set_folders(app: AppHandle, folders: Vec<Folder>) -> Result<(), String> {
+    let s = shared(&app);
+    let cfg = s.config();
+    let old = {
+        let mut g = s.inner.lock().unwrap();
+        g.pending += 1;
+        std::mem::replace(&mut g.folders, folders.clone())
+    };
+    emit(&app);
+
+    let body = serde_json::json!({ "folders": folders });
+    let r = api::send(&s.client, &cfg, Method::PUT, "/api/folders", Some(&body), None).await;
+    let server: Option<Vec<Folder>> = r.data.as_ref().and_then(|v| v.get("folders")).cloned().and_then(|v| serde_json::from_value(v).ok());
+    let fail = failure(&r).map(|m| (r.offline(), m));
+    finish(
+        &app,
+        fail,
+        move |g| {
+            if let Some(f) = server {
+                g.folders = f;
+            }
+        },
+        move |g| g.folders = old,
     )
 }
 

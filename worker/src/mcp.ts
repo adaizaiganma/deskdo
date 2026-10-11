@@ -12,6 +12,7 @@ import {
   updateTodo,
   type Env,
 } from "./todos";
+import { getFolders } from "./folders";
 
 // MCP 的 inputSchema 會轉成 JSON Schema，所以這裡只用不含 transform 的基本型別，
 // 實際驗證與正規化交給 todos.ts 的 addSchema / patchSchema。
@@ -20,6 +21,7 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const instructions = (env: Env) => `Personal to-do list of the user (UI language: Traditional Chinese).
 - Dates are YYYY-MM-DD in the ${env.TIMEZONE || "Asia/Taipei"} timezone; list_todos returns "today" for reference.
 - "tag" is usually a course name or project; reuse existing tags (returned by list_todos as "tags") instead of inventing near-duplicates.
+- The user may group tags into folders (list_todos returns them as "folders"). Folders are only for display: a to-do still has a single tag, never set a folder name as a tag.
 - Write titles and notes in Traditional Chinese unless the user says otherwise.
 - When creating to-dos from emails, set source="email" and source_ref to the Gmail message ID so that re-running never creates duplicates.`;
 
@@ -44,7 +46,7 @@ function buildServer(env: Env): McpServer {
       title: "列出待辦",
       description:
         "List to-dos with optional filters. Defaults to open (not done) items. All filters are combined with AND. " +
-        "Returns { today, count, todos, tags } where tags lists every tag in use.",
+        "Returns { today, count, todos, tags, folders } where tags lists every tag in use and folders groups tags as [{ name, tags }].",
       inputSchema: {
         status: z.enum(["open", "done", "all"]).optional().describe("Default: open"),
         tag: z.string().optional().describe("Exact tag match, case-insensitive"),
@@ -59,7 +61,7 @@ function buildServer(env: Env): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (a) => {
-      const [todos, tags] = await Promise.all([
+      const [todos, tags, folders] = await Promise.all([
         listTodos(env, {
           status: a.status ?? "open",
           tag: a.tag,
@@ -72,8 +74,9 @@ function buildServer(env: Env): McpServer {
           limit: a.limit,
         }),
         listTags(env.DB),
+        getFolders(env.DB),
       ]);
-      return text({ today: today(env), count: todos.length, todos, tags });
+      return text({ today: today(env), count: todos.length, todos, tags, folders });
     },
   );
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { authorize, rotateMcpSecret, storedMcpSecret, type Caller } from "./auth";
+import { foldersSchema, getFolders, setFolders } from "./folders";
 import { json, notFound } from "./http";
 import {
   addDays,
@@ -53,6 +54,8 @@ function methodNotAllowed(allow: string): Response {
  *   POST   /api/todos
  *   PATCH  /api/todos/:id
  *   DELETE /api/todos/:id
+ *   GET    /api/folders            標籤資料夾（GET /api/todos 也會一併回傳）
+ *   PUT    /api/folders            整份取代：{ folders: [{ name, tags }] }
  *   GET    /api/info               Worker 版本（App 用來判斷雲端要不要更新）
  *   GET    /api/connector          claude.ai 連接器網址
  *   POST   /api/connector/rotate   更換連接器網址（舊的立即失效）
@@ -68,6 +71,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   switch (parts[1]) {
     case "todos":
       return handleTodos(req, env, url, parts[2]);
+    case "folders":
+      return handleFolders(req, env, parts[2]);
     case "info":
       if (parts.length > 2) return notFound();
       return req.method === "GET" ? json({ version: WORKER_VERSION }) : methodNotAllowed("GET");
@@ -103,8 +108,8 @@ async function handleTodos(req: Request, env: Env, url: URL, id: string | undefi
         doneSince: doneDays ? addDays(day, -doneDays) : undefined,
         limit: q.limit ?? 500,
       };
-      const todos = await listTodos(env, filter);
-      return json({ version, today: day, todos }, 200, { ETag: etag });
+      const [todos, folders] = await Promise.all([listTodos(env, filter), getFolders(env.DB)]);
+      return json({ version, today: day, todos, folders }, 200, { ETag: etag });
     }
     if (req.method === "POST") {
       const parsed = addSchema.safeParse(await readJson(req));
@@ -126,6 +131,19 @@ async function handleTodos(req: Request, env: Env, url: URL, id: string | undefi
     return todo ? new Response(null, { status: 204 }) : notFound();
   }
   return methodNotAllowed("PATCH, DELETE");
+}
+
+async function handleFolders(req: Request, env: Env, extra: string | undefined): Promise<Response> {
+  if (extra) return notFound();
+  if (req.method === "GET") return json({ folders: await getFolders(env.DB) });
+  if (req.method === "PUT") {
+    const body = (await readJson(req)) as { folders?: unknown } | undefined;
+    const parsed = foldersSchema.safeParse(body?.folders);
+    if (!parsed.success) return badRequest(parsed.error);
+    await setFolders(env.DB, parsed.data);
+    return json({ folders: parsed.data });
+  }
+  return methodNotAllowed("GET, PUT");
 }
 
 /**

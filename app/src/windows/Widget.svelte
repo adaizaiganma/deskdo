@@ -1,34 +1,64 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { onMount, tick } from "svelte";
-  import { fade, scale } from "svelte/transition";
+  import { fade, scale, slide } from "svelte/transition";
   import Icon from "../components/Icon.svelte";
   import QuickAdd from "../components/QuickAdd.svelte";
   import Toast from "../components/Toast.svelte";
   import TodoList from "../components/TodoList.svelte";
   import { longDate } from "../lib/dates";
   import { store } from "../lib/store.svelte";
+  import type { Todo } from "../lib/types";
   import SyncStatus from "./SyncStatus.svelte";
 
+  /** 選中的資料夾；tag 是選中的標籤（可能在資料夾裡，也可能是未分類的） */
+  let folder = $state<string | null>(null);
   let filter = $state<string | null>(null);
   let showDone = $state(readFlag("widget.showDone"));
   let menuOpen = $state(false);
   let effects = $state(true);
 
   const opacity = $derived(store.prefs?.desktopOpacity ?? 0.92);
-  const filters = $derived(
-    store.tags
-      .map((tag) => ({ tag, count: store.open.filter((t) => t.tag === tag).length }))
-      .filter((f) => f.count > 0),
+  const countOf = (tag: string) => store.open.filter((t) => t.tag === tag).length;
+  const withCounts = (tags: string[]) => tags.map((tag) => ({ tag, count: countOf(tag) })).filter((f) => f.count > 0);
+  /** 第一排：有待辦的資料夾，接著是不在資料夾裡的標籤 */
+  const groups = $derived(
+    store.folders
+      .map((f) => {
+        const tags = withCounts(f.tags);
+        return { name: f.name, all: new Set(f.tags), tags, count: tags.reduce((n, t) => n + t.count, 0) };
+      })
+      .filter((g) => g.count > 0),
   );
-  const todos = $derived(filter ? store.open.filter((t) => t.tag === filter) : store.open);
-  // 小工具只看今天完成的（確認剛剛勾了什麼、順手復原），完整紀錄在主視窗
-  const done = $derived(filter ? store.doneToday.filter((t) => t.tag === filter) : store.doneToday);
+  const loose = $derived(withCounts(store.looseTags));
+  const current = $derived(groups.find((g) => g.name === folder));
 
-  // 篩選中的標籤沒有項目了就回到「全部」
+  const match = (t: Todo) => (filter ? t.tag === filter : current ? !!t.tag && current.all.has(t.tag) : true);
+  const todos = $derived(store.open.filter(match));
+  // 小工具只看今天完成的（確認剛剛勾了什麼、順手復原），完整紀錄在主視窗
+  const done = $derived(store.doneToday.filter(match));
+
+  // 篩選中的資料夾或標籤沒有項目了就往上一層退
   $effect(() => {
-    if (filter && !filters.some((f) => f.tag === filter)) filter = null;
+    if (folder && !current) folder = null;
+    const pool = current ? current.tags : loose;
+    if (filter && !pool.some((f) => f.tag === filter)) filter = null;
   });
+
+  function pickFolder(name: string) {
+    const again = folder === name && !filter;
+    folder = again ? null : name;
+    filter = null;
+  }
+
+  function pickTag(tag: string) {
+    filter = filter === tag ? null : tag;
+  }
+
+  function pickLoose(tag: string) {
+    folder = null;
+    pickTag(tag);
+  }
 
   /** 標籤列放不下時，把滑鼠滾輪的上下捲動轉成左右捲動 */
   function wheelToHorizontal(node: HTMLElement) {
@@ -112,15 +142,31 @@
     </div>
   </header>
 
-  {#if filters.length}
-    <nav class="chips" aria-label="依標籤篩選" use:wheelToHorizontal>
-      <button class="chip" class:on={!filter} onclick={() => (filter = null)}>全部<span class="n">{store.open.length}</span></button>
-      {#each filters as f (f.tag)}
-        <button class="chip" class:on={filter === f.tag} onclick={() => (filter = filter === f.tag ? null : f.tag)}>
+  {#if groups.length || loose.length}
+    <nav class="chips" aria-label="依資料夾或標籤篩選" use:wheelToHorizontal>
+      <button class="chip" class:on={!folder && !filter} onclick={() => ((folder = null), (filter = null))}>
+        全部<span class="n">{store.open.length}</span>
+      </button>
+      {#each groups as g (g.name)}
+        <button class="chip" class:on={folder === g.name && !filter} class:open={folder === g.name} onclick={() => pickFolder(g.name)}>
+          <Icon name="folder" size={13} />{g.name}<span class="n">{g.count}</span>
+        </button>
+      {/each}
+      {#each loose as f (f.tag)}
+        <button class="chip" class:on={!folder && filter === f.tag} onclick={() => pickLoose(f.tag)}>
           #{f.tag}<span class="n">{f.count}</span>
         </button>
       {/each}
     </nav>
+    {#if current}
+      <nav class="chips sub-chips" aria-label="「{current.name}」裡的標籤" use:wheelToHorizontal transition:slide={{ duration: 140 }}>
+        {#each current.tags as f (f.tag)}
+          <button class="chip" class:on={filter === f.tag} onclick={() => pickTag(f.tag)}>
+            #{f.tag}<span class="n">{f.count}</span>
+          </button>
+        {/each}
+      </nav>
+    {/if}
   {/if}
 
   <div class="scroll-wrap">
@@ -138,6 +184,8 @@
             ? "還沒完成設定\n請在主視窗完成設定精靈"
             : filter
               ? "這個標籤沒有待辦"
+              : folder
+                ? "這個資料夾沒有待辦"
               : "沒有待辦事項\n享受一下空白吧"}
         />
       {/if}
@@ -271,6 +319,20 @@
   .chip.on {
     background: var(--text);
     color: var(--bg);
+  }
+  /* 資料夾展開、但選的是裡面的某個標籤 */
+  .chip.open:not(.on) {
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--text);
+  }
+  .sub-chips {
+    gap: 5px;
+    margin-top: -2px;
+  }
+  .sub-chips .chip {
+    height: 24px;
+    padding: 0 9px;
+    font-size: 12px;
   }
 
   .scroll-wrap {

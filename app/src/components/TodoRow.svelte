@@ -196,7 +196,7 @@
       </div>
       <div class="field">
         <span class="ficon"><Icon name="hash" size={14} stroke={1.5} /></span>
-        {#each store.tags as tag (tag)}
+        {#each store.orderedTags as tag (tag)}
           <button class="pill" class:on={todo.tag === tag} onclick={() => patch({ tag: todo.tag === tag ? null : tag })}>#{tag}</button>
         {/each}
         <input

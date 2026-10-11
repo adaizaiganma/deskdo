@@ -44,11 +44,12 @@ Deskdo（Windows）──REST────┘
 |---|---|
 | `GET /api/todos` | 支援 `If-None-Match`，沒變動時回 304；`?doneDays=N` 只回傳最近 N 天完成的（App 用 30） |
 | `POST /api/todos`、`PATCH /api/todos/:id`、`DELETE /api/todos/:id` | 新增、修改（只改有傳的欄位）、刪除 |
+| `GET /api/folders`、`PUT /api/folders` | 標籤資料夾（整份取代；`GET /api/todos` 也會附上 `folders`）。存在 D1 `settings` 的 `tag_folders`，只影響顯示 |
 | `GET /api/info` | Worker 版本 |
 | `GET /api/connector`、`POST /api/connector/rotate` | AI 連接器網址、更換 |
 | `GET /api/devices`、`DELETE /api/devices/:id` | 已連線的電腦、撤銷 |
 
-MCP 工具（`worker/src/mcp.ts`）：`list_todos`、`add_todo`（`source_ref` 去重）、`update_todo`、`complete_todo`、`delete_todo`。
+MCP 工具（`worker/src/mcp.ts`）：`list_todos`（也回傳 `tags` 和 `folders`）、`add_todo`（`source_ref` 去重）、`update_todo`、`complete_todo`、`delete_todo`。
 
 ---
 
