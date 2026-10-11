@@ -35,11 +35,8 @@ class Store {
   folderOf = $derived(new Map(this.folders.flatMap((f) => f.tags.map((t) => [t, f.name] as const))));
   /** 不在任何資料夾裡的標籤 */
   looseTags = $derived(this.tags.filter((t) => !this.folderOf.has(t)));
-  /** 依資料夾排序的標籤（資料夾裡的照資料夾順序，其餘照名稱） */
-  orderedTags = $derived([
-    ...this.folders.flatMap((f) => f.tags.filter((t) => this.tags.includes(t))),
-    ...this.looseTags,
-  ]);
+  /** 依資料夾排序的標籤（資料夾裡的照資料夾順序，含還沒有待辦的；其餘照名稱） */
+  orderedTags = $derived([...this.folders.flatMap((f) => f.tags), ...this.looseTags]);
   overdueCount = $derived(this.open.filter((t) => t.due && t.due < this.today).length);
   /** 雲端版本 3 起才支援低優先；還不知道版本時先放行 */
   supportsLow = $derived((this.prefs?.cloudVersion ?? 3) >= 3);

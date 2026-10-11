@@ -49,10 +49,10 @@
 
   // 標籤、資料夾頁也列出還沒輪到的步驟（淡色顯示）：它的前一步可能是別的標籤，不列出來就找不到了
   const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
-  /** 側欄：資料夾（只列出目前有用到的標籤），接著是未分類的標籤 */
+  /** 側欄：資料夾（含還沒有待辦的標籤），接著是未分類的標籤 */
   const sideFolders = $derived(
     store.folders.map((f) => {
-      const tags = f.tags.filter((t) => store.tags.includes(t)).map((tag) => ({ tag, count: countOf(tag) }));
+      const tags = f.tags.map((tag) => ({ tag, count: countOf(tag) }));
       return { name: f.name, tags, count: tags.reduce((n, t) => n + t.count, 0) };
     }),
   );
@@ -228,7 +228,7 @@
             </div>
             {#if !shut}
               {#each f.tags as t (t.tag)}
-                <button class="nav inner" class:on={view === `tag:${t.tag}`} onclick={() => go(`tag:${t.tag}`)}>
+                <button class="nav inner" class:idle={!t.count} class:on={view === `tag:${t.tag}`} onclick={() => go(`tag:${t.tag}`)}>
                   <span class="nicon hash">#</span>
                   <span class="nlabel">{t.tag}</span>
                   {#if t.count}<span class="ncount">{t.count}</span>{/if}
@@ -467,6 +467,10 @@
   }
   .caret.shut :global(svg) {
     transform: rotate(0deg);
+  }
+  /* 資料夾裡還沒有待辦的標籤 */
+  .nav.idle:not(.on) {
+    color: var(--faint);
   }
   .nav.inner {
     padding-left: 30px;

@@ -21,17 +21,17 @@
   const opacity = $derived(store.prefs?.desktopOpacity ?? 0.92);
   // 依標籤、資料夾篩選時，也列出還沒輪到的步驟（淡色顯示）：它的前一步可能是別的標籤，不列出來就找不到了
   const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
-  const withCounts = (tags: string[]) => tags.map((tag) => ({ tag, count: countOf(tag) })).filter((f) => f.count > 0);
-  /** 第一排：有待辦的資料夾，接著是不在資料夾裡的標籤 */
+  const withCounts = (tags: string[]) => tags.map((tag) => ({ tag, count: countOf(tag) }));
+  /** 第一排：有標籤的資料夾（裡面的標籤還沒有待辦也列出），接著是不在資料夾裡的標籤 */
   const groups = $derived(
     store.folders
+      .filter((f) => f.tags.length)
       .map((f) => {
         const tags = withCounts(f.tags);
         return { name: f.name, all: new Set(f.tags), tags, count: tags.reduce((n, t) => n + t.count, 0) };
-      })
-      .filter((g) => g.count > 0),
+      }),
   );
-  const loose = $derived(withCounts(store.looseTags));
+  const loose = $derived(withCounts(store.looseTags).filter((f) => f.count > 0));
   const current = $derived(groups.find((g) => g.name === folder));
 
   const match = (t: Todo) => (filter ? t.tag === filter : current ? !!t.tag && current.all.has(t.tag) : true);
@@ -162,7 +162,7 @@
     {#if current}
       <nav class="chips sub-chips" aria-label="「{current.name}」裡的標籤" use:wheelToHorizontal transition:slide={{ duration: 140 }}>
         {#each current.tags as f (f.tag)}
-          <button class="chip" class:on={filter === f.tag} onclick={() => pickTag(f.tag)}>
+          <button class="chip" class:idle={!f.count} class:on={filter === f.tag} onclick={() => pickTag(f.tag)}>
             <span class="clip" title="#{f.tag}">#{f.tag}</span><span class="n">{f.count}</span>
           </button>
         {/each}
@@ -338,6 +338,10 @@
     height: 24px;
     padding: 0 9px;
     font-size: 12px;
+  }
+  /* 資料夾裡還沒有待辦的標籤 */
+  .chip.idle:not(.on) {
+    color: var(--faint);
   }
 
   .scroll-wrap {

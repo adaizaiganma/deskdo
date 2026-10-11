@@ -116,7 +116,7 @@
     const q = tagQuery.toLowerCase();
     return store.orderedTags.filter((t) => !q || t.toLowerCase().includes(q));
   });
-  const canCreateTag = $derived(!!tagQuery && !store.tags.some((t) => t.toLowerCase() === tagQuery.toLowerCase()));
+  const canCreateTag = $derived(!!tagQuery && !store.orderedTags.some((t) => t.toLowerCase() === tagQuery.toLowerCase()));
 
   function openTags() {
     panel = panel === "tag" ? null : "tag";
@@ -133,7 +133,7 @@
     if (e.isComposing) return;
     if (e.key === "Escape") panel = null;
     if (e.key === "Enter") {
-      const exact = store.tags.find((t) => t.toLowerCase() === tagQuery.toLowerCase());
+      const exact = store.orderedTags.find((t) => t.toLowerCase() === tagQuery.toLowerCase());
       if (exact) pickTag(exact);
       else if (canCreateTag) pickTag(tagQuery);
       else if (tagOptions.length === 1) pickTag(tagOptions[0]);
