@@ -1,8 +1,8 @@
 # Deskdo
 
-貼在 Windows 桌面上的毛玻璃待辦清單。可以單獨使用，也可以透過 MCP 自訂連接器讓 Claude、ChatGPT 等 AI 助理讀寫。
+貼在 Windows 桌面上的毛玻璃待辦清單，也有 Android 版（含主畫面小工具）。可以單獨使用，也可以透過 MCP 自訂連接器讓 Claude、ChatGPT 等 AI 助理讀寫。
 
-**一般使用者**：到宣傳頁（`site/`，網址見 [發布](#4-發布)）或 [GitHub Releases](../../releases/latest) 下載安裝檔。第一次開啟時，設定精靈會帶你登入 Cloudflare，自動在你自己的帳號建立雲端。使用說明在宣傳頁的 `/guide`。
+**一般使用者**：到宣傳頁（`site/`，網址見 [發布](#4-發布)）或 [GitHub Releases](../../releases/latest) 下載安裝檔（Windows 是 `Deskdo_*_x64-setup.exe`，Android 是 `Deskdo_*_arm64.apk`）。第一次開啟時，設定精靈會帶你登入 Cloudflare，自動在你自己的帳號建立雲端。使用說明在宣傳頁的 `/guide`。
 
 ```
                          使用者自己的 Cloudflare 帳號
@@ -137,11 +137,11 @@ Cloudflare 後台 → 管理帳戶 → OAuth clients → 建立：
 ### 安裝檔
 
 ```powershell
-git tag v0.5.0
-git push origin v0.5.0
+git tag v0.6.0
+git push origin v0.6.0
 ```
 
-`.github/workflows/release.yml` 會在 Windows 上建置並建立 GitHub Release 草稿，確認後按發布。需要先在 repo 的 Actions 設定 variable `DESKDO_CF_CLIENT_ID` 和兩個簽章 secret（見下一節）。
+`.github/workflows/release.yml` 會在 Windows 上建置安裝檔、在 Ubuntu 上建置 Android APK，放進同一個 GitHub Release 草稿，確認後按發布。需要先在 repo 的 Actions 設定 variable `DESKDO_CF_CLIENT_ID`、兩個自動更新的簽章 secret（見下一節）和兩個 APK 簽名 secret（見下面的 Android）。在 Actions 頁面手動執行這個 workflow 時只打包 APK（放在 Artifacts），用來測試流程。
 
 本機建置：`cd app; $env:DESKDO_CF_CLIENT_ID = "<client id>"; npx tauri build`，輸出在 `app\src-tauri\target\release\bundle\nsis\`。因為會一起產生自動更新檔，本機建置也需要簽章私鑰：
 
@@ -151,6 +151,12 @@ $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = Get-Content ~\.tauri\deskdo-updater.ke
 ```
 
 安裝檔沒有程式碼簽章，使用者會看到 SmartScreen 警告（宣傳頁的常見問題有說明）。
+
+### Android
+
+- APK 用作者的金鑰簽名：`~\.tauri\deskdo-android.jks`（PKCS12，別名 `deskdo`），密碼在 `deskdo-android.jks.password`。同樣的內容存在 Actions secrets `ANDROID_KEYSTORE_BASE64`（.jks 轉 base64）、`ANDROID_KEYSTORE_PASSWORD`。**請備份**：換了金鑰，已安裝的 App 就不能直接更新，只能解除安裝再重裝。
+- 本機打包：`app/src-tauri/gen/android/keystore.properties`（不進 repo）寫 `storeFile=` 和 `passwordFile=`，Gradle 就會用它簽 release 版（見 `app/build.gradle.kts`）。Windows 沒開「開發人員模式」時 `tauri android build` 建不了 symlink，要自己把 `.so` 複製到 `jniLibs` 再跑 Gradle。
+- 更新：App 會檢查 GitHub `releases/latest` 有沒有新版的 `.apk`，有的話在主畫面提示，按了用瀏覽器下載安裝。
 
 ### 自動更新
 
