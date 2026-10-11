@@ -17,8 +17,7 @@ pub const APP_TITLE: &str = if BETA { "待辦事項（測試版）" } else { "�
 
 static DIR: OnceLock<PathBuf> = OnceLock::new();
 
-/// 手機版：啟動時用 App 的資料目錄（要在第一次讀設定之前呼叫）
-#[cfg(mobile)]
+/// 手機版：啟動時用 App 的資料目錄（要在第一次讀設定之前呼叫）；電腦版用下面的預設位置
 pub fn init_dir(dir: PathBuf) {
     let _ = fs::create_dir_all(&dir);
     let _ = DIR.set(dir);
