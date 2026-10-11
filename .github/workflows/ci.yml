@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    # 在電腦上檢查前端和 Rust（Android 專用的呼叫用 cfg(mobile) 隔開）；真的打包 APK 在 release.yml
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install
+        run: |
+          npm ci --prefix upstream/worker
+          npm ci
+
+      # upstream/core/rust 的 build.rs 會把打包好的 Worker 嵌進 App
+      - name: Worker bundle
+        run: npm run build:worker
+
+      - name: Frontend
+        run: |
+          npm run check
+          npm test
+
+      - name: Rust
+        working-directory: src-tauri
+        run: cargo test

@@ -1,0 +1,241 @@
+@import "@fontsource-variable/noto-sans-tc";
+
+:root {
+  --font: "Noto Sans TC Variable", "Microsoft JhengHei UI", "Segoe UI", sans-serif;
+  --bg: #fafaf8;
+  --raised: #ffffff;
+  --bg2: #efefec;
+  --text: #1e2126;
+  --sub: #5f656e;
+  --faint: #8e949c;
+  --ring: #bfc4cb;
+  --line: rgba(20, 24, 30, 0.08);
+  --hover: rgba(20, 24, 30, 0.045);
+  --active: rgba(20, 24, 30, 0.07);
+  --accent: #2563eb;
+  --accent-soft: #e6eefd;
+  --warn: #c2410c;
+  --warn-soft: #fcebe2;
+  --ok: #16a34a;
+  --toast-bg: #1e2126;
+  --toast-text: #f4f4f5;
+  --toast-accent: #9dbcff;
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 14px rgba(16, 24, 40, 0.08);
+  --pop-shadow: 0 8px 28px rgba(16, 24, 40, 0.18);
+  --layer: rgba(255, 255, 255, 0.72);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1f2126;
+    --raised: #2a2d33;
+    --bg2: #2b2e35;
+    --text: #ecedef;
+    --sub: #a3a8b1;
+    --faint: #7a7f88;
+    --ring: #5a5f69;
+    --line: rgba(255, 255, 255, 0.08);
+    --hover: rgba(255, 255, 255, 0.05);
+    --active: rgba(255, 255, 255, 0.08);
+    --accent: #6e9dff;
+    --accent-soft: rgba(110, 157, 255, 0.16);
+    --warn: #f2905c;
+    --warn-soft: rgba(242, 144, 92, 0.15);
+    --ok: #4ade80;
+    --toast-bg: #ecedef;
+    --toast-text: #1e2126;
+    --toast-accent: #2563eb;
+    --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    --pop-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+    --layer: rgba(32, 34, 39, 0.55);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+/* 不支援毛玻璃（Windows 10）時用實心背景 */
+html.no-effects body {
+  background: var(--bg);
+}
+
+#app {
+  height: 100%;
+}
+
+input,
+textarea {
+  user-select: text;
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 手機：拿掉 WebView 按下時的藍色框；長按按鈕不要選取文字、跳出系統選單 */
+html.mobile {
+  -webkit-tap-highlight-color: transparent;
+}
+html.mobile button,
+html.mobile a {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ring);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--sub);
+  transition: background 0.15s, color 0.15s;
+}
+.icon-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.pill {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--bg2);
+  font-size: 12px;
+  color: var(--sub);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.pill:hover {
+  color: var(--text);
+}
+.pill.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 500;
+}
+.pill.warn-on {
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-weight: 500;
+}
+
+/* 按鈕：primary 主要動作、ghost 次要動作 */
+.primary,
+.ghost {
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s, opacity 0.15s;
+}
+.primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+.primary:hover {
+  filter: brightness(1.06);
+}
+/* 用半透明底色：放在卡片（--raised）或頁面（--bg）上都看得出是按鈕 */
+.ghost {
+  padding: 0 14px;
+  background: var(--active);
+}
+.ghost:hover {
+  background: color-mix(in srgb, var(--text) 13%, transparent);
+}
+.ghost.danger {
+  color: var(--warn);
+}
+.primary.big {
+  height: 42px;
+  padding: 0 22px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+.primary:disabled,
+.ghost:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+/* 太長的名稱（標籤、資料夾）截斷成「…」；放在 flex 容器裡也有效 */
+.clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link {
+  color: var(--accent);
+  font-size: 13px;
+}
+.link:hover {
+  text-decoration: underline;
+}
+
+/* 測試版標示（標題列、小工具標題） */
+.beta {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
