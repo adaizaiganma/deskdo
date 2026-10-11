@@ -54,21 +54,18 @@
     <input bind:this={input} bind:value={text} onkeydown={onKey} placeholder="新增待辦，按 Enter 送出" aria-label="新增待辦" />
   </label>
   <div class="meta">
-    {#if !text.trim()}
-      <span class="hint" title="例如：交報告 #電路學 @週五 !">
-        <span><b>#</b>標籤</span>
-        <span title="@今天 @明天 @週五 @下週三 @10/15"><b>@</b>期限</span>
-        <span><b>!</b>高優先</span>
-        <span><b>~</b>低優先</span>
-        <span title="例如：做預報 &gt; 印預報"><b>&gt;</b>下一步</span>
-      </span>
-    {:else}
-      {#if due}<span class="chip"><Icon name="calendar" size={11} stroke={1.7} />{relativeDue(due, store.today)}</span>{/if}
-      {#if tag}<span class="chip" title="#{tag}"><span class="clip">#{tag}</span></span>{/if}
-      {#if parsed?.priority === "high"}<span class="chip warn">高優先</span>{/if}
-      {#if parsed?.priority === "low"}<span class="chip low">低優先</span>{/if}
-      {#if steps && steps.length > 1}<span class="chip"><span class="clip">{steps.length} 個步驟：{steps.map((s) => s.title).join(" → ")}</span></span>{/if}
-    {/if}
+    {#if due}<span class="chip"><Icon name="calendar" size={11} stroke={1.7} />{relativeDue(due, store.today)}</span>{/if}
+    {#if tag}<span class="chip" title="#{tag}"><span class="clip">#{tag}</span></span>{/if}
+    {#if parsed?.priority === "high"}<span class="chip warn">高優先</span>{/if}
+    {#if parsed?.priority === "low"}<span class="chip low">低優先</span>{/if}
+    {#if steps && steps.length > 1}<span class="chip"><span class="clip">{steps.length} 個步驟：{steps.map((s) => s.title).join(" → ")}</span></span>{/if}
+    <span class="hint" class:aside={!!text.trim()} title="例如：交報告 #電路學 @週五 !">
+      <span><b>#</b>標籤</span>
+      <span title="@今天 @明天 @週五 @下週三 @10/15"><b>@</b>期限</span>
+      <span><b>!</b>高優先</span>
+      <span><b>~</b>低優先</span>
+      <span title="例如：做預報 &gt; 印預報"><b>&gt;</b>下一步</span>
+    </span>
   </div>
 </div>
 
@@ -144,6 +141,10 @@
     flex-wrap: wrap;
     gap: 2px 10px;
     color: var(--faint);
+  }
+  /* 輸入時符號說明靠右，左邊留給解析出來的標籤、期限 */
+  .hint.aside {
+    margin-left: auto;
   }
   .hint b {
     font-weight: 700;
