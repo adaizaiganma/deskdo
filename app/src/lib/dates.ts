@@ -162,3 +162,43 @@ export function dayDistance(day: string, today: string): string {
   if (n === -1) return "昨天";
   return n > 0 ? `${n} 天後` : `${-n} 天前`;
 }
+
+/** 2026年10月11日 週日 */
+export function fullDate(iso: string): string {
+  const d = parse(iso);
+  return `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日 ${weekday(iso)}`;
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** 每年的同一天：今年還沒過就是今年，過了就是明年（2/29 在平年算 2/28） */
+export function nextYearly(date: string, today: string): string {
+  const [, m, d] = date.split("-").map(Number);
+  const at = (y: number) => `${y}-${String(m).padStart(2, "0")}-${String(Math.min(d, daysInMonth(y, m))).padStart(2, "0")}`;
+  const y = Number(today.slice(0, 4));
+  return at(y) >= today ? at(y) : at(y + 1);
+}
+
+/** 兩天之間差幾年幾個月幾天（照日曆算，順序不拘）：先算滿幾個月，剩下的算天數 */
+export function spanParts(a: string, b: string): { years: number; months: number; days: number } {
+  if (a > b) [a, b] = [b, a];
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  let total = (by - ay) * 12 + (bm - am);
+  if (bd < ad) total -= 1;
+  // 滿 total 個月的那一天；那個月沒有這一天時（例如 1/31 加一個月）算月底
+  const i = ay * 12 + am - 1 + total;
+  const y = Math.floor(i / 12);
+  const m = (i % 12) + 1;
+  const anchor = `${y}-${String(m).padStart(2, "0")}-${String(Math.min(ad, daysInMonth(y, m))).padStart(2, "0")}`;
+  return { years: Math.floor(total / 12), months: total % 12, days: diffDays(anchor, b) };
+}
+
+/** 1 年 2 個月 3 天；不到一個月時回傳空字串（天數已經另外顯示） */
+export function spanText(a: string, b: string): string {
+  const { years, months, days } = spanParts(a, b);
+  if (!years && !months) return "";
+  return [years && `${years} 年`, months && `${months} 個月`, days && `${days} 天`].filter(Boolean).join(" ");
+}

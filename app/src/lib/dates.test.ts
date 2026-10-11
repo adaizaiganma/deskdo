@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { addMonths, dayDistance, monthGrid } from "./dates";
+import { addMonths, dayDistance, monthGrid, nextYearly, spanParts, spanText } from "./dates";
 
 describe("addMonths", () => {
   test("within and across years", () => {
@@ -39,5 +39,33 @@ describe("dayDistance", () => {
     expect(dayDistance("2026-10-10", "2026-10-11")).toBe("昨天");
     expect(dayDistance("2026-10-15", "2026-10-11")).toBe("4 天後");
     expect(dayDistance("2026-10-01", "2026-10-11")).toBe("10 天前");
+  });
+});
+
+describe("nextYearly", () => {
+  test("this year or next", () => {
+    expect(nextYearly("2001-12-25", "2026-10-11")).toBe("2026-12-25");
+    expect(nextYearly("2001-03-01", "2026-10-11")).toBe("2027-03-01");
+    expect(nextYearly("2001-10-11", "2026-10-11")).toBe("2026-10-11");
+  });
+
+  test("leap day in a common year", () => {
+    expect(nextYearly("2004-02-29", "2026-10-11")).toBe("2027-02-28");
+    expect(nextYearly("2004-02-29", "2027-10-11")).toBe("2028-02-29");
+  });
+});
+
+describe("spanParts", () => {
+  test("years, months and days", () => {
+    expect(spanParts("2025-08-20", "2026-10-11")).toEqual({ years: 1, months: 1, days: 21 });
+    expect(spanParts("2026-10-11", "2025-08-20")).toEqual({ years: 1, months: 1, days: 21 });
+    expect(spanParts("2026-01-31", "2026-03-01")).toEqual({ years: 0, months: 1, days: 1 });
+    expect(spanParts("2025-12-15", "2026-01-10")).toEqual({ years: 0, months: 0, days: 26 });
+  });
+
+  test("text", () => {
+    expect(spanText("2026-10-11", "2026-10-30")).toBe("");
+    expect(spanText("2026-10-11", "2027-10-11")).toBe("1 年");
+    expect(spanText("2026-10-11", "2026-12-14")).toBe("2 個月 3 天");
   });
 });

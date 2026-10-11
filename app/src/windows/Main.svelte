@@ -12,13 +12,14 @@
   import { mobile } from "../lib/platform";
   import { store } from "../lib/store.svelte";
   import type { Todo } from "../lib/types";
+  import Countdowns from "./Countdowns.svelte";
   import Folders from "./Folders.svelte";
   import Settings from "./Settings.svelte";
   import Setup from "./Setup.svelte";
   import SyncStatus from "./SyncStatus.svelte";
   import TitleBar from "./TitleBar.svelte";
 
-  type View = "all" | "today" | "upcoming" | "calendar" | "nodue" | "done" | "settings" | "folders" | `tag:${string}` | `folder:${string}`;
+  type View = "all" | "today" | "upcoming" | "calendar" | "countdown" | "nodue" | "done" | "settings" | "folders" | `tag:${string}` | `folder:${string}`;
 
   let view = $state<View>("all");
   /**
@@ -50,6 +51,7 @@
     { id: "today", label: "今天", icon: "sun", count: () => open.filter((t) => t.due && t.due <= today).length },
     { id: "upcoming", label: "即將到來", icon: "upcoming", count: () => open.filter((t) => t.due && t.due > today).length },
     { id: "calendar", label: "日曆", icon: "calendar", count: () => 0 },
+    { id: "countdown", label: "倒數日", icon: "hourglass", count: () => 0 },
     { id: "all", label: "全部", icon: "inbox", count: () => open.length },
     { id: "nodue", label: "沒有期限", icon: "tray", count: () => open.filter((t) => !t.due).length },
     { id: "done", label: "已完成", icon: "done", count: () => 0 },
@@ -170,7 +172,7 @@
   function onKey(e: KeyboardEvent) {
     if (e.ctrlKey && e.key.toLowerCase() === "n") {
       e.preventDefault();
-      if (view === "settings" || view === "folders" || view === "done") go("all");
+      if (view === "settings" || view === "folders" || view === "done" || view === "countdown") go("all");
       queueMicrotask(() => quickAdd?.focus());
     } else if (e.ctrlKey && e.key.toLowerCase() === "f") {
       e.preventDefault();
@@ -282,12 +284,14 @@
       {#if mobile}
         <div class="mbar">
           <button class="icon-btn" onclick={() => (drawer = true)} aria-label="選單"><Icon name="menu" size={20} /></button>
-          <span class="mtitle">{view === "settings" ? "設定" : view === "folders" ? "整理標籤" : page.title}</span>
+          <span class="mtitle">{view === "settings" ? "設定" : view === "folders" ? "整理標籤" : view === "countdown" ? "倒數日" : page.title}</span>
           {#if query.trim()}<button class="mquery" onclick={() => (query = "")}>「{query.trim()}」<Icon name="close" size={12} /></button>{/if}
         </div>
       {/if}
       {#if view === "settings"}
         <div class="scroll"><Settings onsetup={(mode) => (wizard = mode)} /></div>
+      {:else if view === "countdown"}
+        <div class="scroll"><Countdowns {today} /></div>
       {:else if view === "folders"}
         <Folders onupdatecloud={() => (wizard = "update")} />
       {:else}
