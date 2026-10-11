@@ -199,7 +199,7 @@
 
 <!-- 鍵盤使用者用 Enter／Esc（標題輸入框）收合，所以點擊收合不需要對應的按鍵處理 -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="row" class:editing class:done={todo.done} class:sending class:low data-row={todo.id} onpointerdown={(e) => (downOnBlank = isBlank(e.target))} onclick={onRowClick}>
+<div class="row" class:editing class:done={todo.done} class:sending class:low class:waiting={!!waitingFor} data-row={todo.id} onpointerdown={(e) => (downOnBlank = isBlank(e.target))} onclick={onRowClick}>
   <div class="line">
     <button
       class="chk"
@@ -539,6 +539,13 @@
   }
   .row.editing {
     cursor: default;
+  }
+  /* 還沒輪到的步驟（標籤頁、搜尋時才看得到） */
+  .row.waiting .title {
+    color: var(--faint);
+  }
+  .row.waiting .chk {
+    border-style: dashed;
   }
   .row.low:not(.done) .title {
     color: var(--sub);

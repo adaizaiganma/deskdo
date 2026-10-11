@@ -13,7 +13,7 @@
   const folders = $derived(store.folders);
   const used = $derived(new Set(store.tags));
   const locked = $derived(!store.supportsFolders);
-  const countOf = (tag: string) => store.open.filter((t) => t.tag === tag).length;
+  const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
 
   function save(next: Folder[]) {
     if (locked) return;

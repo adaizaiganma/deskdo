@@ -19,7 +19,8 @@
   let effects = $state(true);
 
   const opacity = $derived(store.prefs?.desktopOpacity ?? 0.92);
-  const countOf = (tag: string) => store.open.filter((t) => t.tag === tag).length;
+  // 依標籤、資料夾篩選時，也列出還沒輪到的步驟（淡色顯示）：它的前一步可能是別的標籤，不列出來就找不到了
+  const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
   const withCounts = (tags: string[]) => tags.map((tag) => ({ tag, count: countOf(tag) })).filter((f) => f.count > 0);
   /** 第一排：有待辦的資料夾，接著是不在資料夾裡的標籤 */
   const groups = $derived(
@@ -34,7 +35,7 @@
   const current = $derived(groups.find((g) => g.name === folder));
 
   const match = (t: Todo) => (filter ? t.tag === filter : current ? !!t.tag && current.all.has(t.tag) : true);
-  const todos = $derived(store.open.filter(match));
+  const todos = $derived(filter || current ? store.allOpen.filter(match) : store.open);
   // 小工具只看今天完成的（確認剛剛勾了什麼、順手復原），完整紀錄在主視窗
   const done = $derived(store.doneToday.filter(match));
 

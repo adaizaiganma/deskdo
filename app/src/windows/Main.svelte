@@ -47,7 +47,8 @@
     { id: "done", label: "已完成", icon: "done", count: () => 0 },
   ];
 
-  const countOf = (tag: string) => open.filter((t) => t.tag === tag).length;
+  // 標籤、資料夾頁也列出還沒輪到的步驟（淡色顯示）：它的前一步可能是別的標籤，不列出來就找不到了
+  const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
   /** 側欄：資料夾（只列出目前有用到的標籤），接著是未分類的標籤 */
   const sideFolders = $derived(
     store.folders.map((f) => {
@@ -87,8 +88,8 @@
       const inFolder = (t: Todo) => !!t.tag && tags.has(t.tag);
       return {
         title: name,
-        sub: `${open.filter(inFolder).length} 項待辦`,
-        todos: list.filter(inFolder),
+        sub: `${store.allOpen.filter(inFolder).length} 項待辦`,
+        todos: store.allOpen.filter(inFolder),
         done: store.done.filter(inFolder),
         defaultTag: null,
         defaultDue: null,
@@ -99,8 +100,8 @@
       const tag = view.slice(4);
       return {
         title: `#${tag}`,
-        sub: `${open.filter((t) => t.tag === tag).length} 項待辦`,
-        todos: list.filter((t) => t.tag === tag),
+        sub: `${store.allOpen.filter((t) => t.tag === tag).length} 項待辦`,
+        todos: store.allOpen.filter((t) => t.tag === tag),
         done: store.done.filter((t) => t.tag === tag),
         defaultTag: tag,
         defaultDue: null,
