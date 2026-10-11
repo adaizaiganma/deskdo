@@ -20,6 +20,10 @@
   let checking = $state(false);
   let draftTitle = $state("");
   let draftNote = $state("");
+  /** 期限、標籤、優先也先改在這裡，收合時才一起存（每按一下就送出、重新整理清單，手機上會卡） */
+  let draftDue = $state<string | null>(null);
+  let draftTag = $state<string | null>(null);
+  let draftPriority = $state<Todo["priority"]>("normal");
   let titleInput = $state<HTMLInputElement>();
   /** 展開的選單：tag = 選標籤，new = 新增下一步，link = 從現有的待辦挑一筆接在後面 */
   let panel = $state<"tag" | "new" | "link" | null>(null);
@@ -30,6 +34,8 @@
   const high = $derived(todo.priority === "high");
   const low = $derived(todo.priority === "low");
   const due = $derived(!todo.done && todo.due ? rowDue(todo.due, today) : null);
+  const draftHigh = $derived(draftPriority === "high");
+  const draftLow = $derived(draftPriority === "low");
   const checked = $derived(todo.done || checking);
   const source = $derived({ email: "來自 Gmail", claude: "由 AI 助理新增", manual: "手動新增" }[todo.source] ?? "");
   const created = $derived(localDate(todo.createdAt));
@@ -59,7 +65,7 @@
     { label: "無期限", value: null },
   ]);
 
-  // 打開編輯時載入草稿；收合時把標題和備註存回去
+  // 打開編輯時載入草稿；收合時把標題、備註、期限、標籤、優先一起存回去
   let wasEditing = false;
   /** 草稿是從哪一筆載入的。這一列換成顯示別筆時（例如在步驟之間切換），不能把草稿存到別筆上 */
   let draftId: string | null = null;
@@ -70,6 +76,9 @@
         draftId = todo.id;
         draftTitle = todo.title;
         draftNote = todo.note ?? "";
+        draftDue = todo.due;
+        draftTag = todo.tag;
+        draftPriority = todo.priority;
         panel = null;
         // 手機上不自動聚焦：鍵盤一跳出來就蓋住半個畫面，要改標題再點標題
         if (!mobile) queueMicrotask(() => titleInput?.focus());
@@ -78,6 +87,10 @@
       }
       wasEditing = now;
     });
+  });
+  // 編輯中這一列不見了（換頁、被同步拿掉）也要存
+  $effect(() => () => {
+    if (wasEditing) commit();
   });
 
   function patch(p: TodoPatch) {
@@ -91,6 +104,9 @@
     if (title && title !== todo.title) p.title = title;
     const note = draftNote.trim() || null;
     if (note !== (todo.note ?? null)) p.note = note;
+    if (draftDue !== todo.due) p.due = draftDue;
+    if (draftTag !== todo.tag) p.tag = draftTag;
+    if (draftPriority !== todo.priority) p.priority = draftPriority;
     if (Object.keys(p).length) patch(p);
   }
 
@@ -136,7 +152,7 @@
   }
 
   function pickTag(tag: string | null) {
-    if (tag !== todo.tag) patch({ tag });
+    draftTag = tag;
     panel = null;
   }
 
@@ -153,7 +169,7 @@
 
   function setPriority(p: Todo["priority"]) {
     if (p === "low" && !store.canUseLow()) return;
-    patch({ priority: p });
+    draftPriority = p;
   }
 
   function startStep(mode: "new" | "link") {
@@ -168,7 +184,7 @@
     const step = parseQuickAdd(query, today);
     if (!step) return;
     if (step.priority === "low" && !store.canUseLow()) return;
-    store.add({ ...(todo.tag ? { tag: todo.tag } : {}), ...step, afterId: todo.id });
+    store.add({ ...(draftTag ? { tag: draftTag } : {}), ...step, afterId: todo.id });
     query = "";
     panel = null;
   }
@@ -286,7 +302,7 @@
       <div class="field">
         <span class="ficon"><Icon name="calendar" size={14} stroke={1.5} /></span>
         {#each dueChips as c (c.label)}
-          <button class="pill" class:on={todo.due === c.value} onclick={() => patch({ due: c.value })}>{c.label}</button>
+          <button class="pill" class:on={draftDue === c.value} onclick={() => (draftDue = c.value)}>{c.label}</button>
         {/each}
         <!-- 沒有期限時，空的日期欄在手機上什麼都不顯示，所以蓋一顆「選擇日期」按鈕上去 -->
         <span class="date-wrap">
@@ -294,25 +310,25 @@
             bind:this={dateInput}
             type="date"
             class="pill date-input"
-            class:empty={!todo.due}
-            value={todo.due ?? ""}
-            onchange={(e) => patch({ due: e.currentTarget.value || null })}
+            class:empty={!draftDue}
+            value={draftDue ?? ""}
+            onchange={(e) => (draftDue = e.currentTarget.value || null)}
             aria-label="選擇日期"
           />
-          {#if !todo.due}
+          {#if !draftDue}
             <button class="pill pick-date" onclick={pickDate} tabindex="-1">選擇日期</button>
           {/if}
         </span>
       </div>
       <div class="field">
         <span class="ficon"><Icon name="hash" size={14} stroke={1.5} /></span>
-        {#if todo.tag}
-          <span class="pill on tag-on" title="#{todo.tag}">
-            <span class="clip">#{todo.tag}</span>
+        {#if draftTag}
+          <span class="pill on tag-on" title="#{draftTag}">
+            <span class="clip">#{draftTag}</span>
             <button onclick={() => pickTag(null)} aria-label="移除標籤"><Icon name="close" size={10} stroke={2} /></button>
           </span>
         {/if}
-        <button class="pill" class:on={panel === "tag"} onclick={openTags}>{todo.tag ? "更換標籤" : "選擇標籤"}</button>
+        <button class="pill" class:on={panel === "tag"} onclick={openTags}>{draftTag ? "更換標籤" : "選擇標籤"}</button>
       </div>
       {#if panel === "tag"}
         <div class="step-box" transition:slide={{ duration: 150 }}>
@@ -331,10 +347,10 @@
               </button>
             {/if}
             {#each tagOptions as tag (tag)}
-              <button class="cand" class:cur={todo.tag === tag} onclick={() => pickTag(tag)}>
+              <button class="cand" class:cur={draftTag === tag} onclick={() => pickTag(tag)}>
                 <span class="ctitle" title="#{tag}">#{tag}</span>
                 {#if store.folderOf.get(tag)}<span class="ctag">{store.folderOf.get(tag)}</span>{/if}
-                {#if todo.tag === tag}<span class="ctag check">✓</span>{/if}
+                {#if draftTag === tag}<span class="ctag check">✓</span>{/if}
               </button>
             {:else}
               {#if !canCreateTag}<span class="none">還沒有標籤，輸入名稱就能新增</span>{/if}
@@ -344,8 +360,8 @@
       {/if}
       <div class="field">
         <span class="ficon"><Icon name="flag" size={14} stroke={1.5} /></span>
-        <button class="pill" class:warn-on={high} onclick={() => setPriority(high ? "normal" : "high")}>! 高優先</button>
-        <button class="pill" class:on={low} onclick={() => setPriority(low ? "normal" : "low")}>~ 低優先</button>
+        <button class="pill" class:warn-on={draftHigh} onclick={() => setPriority(draftHigh ? "normal" : "high")}>! 高優先</button>
+        <button class="pill" class:on={draftLow} onclick={() => setPriority(draftLow ? "normal" : "low")}>~ 低優先</button>
       </div>
       <div class="field steps">
         <span class="ficon"><Icon name="link" size={14} stroke={1.5} /></span>

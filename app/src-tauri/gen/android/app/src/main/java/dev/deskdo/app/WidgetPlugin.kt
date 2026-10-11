@@ -5,6 +5,8 @@ import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.Plugin
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Rust（src/mobile.rs）每次資料變動時呼叫 update，把小工具要顯示的清單和連線設定整份交過來。
@@ -12,10 +14,21 @@ import app.tauri.plugin.Plugin
  */
 @TauriPlugin
 class WidgetPlugin(private val activity: Activity) : Plugin(activity) {
+  /** Tauri 在主執行緒呼叫外掛：寫檔、重建小工具會讓畫面卡一下，所以交給背景執行緒 */
+  private val worker = Executors.newSingleThreadExecutor()
+
+  /** 還沒處理的最新一份；連續改了好幾次時只處理最後一份 */
+  private val latest = AtomicReference<String?>(null)
+
   @Command
   fun update(invoke: Invoke) {
-    WidgetStore.save(activity, invoke.getRawArgs())
-    DeskdoWidget.refreshAll(activity)
+    if (latest.getAndSet(invoke.getRawArgs()) == null) {
+      worker.execute {
+        val json = latest.getAndSet(null) ?: return@execute
+        WidgetStore.save(activity, json)
+        DeskdoWidget.refreshAll(activity)
+      }
+    }
     invoke.resolve()
   }
 }
