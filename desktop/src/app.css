@@ -29,33 +29,32 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1f2126;
-    --raised: #2a2d33;
-    --bg2: #2b2e35;
-    --text: #ecedef;
-    --sub: #a3a8b1;
-    --faint: #7a7f88;
-    --ring: #5a5f69;
-    --line: rgba(255, 255, 255, 0.08);
-    --hover: rgba(255, 255, 255, 0.05);
-    --active: rgba(255, 255, 255, 0.08);
-    --accent: #6e9dff;
-    --accent-soft: rgba(110, 157, 255, 0.16);
-    --warn: #f2905c;
-    --warn-soft: rgba(242, 144, 92, 0.15);
-    --ok: #4ade80;
-    --toast-bg: #ecedef;
-    --toast-text: #1e2126;
-    --toast-accent: #2563eb;
-    --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-    --pop-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
-    --layer: rgba(32, 34, 39, 0.55);
-    --glass: rgba(42, 45, 51, 0.5);
-    --glass-line: rgba(255, 255, 255, 0.08);
-    color-scheme: dark;
-  }
+/* 深色：theme.svelte.ts 依設定（或跟隨系統）在 <html> 加上 data-theme="dark" */
+:root[data-theme="dark"] {
+  --bg: #1f2126;
+  --raised: #2a2d33;
+  --bg2: #2b2e35;
+  --text: #ecedef;
+  --sub: #a3a8b1;
+  --faint: #7a7f88;
+  --ring: #5a5f69;
+  --line: rgba(255, 255, 255, 0.08);
+  --hover: rgba(255, 255, 255, 0.05);
+  --active: rgba(255, 255, 255, 0.08);
+  --accent: #6e9dff;
+  --accent-soft: rgba(110, 157, 255, 0.16);
+  --warn: #f2905c;
+  --warn-soft: rgba(242, 144, 92, 0.15);
+  --ok: #4ade80;
+  --toast-bg: #ecedef;
+  --toast-text: #1e2126;
+  --toast-accent: #2563eb;
+  --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --pop-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+  --layer: rgba(32, 34, 39, 0.55);
+  --glass: rgba(42, 45, 51, 0.5);
+  --glass-line: rgba(255, 255, 255, 0.08);
+  color-scheme: dark;
 }
 
 * {
