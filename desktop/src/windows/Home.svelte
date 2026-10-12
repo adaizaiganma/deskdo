@@ -104,6 +104,9 @@
   }
 
   let panelEl = $state<HTMLElement>();
+  /** 主頁的大小，自訂主頁的預覽照這個比例 */
+  let areaW = $state(0);
+  let areaH = $state(0);
   function startResize(e: PointerEvent) {
     if (e.button !== 0 || !panelEl) return;
     const target = e.currentTarget as HTMLElement;
@@ -167,7 +170,7 @@
 <svelte:window onkeydown={onWindowKey} onpointerdown={onWindowDown} onblur={() => (menu = null)} />
 
 <!-- 外層是 container，下面才能依自己的寬度切換排版 -->
-<div class="wrap" class:has-image={!!homeStyle.image} style:--image={homeStyle.image ? `url("${homeStyle.image}")` : null} style:--dim={homeStyle.dim}>
+<div class="wrap" class:has-image={!!homeStyle.image} style:--image={homeStyle.image ? `url("${homeStyle.image}")` : null} style:--dim={homeStyle.dim} style:--size={homeStyle.css.size} style:--repeat={homeStyle.css.repeat} style:--pos={homeStyle.css.position} bind:clientWidth={areaW} bind:clientHeight={areaH}>
 <div class="home" class:resizing>
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="left" oncontextmenu={openMenu} onscroll={() => (menu = null)}>
@@ -250,7 +253,7 @@
 {#if popup?.id}
   <WidgetSettings id={popup.id} x={popup.x} y={popup.y} onclose={() => (popup = null)} />
 {:else if popup}
-  <HomeSettings x={popup.x} y={popup.y} onclose={() => (popup = null)} />
+  <HomeSettings x={popup.x} y={popup.y} area={{ w: areaW, h: areaH }} onclose={() => (popup = null)} />
 {/if}
 
 <style>
@@ -263,7 +266,7 @@
   .wrap.has-image {
     overflow: hidden;
     border-top-left-radius: 9px;
-    background: var(--image) center / cover no-repeat;
+    background: var(--image) var(--pos) / var(--size) var(--repeat);
   }
   .wrap.has-image::before {
     content: "";

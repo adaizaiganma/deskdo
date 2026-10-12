@@ -21,6 +21,17 @@ export const FONT_SCALES: { id: number; label: string }[] = [
   { id: 1.3, label: "特大" },
 ];
 
+/** 背景圖片怎麼擺：跟 Windows 桌布的選項一樣 */
+export type ImageFit = "cover" | "contain" | "fill" | "center" | "tile";
+
+export const FIT_OPTIONS: { id: ImageFit; label: string; size: string; repeat: string }[] = [
+  { id: "cover", label: "填滿", size: "cover", repeat: "no-repeat" },
+  { id: "contain", label: "符合", size: "contain", repeat: "no-repeat" },
+  { id: "fill", label: "延展", size: "100% 100%", repeat: "no-repeat" },
+  { id: "center", label: "置中", size: "auto", repeat: "no-repeat" },
+  { id: "tile", label: "並排", size: "auto", repeat: "repeat" },
+];
+
 export interface WidgetLook {
   bg: WidgetBg;
   fs: number;
@@ -31,13 +42,19 @@ interface Saved extends WidgetLook {
   panel: WidgetBg;
   /** 背景圖片上蓋一層底色的濃度（0–0.8），字比較看得清楚 */
   dim: number;
+  fit: ImageFit;
+  /** 背景圖片的位置（background-position 的百分比，0–100） */
+  x: number;
+  y: number;
   widgets: Record<string, Partial<WidgetLook>>;
 }
 
 const KEY = "home.style";
-const DEFAULTS: Saved = { bg: "solid", fs: 1, panel: "solid", dim: 0.25, widgets: {} };
+const DEFAULTS: Saved = { bg: "solid", fs: 1, panel: "solid", dim: 0.25, fit: "cover", x: 50, y: 50, widgets: {} };
 
 const isBg = (v: unknown): v is WidgetBg => BG_OPTIONS.some((o) => o.id === v);
+const isFit = (v: unknown): v is ImageFit => FIT_OPTIONS.some((o) => o.id === v);
+const pct = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : d);
 const isScale = (v: unknown): v is number => FONT_SCALES.some((o) => o.id === v);
 
 function read(): Saved {
@@ -57,6 +74,9 @@ function read(): Saved {
       fs: isScale(raw.fs) ? raw.fs : DEFAULTS.fs,
       panel: isBg(raw.panel) ? raw.panel : DEFAULTS.panel,
       dim: typeof raw.dim === "number" ? Math.min(0.8, Math.max(0, raw.dim)) : DEFAULTS.dim,
+      fit: isFit(raw.fit) ? raw.fit : DEFAULTS.fit,
+      x: pct(raw.x, DEFAULTS.x),
+      y: pct(raw.y, DEFAULTS.y),
       widgets,
     };
   } catch {
@@ -109,12 +129,14 @@ class HomeStyle {
   #s = $state<Saved>(read());
   /** 背景圖片的 blob: 網址；沒有圖片是 null */
   image = $state<string | null>(null);
+  /** 背景圖片原本的大小（px），預覽「置中」「並排」要用 */
+  imageSize = $state<{ w: number; h: number } | null>(null);
 
   constructor() {
     if (typeof indexedDB === "undefined") return;
     tx<Blob | undefined>("readonly", (s) => s.get(IMAGE))
       .then((blob) => {
-        if (blob) this.image = URL.createObjectURL(blob);
+        if (blob) this.#show(blob);
       })
       .catch((e) => console.warn("讀不到主頁的背景圖片", e));
   }
@@ -130,6 +152,20 @@ class HomeStyle {
   }
   get dim() {
     return this.#s.dim;
+  }
+  get fit() {
+    return this.#s.fit;
+  }
+  get x() {
+    return this.#s.x;
+  }
+  get y() {
+    return this.#s.y;
+  }
+  /** 給 background 用的 size / repeat / position */
+  get css() {
+    const o = FIT_OPTIONS.find((f) => f.id === this.#s.fit)!;
+    return { size: o.size, repeat: o.repeat, position: `${this.#s.x}% ${this.#s.y}%` };
   }
 
   /** 這個組件自己的設定（沒設定的跟著主頁） */
@@ -173,14 +209,27 @@ class HomeStyle {
   async setImage(file: Blob) {
     const blob = await shrink(file);
     await tx("readwrite", (s) => s.put(blob, IMAGE));
-    if (this.image) URL.revokeObjectURL(this.image);
-    this.image = URL.createObjectURL(blob);
+    // 新圖片從正中間開始
+    this.set({ x: 50, y: 50 });
+    this.#show(blob);
   }
 
   async clearImage() {
     await tx("readwrite", (s) => s.delete(IMAGE));
     if (this.image) URL.revokeObjectURL(this.image);
     this.image = null;
+    this.imageSize = null;
+  }
+
+  #show(blob: Blob) {
+    if (this.image) URL.revokeObjectURL(this.image);
+    this.image = URL.createObjectURL(blob);
+    createImageBitmap(blob)
+      .then((bmp) => {
+        this.imageSize = { w: bmp.width, h: bmp.height };
+        bmp.close();
+      })
+      .catch(() => (this.imageSize = null));
   }
 
   #save() {
