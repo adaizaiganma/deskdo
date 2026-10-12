@@ -10,7 +10,7 @@
   import { countdowns } from "@deskdo/core/countdowns.svelte";
   import { BASE, countdownId, homeLayout, isCountdown, spec, type WidgetId } from "../lib/homeLayout.svelte";
   import { homePrefs } from "@deskdo/core/homePrefs.svelte";
-  import { quoteOf } from "@deskdo/core/quotes";
+  import { dailyQuote } from "@deskdo/core/saying.svelte";
   import { store } from "@deskdo/core/store.svelte";
   import type { Todo } from "@deskdo/core/types";
 
@@ -68,7 +68,7 @@
     if (menu && !(e.target as HTMLElement).closest(".ctx")) menu = null;
   }
 
-  const quote = $derived(quoteOf(today));
+  const quote = dailyQuote(() => today);
   const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
   const dueToday = $derived(store.open.filter((t) => t.due === today).length);
   const summary = $derived(
@@ -147,8 +147,8 @@
     <div class="clock-box"><Clock size={120} mode={homePrefs.clock} /></div>
   {:else if id === "quote"}
     <figure class="quote">
-      <figcaption><span class="qlabel">每日一言</span>{quote.source}</figcaption>
-      <blockquote>{quote.text}</blockquote>
+      <figcaption><span class="qlabel">每日一言</span>{quote.current.source}</figcaption>
+      <blockquote>{quote.current.text}</blockquote>
     </figure>
   {:else if id === "matrix"}
     <Matrix {today} {matches} onpick={(t) => (store.focus = t.id)} />
