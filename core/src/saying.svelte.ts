@@ -1,13 +1,56 @@
 /**
- * 每日一言：連得上網時用 uapis.cn 的每日一句（古詩文），抓不到就用內建的句子（quotes.ts）。
+ * 每日一言：連得上網時用 uapis.cn 的每日一句，抓不到就用內建的句子（quotes.ts）。
  * 那邊是簡體，抓到後轉成繁體（opencc-js，一 MB 多的字典，用到才載入），連同日期存在這台裝置，一天只抓一次。點一下可以換一句（random），換過的那句當天都會留著。
+ * 要哪幾種句子在設定裡選（sayingPrefs，只存在這台裝置）；換了類型就重新抓一句。
  */
 import { quoteOf, type Quote } from "./quotes";
 
-const API = "https://uapis.cn/api/v1/saying/random?category=" + encodeURIComponent("古诗文");
+const API = "https://uapis.cn/api/v1/saying/random";
 const KEY = "deskdo.saying";
+const CATEGORIES_KEY = "deskdo.sayingCategories";
 /** 抓失敗後隔多久才再試 */
 const RETRY_MS = 5 * 60_000;
+
+/** 可以選的類型：id 是 API 用的名稱（簡體），label 顯示在設定裡 */
+export const SAYING_CATEGORIES = [
+  { id: "古诗文", label: "古詩文" },
+  { id: "诗词", label: "詩詞" },
+  { id: "文学", label: "文學" },
+  { id: "哲学", label: "哲學" },
+  { id: "影视", label: "影視" },
+  { id: "动画", label: "動畫" },
+  { id: "网络", label: "網路" },
+  { id: "原创", label: "原創" },
+] as const;
+
+const DEFAULT_CATEGORIES = ["古诗文"];
+
+function readCategories(): string[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(CATEGORIES_KEY) ?? "null");
+    const known = Array.isArray(list) ? SAYING_CATEGORIES.map((c) => c.id).filter((id) => list.includes(id)) : [];
+    return known.length ? known : DEFAULT_CATEGORIES;
+  } catch {
+    return DEFAULT_CATEGORIES;
+  }
+}
+
+class SayingPrefs {
+  /** 照 SAYING_CATEGORIES 的順序，至少一種 */
+  categories = $state<string[]>(readCategories());
+
+  /** 開關一種類型；最後一種關不掉 */
+  toggle(id: string) {
+    const on = this.categories.includes(id);
+    if (on && this.categories.length === 1) return;
+    this.categories = SAYING_CATEGORIES.map((c) => c.id).filter((c) => (c === id ? !on : this.categories.includes(c)));
+    try {
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(this.categories));
+    } catch {}
+  }
+}
+
+export const sayingPrefs = new SayingPrefs();
 
 interface Item {
   content?: unknown;
@@ -15,35 +58,43 @@ interface Item {
   source?: unknown;
 }
 
+/** 篇名是這些的話只是類型，不是真的出處 */
+const GENERIC_TITLES = new Set(["网络", "原创"]);
+
 /** API 回傳的一句轉成 Quote：出處寫成「作者《篇名》」，跟內建的一樣 */
 export function toQuote(item: Item, convert: (s: string) => string = (s) => s): Quote | null {
-  const str = (v: unknown) => (typeof v === "string" ? convert(v.trim()) : "");
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const text = str(item.content);
   if (!text) return null;
   const author = str(item.author);
-  const title = str(item.source);
+  let title = str(item.source);
+  if (title === author || (author && GENERIC_TITLES.has(title))) title = "";
   const source = author && title ? `${author}《${title}》` : author || title;
-  return { text, source };
+  return { text: convert(text), source: convert(source) };
 }
 
-function cached(day: string): Quote | null {
+/** 存著的句子：同一天、同樣的類型才算數 */
+function cached(day: string, cats: string): Quote | null {
   try {
     const c = JSON.parse(localStorage.getItem(KEY) ?? "null");
-    return c?.day === day && typeof c.text === "string" ? { text: c.text, source: String(c.source ?? "") } : null;
+    // 還沒有類型設定以前存的，當成預設的古詩文
+    const savedCats = c?.cats ?? DEFAULT_CATEGORIES.join(",");
+    return c?.day === day && savedCats === cats && typeof c.text === "string" ? { text: c.text, source: String(c.source ?? "") } : null;
   } catch {
     return null;
   }
 }
 
-function save(day: string, q: Quote) {
+function save(day: string, cats: string, q: Quote) {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ day, ...q }));
+    localStorage.setItem(KEY, JSON.stringify({ day, cats, ...q }));
   } catch {}
 }
 
-/** daily：當天大家都一樣的那句；random：隨便一句（點一下換句子） */
-async function fetchQuote(mode: "daily" | "random"): Promise<Quote> {
-  const res = await fetch(`${API}&mode=${mode}`, { signal: AbortSignal.timeout(10_000) });
+/** daily：當天大家都一樣的那句；random：隨便一句（點一下換句子）。cats 是用逗號隔開的類型 */
+async function fetchQuote(mode: "daily" | "random", cats: string): Promise<Quote> {
+  const url = `${API}?mode=${mode}&category=${encodeURIComponent(cats)}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = await res.json();
   const { Converter } = await import("opencc-js/cn2t");
@@ -53,12 +104,12 @@ async function fetchQuote(mode: "daily" | "random"): Promise<Quote> {
   return q;
 }
 
-let pending: { day: string; p: Promise<Quote | null> } | null = null;
+let pending: { key: string; p: Promise<Quote | null> } | null = null;
 let failedAt = 0;
 
-function fetchDaily(day: string): Promise<Quote | null> {
-  return fetchQuote("daily").then(
-    (q) => (save(day, q), q),
+function fetchDaily(day: string, cats: string): Promise<Quote | null> {
+  return fetchQuote("daily", cats).then(
+    (q) => (save(day, cats, q), q),
     (e) => {
       console.warn("每日一言抓不到，用內建的句子", e);
       failedAt = Date.now();
@@ -70,18 +121,23 @@ function fetchDaily(day: string): Promise<Quote | null> {
 
 /** 在元件初始化時呼叫：current 先是存著的或內建的句子，抓到當天的句子後換掉；refresh() 換一句，當天都顯示換過的 */
 export function dailyQuote(today: () => string) {
-  let online = $state<Quote | null>(cached(today()));
+  const cats = () => sayingPrefs.categories.join(",");
+  let online = $state<Quote | null>(cached(today(), cats()));
   let loading = $state(false);
   /** 換過句子後，還沒回來的每日一句就不要蓋掉它 */
   let picked = 0;
+  let shownDay = today();
 
   $effect(() => {
     const day = today();
-    // 只寫不讀 online，不然換句子時會再跑一次
-    const saved = cached(day);
-    online = saved;
+    const c = cats();
+    // 只寫不讀 online，不然換句子時會再跑一次。換了類型時先留著原本的句子，等新的抓回來
+    const saved = cached(day, c);
+    if (saved || day !== shownDay) online = saved;
+    shownDay = day;
     if (saved || Date.now() - failedAt < RETRY_MS) return;
-    if (pending?.day !== day) pending = { day, p: fetchDaily(day) };
+    const key = `${day}|${c}`;
+    if (pending?.key !== key) pending = { key, p: fetchDaily(day, c) };
     const n = picked;
     let alive = true;
     pending.p.then((q) => {
@@ -103,9 +159,10 @@ export function dailyQuote(today: () => string) {
       loading = true;
       try {
         const day = today();
-        const q = await fetchQuote("random");
+        const c = cats();
+        const q = await fetchQuote("random", c);
         picked++;
-        save(day, q);
+        save(day, c, q);
         online = q;
       } finally {
         loading = false;

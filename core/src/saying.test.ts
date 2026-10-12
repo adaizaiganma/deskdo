@@ -20,6 +20,13 @@ describe("toQuote", () => {
     expect(toQuote({})).toBeNull();
   });
 
+  test("a title that only names the category is left out", () => {
+    expect(toQuote({ content: "a", author: "863885806", source: "网络" })?.source).toBe("863885806");
+    expect(toQuote({ content: "a", author: "陈树凤", source: "原创" })?.source).toBe("陈树凤");
+    expect(toQuote({ content: "a", author: "网络", source: "网络" })?.source).toBe("网络");
+    expect(toQuote({ content: "a", source: "原创" })?.source).toBe("原创");
+  });
+
   test("converts every part", () => {
     expect(toQuote({ content: "x", author: "y", source: "z" }, (s) => s.toUpperCase())).toEqual({ text: "X", source: "Y《Z》" });
   });

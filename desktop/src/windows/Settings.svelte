@@ -6,6 +6,7 @@
   import { homePrefs, type ClockStyle } from "@deskdo/core/homePrefs.svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";
   import { localDate, monthDay } from "@deskdo/core/dates";
+  import { SAYING_CATEGORIES, sayingPrefs } from "@deskdo/core/saying.svelte";
   import { store } from "@deskdo/core/store.svelte";
   import type { Connector, Device, UpdateInfo } from "@deskdo/core/types";
 
@@ -231,6 +232,16 @@
       </div>
     </div>
     <div class="clock-preview"><Clock size={104} mode={homePrefs.clock} /></div>
+    <div class="saying">
+      <div>每日一言</div>
+      <div class="hint">要顯示哪些句子，可以選好幾種。換了之後主頁會抓一句新的</div>
+      <div class="chips" role="group" aria-label="每日一言的類型">
+        {#each SAYING_CATEGORIES as c (c.id)}
+          {@const on = sayingPrefs.categories.includes(c.id)}
+          <button class="chip" class:on aria-pressed={on} onclick={() => sayingPrefs.toggle(c.id)}>{c.label}</button>
+        {/each}
+      </div>
+    </div>
   </section>
 
   {#if p}
@@ -363,6 +374,35 @@
     color: var(--text);
     font-weight: 500;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+  .saying {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 13.5px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .chip {
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .chip:hover {
+    background: var(--hover);
+  }
+  .chip.on {
+    border-color: transparent;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 500;
   }
   .clock-preview {
     display: flex;
