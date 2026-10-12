@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";
   import { localDate, monthDay } from "@deskdo/core/dates";
+  import { THEME_OPTIONS, theme } from "../lib/theme.svelte";
   import { store } from "@deskdo/core/store.svelte";
   import type { Connector, Device, UpdateInfo } from "@deskdo/core/types";
 
@@ -211,8 +212,19 @@
   {/if}
 
   <section class="card">
-    <h2>主頁</h2>
-    <p class="hint">主頁的外觀改到主頁上設定：在主頁空白處按右鍵 →「自訂主頁」可以換背景圖片、組件背景和字體大小；在組件上按右鍵 →「組件設定」可以個別調整，時鐘樣式、每日一言的類型也在這裡。</p>
+    <h2>外觀</h2>
+    <div class="toggle-row">
+      <div>
+        <div>深色、淺色</div>
+        <div class="hint">主視窗和桌面小工具都會跟著變</div>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="深色、淺色">
+        {#each THEME_OPTIONS as o (o.id)}
+          <button role="radio" aria-checked={theme.pref === o.id} class:on={theme.pref === o.id} onclick={() => theme.set(o.id)}>{o.label}</button>
+        {/each}
+      </div>
+    </div>
+    <p class="hint home-hint">主頁的外觀改到主頁上設定：在主頁空白處按右鍵 →「自訂主頁」可以換背景圖片、組件背景和字體大小；在組件上按右鍵 →「組件設定」可以個別調整，時鐘樣式、每日一言的類型也在這裡。</p>
   </section>
 
   {#if p}
@@ -443,6 +455,32 @@
   .callout h2 {
     color: var(--text);
     margin-bottom: 4px;
+  }
+  .seg {
+    flex: none;
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 9px;
+    background: var(--bg2);
+  }
+  .seg button {
+    height: 30px;
+    padding: 0 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .seg button.on {
+    background: var(--raised);
+    color: var(--text);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+  .home-hint {
+    margin: 10px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    line-height: 1.6;
   }
   .card > .hint {
     margin: 0 0 12px;
