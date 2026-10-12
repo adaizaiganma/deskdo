@@ -108,21 +108,34 @@
     search?.focus();
   }
 
-  /** 再按一次已選的資料夾就取消 */
   function pickFolder(name: string) {
-    scopeFolder = scopeFolder === name && !scopeTag ? null : name;
+    scopeFolder = name;
     scopeTag = null;
     showDone = false;
   }
 
-  function pickTag(tag: string) {
-    scopeTag = scopeTag === tag ? null : tag;
+  /** folder：標籤所在的資料夾，未分類的標籤是 null */
+  function pickTag(tag: string, folder: string | null) {
+    scopeFolder = folder;
+    scopeTag = tag;
     showDone = false;
   }
 
-  function pickLoose(tag: string) {
-    scopeFolder = null;
-    pickTag(tag);
+  /** 標籤欄收合的資料夾（每台電腦各自記住） */
+  let collapsed = $state<string[]>(readCollapsed());
+  function readCollapsed(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem("main.collapsedFolders") ?? "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  function toggleFolder(name: string) {
+    collapsed = collapsed.includes(name) ? collapsed.filter((n) => n !== name) : [...collapsed, name];
+    try {
+      localStorage.setItem("main.collapsedFolders", JSON.stringify(collapsed));
+    } catch {}
   }
 
   function clearScope() {
@@ -289,6 +302,51 @@
       {:else if view === "folders"}
         <Folders onupdatecloud={() => (wizard = "update")} onback={() => go("all")} />
       {:else}
+        <div class="split">
+        {#if view === "all" && (store.tags.length || store.folders.length)}
+          <aside class="tagbar" aria-label="依資料夾或標籤篩選">
+            <div class="h4-row">
+              <h4>標籤</h4>
+              <button class="tidy" onclick={() => go("folders")} title="用資料夾整理標籤">整理</button>
+            </div>
+            <nav>
+              <button class="nav" class:on={!scoped} onclick={clearScope}>
+                <span class="nicon"><Icon name="inbox" /></span>
+                <span class="nlabel">所有標籤</span>
+                {#if open.length}<span class="ncount">{open.length}</span>{/if}
+              </button>
+              {#each groups as g (g.name)}
+                {@const shut = collapsed.includes(g.name)}
+                <div class="folder-row">
+                  <button class="caret" class:shut onclick={() => toggleFolder(g.name)} aria-label={shut ? "展開" : "收合"} aria-expanded={!shut}>
+                    <Icon name="chevron" size={12} />
+                  </button>
+                  <button class="nav" class:on={scopeFolder === g.name && !scopeTag} onclick={() => pickFolder(g.name)}>
+                    <span class="nicon"><Icon name="folder" /></span>
+                    <span class="nlabel">{g.name}</span>
+                    {#if g.count}<span class="ncount">{g.count}</span>{/if}
+                  </button>
+                </div>
+                {#if !shut}
+                  {#each g.tags as t (t.tag)}
+                    <button class="nav inner" class:idle={!t.count} class:on={scopeTag === t.tag} onclick={() => pickTag(t.tag, g.name)}>
+                      <span class="nicon hash">#</span>
+                      <span class="nlabel">{t.tag}</span>
+                      {#if t.count}<span class="ncount">{t.count}</span>{/if}
+                    </button>
+                  {/each}
+                {/if}
+              {/each}
+              {#each looseCounts as t (t.tag)}
+                <button class="nav" class:idle={!t.count} class:on={scopeTag === t.tag} onclick={() => pickTag(t.tag, null)}>
+                  <span class="nicon hash">#</span>
+                  <span class="nlabel">{t.tag}</span>
+                  {#if t.count}<span class="ncount">{t.count}</span>{/if}
+                </button>
+              {/each}
+            </nav>
+          </aside>
+        {/if}
         <div class="scroll">
           <div class="page">
             {@render banners()}
@@ -304,31 +362,6 @@
                   </button>
                 {/each}
               </div>
-              {#if store.tags.length || store.folders.length}
-                <nav class="chips" aria-label="依資料夾或標籤篩選">
-                  <button class="chip" class:on={!scoped} onclick={clearScope}>所有標籤</button>
-                  {#each groups as g (g.name)}
-                    <button class="chip" class:on={scopeFolder === g.name && !scopeTag} class:open={scopeFolder === g.name} onclick={() => pickFolder(g.name)}>
-                      <Icon name="folder" size={13} /><span class="clip" title={g.name}>{g.name}</span>{#if g.count}<span class="n">{g.count}</span>{/if}
-                    </button>
-                  {/each}
-                  {#each looseCounts as t (t.tag)}
-                    <button class="chip" class:idle={!t.count} class:on={!scopeFolder && scopeTag === t.tag} onclick={() => pickLoose(t.tag)}>
-                      <span class="clip" title="#{t.tag}">#{t.tag}</span>{#if t.count}<span class="n">{t.count}</span>{/if}
-                    </button>
-                  {/each}
-                  <button class="tidy" onclick={() => go("folders")} title="用資料夾整理標籤">整理</button>
-                </nav>
-                {#if current?.tags.length}
-                  <nav class="chips sub" aria-label="「{current.name}」裡的標籤">
-                    {#each current.tags as t (t.tag)}
-                      <button class="chip" class:idle={!t.count} class:on={scopeTag === t.tag} onclick={() => pickTag(t.tag)}>
-                        <span class="clip" title="#{t.tag}">#{t.tag}</span>{#if t.count}<span class="n">{t.count}</span>{/if}
-                      </button>
-                    {/each}
-                  </nav>
-                {/if}
-              {/if}
             {/if}
             {#if view === "calendar"}
               <Calendar bind:this={quickAdd} {today} {matches} searching={!!query.trim()} />
@@ -349,6 +382,7 @@
             {/key}
             {/if}
           </div>
+        </div>
         </div>
       {/if}
       <Toast />
@@ -604,75 +638,85 @@
   .filters button.on span {
     color: var(--accent);
   }
-  /* 「全部」頁的資料夾、標籤 */
-  .chips {
+  /* 「全部」頁左邊的標籤欄 */
+  .split {
+    height: 100%;
     display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    padding: 0 2px 14px;
   }
-  .chips.sub {
-    gap: 5px;
-    margin-top: -6px;
+  .split > .scroll {
+    flex: 1;
+    min-width: 0;
   }
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 26px;
-    padding: 0 10px;
-    border-radius: 999px;
-    font-size: 12.5px;
-    color: var(--sub);
-    box-shadow: inset 0 0 0 1px var(--line);
-    white-space: nowrap;
-    transition: background 0.12s, color 0.12s;
+  .tagbar {
+    width: 200px;
+    flex: none;
+    padding: 18px 4px 16px 10px;
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
   }
-  .chips.sub .chip {
-    height: 24px;
-    padding: 0 9px;
-    font-size: 12px;
-  }
-  .chip:hover {
-    color: var(--text);
-    background: var(--hover);
-  }
-  /* 名稱太長時截斷 */
-  .chip .clip {
-    max-width: 12em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .chip .n {
-    font-size: 11px;
-    opacity: 0.75;
-  }
-  .chip.on {
-    background: var(--text);
-    color: var(--bg);
-    box-shadow: none;
-  }
-  /* 資料夾展開、但選的是裡面的某個標籤 */
-  .chip.open:not(.on) {
-    color: var(--text);
-    box-shadow: inset 0 0 0 1px var(--text);
-  }
-  /* 還沒有待辦的標籤 */
-  .chip.idle:not(.on) {
+  h4 {
+    margin: 0 10px;
+    font-size: 11.5px;
+    font-weight: 700;
     color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+  .h4-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 4px 8px 0;
   }
   .tidy {
-    height: 26px;
-    padding: 0 8px;
-    border-radius: 6px;
-    font-size: 12.5px;
+    font-size: 11.5px;
     color: var(--faint);
+    padding: 2px 8px;
+    border-radius: 6px;
   }
   .tidy:hover {
     color: var(--accent);
     background: var(--hover);
+  }
+  .nicon.hash {
+    font-size: 14px;
+    color: var(--faint);
+  }
+  .folder-row {
+    position: relative;
+  }
+  .folder-row .nav {
+    width: 100%;
+    padding-right: 30px;
+  }
+  /* 收合箭頭放在資料夾那一列的右端（數字的右邊），整個右端都可以點 */
+  .caret {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 30px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    color: var(--faint);
+  }
+  .caret:hover {
+    color: var(--text);
+  }
+  .caret :global(svg) {
+    transform: rotate(90deg);
+    transition: transform 0.15s;
+  }
+  .caret.shut :global(svg) {
+    transform: rotate(0deg);
+  }
+  /* 還沒有待辦的標籤 */
+  .nav.idle:not(.on) {
+    color: var(--faint);
+  }
+  .nav.inner {
+    padding-left: 30px;
   }
   .banner {
     display: flex;
