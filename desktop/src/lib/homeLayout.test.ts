@@ -1,26 +1,32 @@
 import { describe, expect, test } from "vitest";
-import { clampBox, collides, compact, DEFAULT_LAYOUT, arrange, firstFit, type Box } from "./homeLayout.svelte";
+import { clampBox, collides, DEFAULT_LAYOUT, arrange, firstFit, settle, type Box } from "./homeLayout.svelte";
 
 const box = (id: Box["id"], x: number, y: number, w: number, h: number): Box => ({ id, x, y, w, h });
 
-describe("compact", () => {
-  test("default layout has no overlaps and is already compact", () => {
-    const out = compact(DEFAULT_LAYOUT);
+describe("settle", () => {
+  test("default layout has no overlaps and stays as it is", () => {
+    const out = settle(DEFAULT_LAYOUT);
     expect(out).toEqual(DEFAULT_LAYOUT);
     for (const a of out) for (const b of out) expect(collides(a, b)).toBe(false);
   });
 
-  test("items float up into empty space", () => {
-    expect(compact([box("date", 0, 5, 4, 2)])).toEqual([box("date", 0, 0, 4, 2)]);
+  test("items stay where they are, leaving empty space above", () => {
+    expect(settle([box("date", 0, 5, 4, 2)])).toEqual([box("date", 0, 5, 4, 2)]);
+    expect(settle([box("date", 0, 0, 4, 2), box("quote", 0, 6, 4, 2)])).toEqual([box("date", 0, 0, 4, 2), box("quote", 0, 6, 4, 2)]);
   });
 
   test("a fixed item stays and pushes the others below it", () => {
-    const out = compact([box("date", 0, 0, 6, 2), box("quote", 0, 1, 6, 2)], "quote");
+    const out = settle([box("date", 0, 0, 6, 2), box("quote", 0, 1, 6, 2)], "quote");
     expect(out).toEqual([box("date", 0, 3, 6, 2), box("quote", 0, 1, 6, 2)]);
   });
 
+  test("an overlapped item moves down just below, not to the top", () => {
+    const out = settle([box("date", 0, 4, 6, 2), box("quote", 2, 5, 4, 2)]);
+    expect(out).toEqual([box("date", 0, 4, 6, 2), box("quote", 2, 6, 4, 2)]);
+  });
+
   test("side by side items keep their rows", () => {
-    const out = compact([box("date", 0, 0, 6, 3), box("clock", 6, 0, 6, 3), box("quote", 0, 3, 12, 2)]);
+    const out = settle([box("date", 0, 0, 6, 3), box("clock", 6, 0, 6, 3), box("quote", 0, 3, 12, 2)]);
     expect(out.map((b) => b.y)).toEqual([0, 0, 3]);
   });
 });

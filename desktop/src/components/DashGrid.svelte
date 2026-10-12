@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { bottomOf, clampBox, compact, GAP, homeLayout, span, spec, STEP, type Box, type WidgetId } from "../lib/homeLayout.svelte";
+  import { bottomOf, clampBox, GAP, settle, homeLayout, span, spec, STEP, type Box, type WidgetId } from "../lib/homeLayout.svelte";
   import { homeStyle } from "../lib/homeStyle.svelte";
   import Icon from "./Icon.svelte";
 
   /**
    * 主頁左半的組件格子。格子大小固定，寬度放得下幾欄就幾欄。
-   * editing 時可以拖曳組件移動、拖右下角調整大小、拿掉組件；其他組件會自動讓開並往上靠攏。
+   * editing 時可以拖曳組件移動、拖右下角調整大小、拿掉組件；放下的位置會留著，被壓到的組件往下讓開。
    */
   interface Props {
     editing: boolean;
@@ -66,7 +66,7 @@
       const dx = ev.clientX - x0;
       const dy = ev.clientY - y0;
       const next = moved(b, mode, Math.round(dx / STEP), Math.round(dy / STEP));
-      drag = { ...drag, dx, dy, layout: compact(base.map((x) => (x.id === b.id ? next : x)), b.id) };
+      drag = { ...drag, dx, dy, layout: settle(base.map((x) => (x.id === b.id ? next : x)), b.id) };
     };
     const end = () => {
       if (drag) homeLayout.set(drag.layout);
@@ -87,7 +87,7 @@
     if (!d) return;
     e.preventDefault();
     const next = moved(b, e.shiftKey ? "resize" : "move", d[0], d[1]);
-    homeLayout.set(compact(shown.map((x) => (x.id === b.id ? next : x)), b.id));
+    homeLayout.set(settle(shown.map((x) => (x.id === b.id ? next : x)), b.id));
   }
 </script>
 

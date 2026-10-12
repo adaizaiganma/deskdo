@@ -67,15 +67,15 @@ export function clampBox(b: Box): Box {
 }
 
 /**
- * 往上靠攏：每個組件（由上往下）往上移到不會和已經放好的組件重疊的最高位置。
- * fixed：拖曳中的組件留在原地，其他組件繞開它。
+ * 讓開：組件留在原本的位置（不會往上補空位），只有和已經放好的組件重疊時才往下移到放得下的地方。
+ * 由上往下處理；fixed：拖曳中的組件留在原地，其他組件繞開它。
  */
-export function compact(items: Box[], fixed?: WidgetId): Box[] {
+export function settle(items: Box[], fixed?: WidgetId): Box[] {
   const pinned = items.find((b) => b.id === fixed);
   const placed: Box[] = pinned ? [pinned] : [];
   const rest = items.filter((b) => b !== pinned).sort((a, b) => a.y - b.y || a.x - b.x);
   for (const b of rest) {
-    let y = 0;
+    let y = b.y;
     for (;;) {
       const hit = placed.find((p) => collides({ ...b, y }, p));
       if (!hit) break;
@@ -87,8 +87,8 @@ export function compact(items: Box[], fixed?: WidgetId): Box[] {
 }
 
 /**
- * 照目前的欄數排好：放得下的組件留在原位，超出右邊或撞到的（視窗變窄時）縮到放得下、移到第一個空位，
- * 最後往上靠攏。只影響顯示，視窗變寬就回到原本的位置。
+ * 照目前的欄數排好：放得下的組件留在原位，超出右邊或撞到的（視窗變窄時）縮到放得下、移到第一個空位。
+ * 只影響顯示，視窗變寬就回到原本的位置。
  */
 export function arrange(items: Box[], cols: number): Box[] {
   const placed: Box[] = [];
@@ -96,7 +96,7 @@ export function arrange(items: Box[], cols: number): Box[] {
     if (b.x + b.w <= cols && !placed.some((p) => collides(b, p))) placed.push(b);
     else placed.push(firstFit(placed, b.id, Math.max(spec(b.id).minW, Math.min(b.w, cols)), b.h, cols));
   }
-  const out = compact(placed);
+  const out = settle(placed);
   return items.map((b) => out.find((p) => p.id === b.id)!);
 }
 
@@ -161,7 +161,7 @@ class HomeLayout {
   hidden = $derived(BASE_IDS.filter((id) => !this.items.some((b) => b.id === id)));
 
   set(items: Box[]) {
-    this.#saved = compact(items.map(clampBox));
+    this.#saved = settle(items.map(clampBox));
     this.#save();
   }
 
