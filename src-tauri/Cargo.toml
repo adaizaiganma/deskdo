@@ -1,6 +1,6 @@
 [package]
 name = "deskdo"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 
 # Android 要把 App 編成函式庫，由系統的 Activity 載入
