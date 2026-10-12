@@ -70,12 +70,12 @@
     line-height: 1;
   }
   .small span:first-child {
-    font-size: 22px;
+    font-size: calc(22px * var(--fs, 1));
     font-weight: 700;
     letter-spacing: 0.02em;
   }
   .small .sec {
-    font-size: 13px;
+    font-size: calc(13px * var(--fs, 1));
     font-weight: 500;
     color: var(--faint);
   }
@@ -84,12 +84,12 @@
     gap: 2px;
   }
   .digital .hm {
-    font-size: 56px;
+    font-size: calc(56px * var(--fs, 1));
     font-weight: 800;
     letter-spacing: 0.01em;
   }
   .digital .sec {
-    font-size: 22px;
+    font-size: calc(22px * var(--fs, 1));
     font-weight: 600;
     color: var(--faint);
   }

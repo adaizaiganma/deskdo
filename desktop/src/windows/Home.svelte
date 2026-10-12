@@ -3,13 +3,16 @@
   import Clock from "../components/Clock.svelte";
   import CountdownCard from "../components/CountdownCard.svelte";
   import DashGrid from "../components/DashGrid.svelte";
+  import HomeSettings from "../components/HomeSettings.svelte";
   import Icon from "../components/Icon.svelte";
   import Matrix from "../components/Matrix.svelte";
   import TodoPanel from "../components/TodoPanel.svelte";
+  import WidgetSettings from "../components/WidgetSettings.svelte";
   import { weekday } from "@deskdo/core/dates";
   import { countdowns } from "@deskdo/core/countdowns.svelte";
   import { BASE, countdownId, homeLayout, isCountdown, spec, type WidgetId } from "../lib/homeLayout.svelte";
   import { homePrefs } from "@deskdo/core/homePrefs.svelte";
+  import { homeStyle } from "../lib/homeStyle.svelte";
   import { dailyQuote } from "@deskdo/core/saying.svelte";
   import { store } from "@deskdo/core/store.svelte";
   import { toast } from "@deskdo/core/toast.svelte";
@@ -32,8 +35,10 @@
   /** 調整版面：拖曳移動、調整大小、拿掉或加回組件（從右鍵選單進入） */
   let editing = $state(false);
 
-  // ---- 左半的右鍵選單：調整版面、拿掉這個組件、加回組件、還原預設 ----
+  // ---- 左半的右鍵選單：組件設定、自訂主頁、調整版面、拿掉這個組件、加回組件、還原預設 ----
   let menu = $state<{ x: number; y: number; id: WidgetId | null } | null>(null);
+  /** 從右鍵選單打開的設定小視窗：id 是組件的設定，null 是整個主頁的 */
+  let popup = $state<{ x: number; y: number; id: WidgetId | null } | null>(null);
   /** 可以加回來的：拿掉的組件，和還沒加到主頁的倒數日 */
   const addable = $derived<{ id: WidgetId; label: string }[]>([
     ...homeLayout.hidden.map((id) => ({ id, label: BASE[id].label })),
@@ -162,7 +167,7 @@
 <svelte:window onkeydown={onWindowKey} onpointerdown={onWindowDown} onblur={() => (menu = null)} />
 
 <!-- 外層是 container，下面才能依自己的寬度切換排版 -->
-<div class="wrap">
+<div class="wrap" class:has-image={!!homeStyle.image} style:--image={homeStyle.image ? `url("${homeStyle.image}")` : null} style:--dim={homeStyle.dim}>
 <div class="home" class:resizing>
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="left" oncontextmenu={openMenu} onscroll={() => (menu = null)}>
@@ -194,8 +199,10 @@
     title="拖曳調整寬度，按兩下還原"
   ></div>
 
-  <section class="panel" bind:this={panelEl} style:--w="{width}px">
-    <header>
+  <section class="panel bg-{homeStyle.panel}" bind:this={panelEl} style:--w="{width}px">
+    <!-- 標題按右鍵也可以打開主頁的選單（自訂主頁裡有待辦清單的背景） -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <header oncontextmenu={openMenu}>
       <h2>待辦事項</h2>
     </header>
     <TodoPanel bind:this={panel} doneKey="home.showDone" {matches} />
@@ -207,8 +214,16 @@
   {@const m = menu}
   <div class="ctx" role="menu" aria-label="主頁版面" style:left="{m.x}px" style:top="{m.y}px" use:place>
     {#if m.id}
-      <div class="mhead">{spec(m.id).label}</div>
+      {@const id = m.id}
+      <div class="mhead">{spec(id).label}</div>
+      <button role="menuitem" onclick={() => act(() => (popup = { x: m.x, y: m.y, id }))}>
+        <Icon name="settings" size={14} />組件設定…
+      </button>
     {/if}
+    <button role="menuitem" onclick={() => act(() => (popup = { x: m.x, y: m.y, id: null }))}>
+      <Icon name="image" size={14} />自訂主頁…
+    </button>
+    <div class="sep"></div>
     <button role="menuitem" onclick={() => act(() => (editing = !editing))}>
       <Icon name="widget" size={14} />{editing ? "完成調整" : "調整版面"}
     </button>
@@ -232,12 +247,34 @@
   </div>
 {/if}
 
+{#if popup?.id}
+  <WidgetSettings id={popup.id} x={popup.x} y={popup.y} onclose={() => (popup = null)} />
+{:else if popup}
+  <HomeSettings x={popup.x} y={popup.y} onclose={() => (popup = null)} />
+{/if}
+
 <style>
   .wrap {
     height: 100%;
+    position: relative;
     container-type: inline-size;
   }
+  /* 背景圖片：上面蓋一層底色淡化（--dim），字比較看得清楚 */
+  .wrap.has-image {
+    overflow: hidden;
+    border-top-left-radius: 9px;
+    background: var(--image) center / cover no-repeat;
+  }
+  .wrap.has-image::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    opacity: var(--dim);
+    pointer-events: none;
+  }
   .home {
+    position: relative;
     height: 100%;
     display: flex;
   }
@@ -336,25 +373,26 @@
     white-space: nowrap;
   }
 
-  /* 日期和一言的字是固定大小，不跟著組件縮放；放不下就截斷或捲動 */
+  /* 日期和一言的字是固定大小（乘上組件的字體倍數 --fs），不跟著組件縮放；放不下就截斷或捲動 */
   .when {
     height: 100%;
     min-width: 0;
     overflow: hidden;
+    padding: 8px 18px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 2px;
   }
   .year {
-    font-size: 14px;
+    font-size: calc(14px * var(--fs, 1));
     font-weight: 500;
     color: var(--sub);
   }
   h1 {
     margin: 0;
     white-space: nowrap;
-    font-size: 44px;
+    font-size: calc(44px * var(--fs, 1));
     font-weight: 800;
     line-height: 1.1;
     letter-spacing: 0.01em;
@@ -363,7 +401,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 13px;
+    font-size: calc(13px * var(--fs, 1));
     color: var(--sub);
   }
   .summary.warn {
@@ -373,11 +411,12 @@
   /* 時鐘是圖，跟著組件的大小縮放 */
   .clock-box {
     height: 100%;
+    padding: 8px;
     display: grid;
     place-items: center;
   }
   .clock-box :global(.clock) {
-    width: min(100cqw, calc(100cqh - 36px));
+    width: min(100cqw - 16px, calc(100cqh - 52px));
     height: auto;
   }
   .clock-box :global(.digital .hm) {
@@ -394,15 +433,14 @@
     flex-direction: column;
     justify-content: center;
     gap: 4px;
-    padding: 10px 16px;
+    padding: 10px 18px;
     border-radius: 12px;
-    background: var(--bg2);
   }
   .qcap {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs, 1));
     color: var(--faint);
   }
   .qcap :global(svg) {
@@ -425,7 +463,7 @@
     letter-spacing: 0.04em;
   }
   .qtext {
-    font-size: 15px;
+    font-size: calc(15px * var(--fs, 1));
     font-weight: 500;
     line-height: 1.5;
     transition: opacity 0.2s;
@@ -474,9 +512,21 @@
     display: flex;
     flex-direction: column;
     border-radius: 14px;
+    overflow: hidden;
+    transition:
+      background 0.15s,
+      box-shadow 0.15s;
+  }
+  .panel.bg-solid {
     background: var(--raised);
     box-shadow: var(--card-shadow);
-    overflow: hidden;
+  }
+  .panel.bg-glass {
+    background: var(--glass);
+    box-shadow:
+      inset 0 0 0 1px var(--glass-line),
+      var(--card-shadow);
+    backdrop-filter: blur(18px) saturate(1.4);
   }
   .panel header {
     padding: 14px 18px 10px;

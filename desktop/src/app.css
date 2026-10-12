@@ -23,6 +23,9 @@
   --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 14px rgba(16, 24, 40, 0.08);
   --pop-shadow: 0 8px 28px rgba(16, 24, 40, 0.18);
   --layer: rgba(255, 255, 255, 0.72);
+  /* 主頁組件的毛玻璃背景 */
+  --glass: rgba(255, 255, 255, 0.55);
+  --glass-line: rgba(255, 255, 255, 0.6);
   color-scheme: light;
 }
 
@@ -49,6 +52,8 @@
     --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
     --pop-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
     --layer: rgba(32, 34, 39, 0.55);
+    --glass: rgba(42, 45, 51, 0.5);
+    --glass-line: rgba(255, 255, 255, 0.08);
     color-scheme: dark;
   }
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { bottomOf, clampBox, compact, GAP, homeLayout, span, spec, STEP, type Box, type WidgetId } from "../lib/homeLayout.svelte";
+  import { homeStyle } from "../lib/homeStyle.svelte";
   import Icon from "./Icon.svelte";
 
   /**
@@ -95,6 +96,7 @@
   {#each items as b (b.id)}
     {@const lifted = drag?.id === b.id}
     {@const r = lifted ? floating(b) : rect(b)}
+    {@const look = homeStyle.of(b.id)}
     {#if lifted}
       {@const slot = rect(b)}
       <div class="slot" style:left="{slot.left}px" style:top="{slot.top}px" style:width="{slot.width}px" style:height="{slot.height}px"></div>
@@ -115,7 +117,8 @@
       onpointerdown={(e) => start(e, b, "move")}
       onkeydown={(e) => key(e, b)}
     >
-      <div class="content">{@render content(b.id)}</div>
+      <!-- 背景（純色、毛玻璃、無）和字體大小的倍數（--fs，組件裡的字用 calc(… * var(--fs)) 縮放） -->
+      <div class="content bg-{look.bg}" style:--fs={look.fs}>{@render content(b.id)}</div>
       {#if editing}
         <span class="name">{spec(b.id).label}</span>
         <button class="remove" onpointerdown={(e) => e.stopPropagation()} onclick={() => homeLayout.remove(b.id)} aria-label="拿掉「{spec(b.id).label}」" title="拿掉">
@@ -155,6 +158,21 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
+    border-radius: 12px;
+    transition:
+      background 0.15s,
+      box-shadow 0.15s;
+  }
+  .bg-solid {
+    background: var(--raised);
+    box-shadow: var(--card-shadow);
+  }
+  .bg-glass {
+    background: var(--glass);
+    box-shadow:
+      inset 0 0 0 1px var(--glass-line),
+      var(--card-shadow);
+    backdrop-filter: blur(18px) saturate(1.4);
   }
   .editing .cell {
     cursor: grab;
