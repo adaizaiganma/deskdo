@@ -29,10 +29,12 @@ import kotlin.concurrent.thread
  * 主畫面小工具，排版和電腦版的桌面小工具一樣：
  * 上面可以依資料夾、標籤篩選，清單依期限分組，點圓圈直接完成，點標題打開 App。
  * 完成時直接呼叫雲端的 PATCH /api/todos/:id，不需要 App 在執行；App 回到前景時會再同步。
+ * App 沒在執行時，系統每 30 分鐘叫一次 onUpdate（deskdo_widget_info.xml），這時自己向雲端抓清單。
  */
 class DeskdoWidget : AppWidgetProvider() {
   override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
     for (id in ids) update(context, manager, id)
+    fetchAsync(context)
   }
 
   override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: android.os.Bundle) {
@@ -57,6 +59,20 @@ class DeskdoWidget : AppWidgetProvider() {
         if (widgetId < 0) return
         pickFilter(context, widgetId, intent.getStringExtra(EXTRA_KIND), intent.getStringExtra(EXTRA_VALUE))
         update(context, AppWidgetManager.getInstance(context), widgetId)
+        // 有人在用小工具，順便看看雲端有沒有新的；一直切換篩選時不要每次都抓
+        fetchAsync(context, FILTER_FETCH_AGE_MS)
+      }
+    }
+  }
+
+  /** 在背景向雲端抓清單，有變就重畫 */
+  private fun fetchAsync(context: Context, minAgeMs: Long = 0) {
+    val pending = goAsync()
+    thread {
+      try {
+        if (WidgetStore.fetch(context, minAgeMs)) refreshAll(context)
+      } finally {
+        pending.finish()
       }
     }
   }
@@ -90,6 +106,9 @@ class DeskdoWidget : AppWidgetProvider() {
         val wait = COMPLETE_SHOW_MS - (System.currentTimeMillis() - started)
         if (wait > 0) Thread.sleep(wait)
         WidgetStore.remove(context, id)
+        refreshAll(context)
+        // 完成的可能是某一步，下一步要接著出現
+        WidgetStore.fetch(context)
       } else {
         WidgetStore.setCompleting(context, id, false)
         Handler(Looper.getMainLooper()).post {
@@ -169,6 +188,9 @@ class DeskdoWidget : AppWidgetProvider() {
 
     /** 打勾後至少停留多久才從清單拿掉 */
     private const val COMPLETE_SHOW_MS = 650L
+
+    /** 點篩選時，資料比這個舊才向雲端抓 */
+    private const val FILTER_FETCH_AGE_MS = 60_000L
 
     private fun prefs(context: Context) = context.getSharedPreferences("widget_filter", Context.MODE_PRIVATE)
 

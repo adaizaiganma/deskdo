@@ -26,7 +26,7 @@ class WidgetPlugin(private val activity: Activity) : Plugin(activity) {
     if (latest.getAndSet(invoke.getRawArgs()) == null) {
       worker.execute {
         val json = latest.getAndSet(null) ?: return@execute
-        WidgetStore.save(activity, json)
+        WidgetStore.saveFromApp(activity, json)
         DeskdoWidget.refreshAll(activity)
       }
     }
