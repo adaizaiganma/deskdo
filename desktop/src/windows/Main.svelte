@@ -385,8 +385,10 @@
     flex: none;
     display: flex;
     flex-direction: column;
-    padding: 4px 10px 10px;
+    padding: 4px 0 10px 10px;
     overflow-y: auto;
+    /* 捲軸的寬度（10px）一直留著，代替右邊的 padding；展開資料夾、出現捲軸時才不會跳 */
+    scrollbar-gutter: stable;
   }
   .side-top {
     display: flex;
@@ -612,6 +614,7 @@
   .scroll {
     height: 100%;
     overflow-y: auto;
+    scrollbar-gutter: stable;
   }
   .page {
     max-width: 760px;

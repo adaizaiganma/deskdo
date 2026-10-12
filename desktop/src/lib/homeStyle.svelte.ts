@@ -1,0 +1,193 @@
+/**
+ * 主頁的外觀：背景圖片、組件的背景和字體大小。每個組件也可以有自己的背景和字體大小，沒設定就跟著主頁。
+ * 只存在這台電腦：設定在 localStorage，背景圖片在 IndexedDB（圖片太大放不進 localStorage）。
+ */
+import type { WidgetId } from "./homeLayout.svelte";
+
+/** solid = 實心卡片；glass = 半透明、模糊後面的背景；none = 沒有背景，字直接在主頁上 */
+export type WidgetBg = "solid" | "glass" | "none";
+
+export const BG_OPTIONS: { id: WidgetBg; label: string }[] = [
+  { id: "solid", label: "純色" },
+  { id: "glass", label: "毛玻璃" },
+  { id: "none", label: "無背景" },
+];
+
+/** 字體大小的倍數 */
+export const FONT_SCALES: { id: number; label: string }[] = [
+  { id: 0.875, label: "小" },
+  { id: 1, label: "標準" },
+  { id: 1.15, label: "大" },
+  { id: 1.3, label: "特大" },
+];
+
+export interface WidgetLook {
+  bg: WidgetBg;
+  fs: number;
+}
+
+interface Saved extends WidgetLook {
+  /** 右邊待辦清單的背景 */
+  panel: WidgetBg;
+  /** 背景圖片上蓋一層底色的濃度（0–0.8），字比較看得清楚 */
+  dim: number;
+  widgets: Record<string, Partial<WidgetLook>>;
+}
+
+const KEY = "home.style";
+const DEFAULTS: Saved = { bg: "solid", fs: 1, panel: "solid", dim: 0.25, widgets: {} };
+
+const isBg = (v: unknown): v is WidgetBg => BG_OPTIONS.some((o) => o.id === v);
+const isScale = (v: unknown): v is number => FONT_SCALES.some((o) => o.id === v);
+
+function read(): Saved {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) ?? "null");
+    if (!raw || typeof raw !== "object") return DEFAULTS;
+    const widgets: Saved["widgets"] = {};
+    for (const [id, o] of Object.entries(raw.widgets ?? {})) {
+      const w = o as Partial<WidgetLook>;
+      const look: Partial<WidgetLook> = {};
+      if (isBg(w?.bg)) look.bg = w.bg;
+      if (isScale(w?.fs)) look.fs = w.fs;
+      if (Object.keys(look).length) widgets[id] = look;
+    }
+    return {
+      bg: isBg(raw.bg) ? raw.bg : DEFAULTS.bg,
+      fs: isScale(raw.fs) ? raw.fs : DEFAULTS.fs,
+      panel: isBg(raw.panel) ? raw.panel : DEFAULTS.panel,
+      dim: typeof raw.dim === "number" ? Math.min(0.8, Math.max(0, raw.dim)) : DEFAULTS.dim,
+      widgets,
+    };
+  } catch {
+    return DEFAULTS;
+  }
+}
+
+// ---- 背景圖片：存在 IndexedDB，顯示時換成 blob: 網址 ----
+const DB = "deskdo-home";
+const STORE = "files";
+const IMAGE = "background";
+
+function db(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  const d = await db();
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      const req = fn(d.transaction(STORE, mode).objectStore(STORE));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } finally {
+    d.close();
+  }
+}
+
+/** 太大的圖縮到長邊 2560px，存起來和每次開啟都比較快 */
+async function shrink(file: Blob): Promise<Blob> {
+  const bmp = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, 2560 / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size < 4_000_000) return file;
+    const canvas = new OffscreenCanvas(Math.round(bmp.width * scale), Math.round(bmp.height * scale));
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    return await canvas.convertToBlob({ type: "image/jpeg", quality: 0.9 });
+  } finally {
+    bmp.close();
+  }
+}
+
+class HomeStyle {
+  #s = $state<Saved>(read());
+  /** 背景圖片的 blob: 網址；沒有圖片是 null */
+  image = $state<string | null>(null);
+
+  constructor() {
+    if (typeof indexedDB === "undefined") return;
+    tx<Blob | undefined>("readonly", (s) => s.get(IMAGE))
+      .then((blob) => {
+        if (blob) this.image = URL.createObjectURL(blob);
+      })
+      .catch((e) => console.warn("讀不到主頁的背景圖片", e));
+  }
+
+  get bg() {
+    return this.#s.bg;
+  }
+  get fs() {
+    return this.#s.fs;
+  }
+  get panel() {
+    return this.#s.panel;
+  }
+  get dim() {
+    return this.#s.dim;
+  }
+
+  /** 這個組件自己的設定（沒設定的跟著主頁） */
+  own(id: WidgetId): Partial<WidgetLook> {
+    return this.#s.widgets[id] ?? {};
+  }
+
+  /** 這個組件實際用的背景和字體大小 */
+  of(id: WidgetId): WidgetLook {
+    const o = this.own(id);
+    return { bg: o.bg ?? this.#s.bg, fs: o.fs ?? this.#s.fs };
+  }
+
+  /** 有幾個組件有自己的設定 */
+  get customized() {
+    return Object.keys(this.#s.widgets).length;
+  }
+
+  set(patch: Partial<Omit<Saved, "widgets">>) {
+    this.#s = { ...this.#s, ...patch };
+    this.#save();
+  }
+
+  /** 組件自己的設定；值是 undefined 就改回跟著主頁 */
+  setWidget(id: WidgetId, patch: Partial<WidgetLook>) {
+    const next = { ...this.own(id), ...patch };
+    for (const k of Object.keys(next) as (keyof WidgetLook)[]) if (next[k] === undefined) delete next[k];
+    const widgets = { ...this.#s.widgets };
+    if (Object.keys(next).length) widgets[id] = next;
+    else delete widgets[id];
+    this.#s = { ...this.#s, widgets };
+    this.#save();
+  }
+
+  /** 所有組件都改回跟著主頁 */
+  resetWidgets() {
+    this.#s = { ...this.#s, widgets: {} };
+    this.#save();
+  }
+
+  async setImage(file: Blob) {
+    const blob = await shrink(file);
+    await tx("readwrite", (s) => s.put(blob, IMAGE));
+    if (this.image) URL.revokeObjectURL(this.image);
+    this.image = URL.createObjectURL(blob);
+  }
+
+  async clearImage() {
+    await tx("readwrite", (s) => s.delete(IMAGE));
+    if (this.image) URL.revokeObjectURL(this.image);
+    this.image = null;
+  }
+
+  #save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(this.#s));
+    } catch {}
+  }
+}
+
+export const homeStyle = new HomeStyle();

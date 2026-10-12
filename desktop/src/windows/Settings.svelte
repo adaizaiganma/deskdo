@@ -2,18 +2,11 @@
   import { invoke } from "@tauri-apps/api/core";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
-  import Clock from "../components/Clock.svelte";
-  import { homePrefs, type ClockStyle } from "@deskdo/core/homePrefs.svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";
   import { localDate, monthDay } from "@deskdo/core/dates";
-  import { SAYING_CATEGORIES, sayingPrefs } from "@deskdo/core/saying.svelte";
+  import { THEME_OPTIONS, theme } from "../lib/theme.svelte";
   import { store } from "@deskdo/core/store.svelte";
   import type { Connector, Device, UpdateInfo } from "@deskdo/core/types";
-
-  const clockStyles: { id: ClockStyle; label: string }[] = [
-    { id: "analog", label: "指針" },
-    { id: "digital", label: "數位" },
-  ];
 
   /** 開啟設定精靈（new：第一次設定；update：更新雲端） */
   let { onsetup }: { onsetup: (mode: "new" | "update") => void } = $props();
@@ -219,29 +212,19 @@
   {/if}
 
   <section class="card">
-    <h2>主頁</h2>
+    <h2>外觀</h2>
     <div class="toggle-row">
       <div>
-        <div>時鐘樣式</div>
-        <div class="hint">顯示在主頁日期的右邊</div>
+        <div>深色、淺色</div>
+        <div class="hint">主視窗和桌面小工具都會跟著變</div>
       </div>
-      <div class="seg" role="radiogroup" aria-label="時鐘樣式">
-        {#each clockStyles as c (c.id)}
-          <button role="radio" aria-checked={homePrefs.clock === c.id} class:on={homePrefs.clock === c.id} onclick={() => homePrefs.setClock(c.id)}>{c.label}</button>
+      <div class="seg" role="radiogroup" aria-label="深色、淺色">
+        {#each THEME_OPTIONS as o (o.id)}
+          <button role="radio" aria-checked={theme.pref === o.id} class:on={theme.pref === o.id} onclick={() => theme.set(o.id)}>{o.label}</button>
         {/each}
       </div>
     </div>
-    <div class="clock-preview"><Clock size={104} mode={homePrefs.clock} /></div>
-    <div class="saying">
-      <div>每日一言</div>
-      <div class="hint">要顯示哪些句子，可以選好幾種。換了之後主頁會抓一句新的</div>
-      <div class="chips" role="group" aria-label="每日一言的類型">
-        {#each SAYING_CATEGORIES as c (c.id)}
-          {@const on = sayingPrefs.categories.includes(c.id)}
-          <button class="chip" class:on aria-pressed={on} onclick={() => sayingPrefs.toggle(c.id)}>{c.label}</button>
-        {/each}
-      </div>
-    </div>
+    <p class="hint home-hint">主頁的外觀改到主頁上設定：在主頁空白處按右鍵 →「自訂主頁」可以換背景圖片、組件背景和字體大小；在組件上按右鍵 →「組件設定」可以個別調整，時鐘樣式、每日一言的類型也在這裡。</p>
   </section>
 
   {#if p}
@@ -354,64 +337,6 @@
     font-weight: 700;
     color: var(--sub);
     margin: 0 0 12px;
-  }
-  .seg {
-    flex: none;
-    display: inline-flex;
-    padding: 2px;
-    border-radius: 9px;
-    background: var(--bg2);
-  }
-  .seg button {
-    height: 30px;
-    padding: 0 16px;
-    border-radius: 7px;
-    font-size: 13px;
-    color: var(--sub);
-  }
-  .seg button.on {
-    background: var(--raised);
-    color: var(--text);
-    font-weight: 500;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-  }
-  .saying {
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
-    font-size: 13.5px;
-  }
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
-  }
-  .chip {
-    height: 28px;
-    padding: 0 12px;
-    border-radius: 14px;
-    border: 1px solid var(--line);
-    font-size: 13px;
-    color: var(--sub);
-  }
-  .chip:hover {
-    background: var(--hover);
-  }
-  .chip.on {
-    border-color: transparent;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-weight: 500;
-  }
-  .clock-preview {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 170px;
-    margin-top: 6px;
-    border-radius: 10px;
-    background: var(--bg2);
   }
   .card {
     background: var(--raised);
@@ -530,6 +455,32 @@
   .callout h2 {
     color: var(--text);
     margin-bottom: 4px;
+  }
+  .seg {
+    flex: none;
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 9px;
+    background: var(--bg2);
+  }
+  .seg button {
+    height: 30px;
+    padding: 0 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .seg button.on {
+    background: var(--raised);
+    color: var(--text);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+  .home-hint {
+    margin: 10px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    line-height: 1.6;
   }
   .card > .hint {
     margin: 0 0 12px;

@@ -752,28 +752,26 @@
     font-size: 13px;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .rim circle {
-      fill: hsl(var(--h) 38% 40%);
-    }
-    .fill circle {
-      fill: hsl(var(--h) 30% 23%);
-    }
-    .rim circle.loose {
-      fill: hsl(220 8% 38%);
-    }
-    .fill circle.loose {
-      fill: hsl(220 8% 25%);
-    }
-    .tag circle {
-      stroke: color-mix(in srgb, hsl(var(--rh) 45% 55%) var(--rmix), var(--ring));
-    }
-    .pill {
-      border-color: hsl(var(--h) 45% 50%);
-      color: hsl(var(--h) 75% 80%);
-    }
-    .empty-hint {
-      fill: hsl(var(--h, 220) 25% 60%);
-    }
+  :global(:root[data-theme="dark"]) .rim circle {
+    fill: hsl(var(--h) 38% 40%);
+  }
+  :global(:root[data-theme="dark"]) .fill circle {
+    fill: hsl(var(--h) 30% 23%);
+  }
+  :global(:root[data-theme="dark"]) .rim circle.loose {
+    fill: hsl(220 8% 38%);
+  }
+  :global(:root[data-theme="dark"]) .fill circle.loose {
+    fill: hsl(220 8% 25%);
+  }
+  :global(:root[data-theme="dark"]) .tag circle {
+    stroke: color-mix(in srgb, hsl(var(--rh) 45% 55%) var(--rmix), var(--ring));
+  }
+  :global(:root[data-theme="dark"]) .pill {
+    border-color: hsl(var(--h) 45% 50%);
+    color: hsl(var(--h) 75% 80%);
+  }
+  :global(:root[data-theme="dark"]) .empty-hint {
+    fill: hsl(var(--h, 220) 25% 60%);
   }
 </style>

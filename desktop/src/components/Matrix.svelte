@@ -72,6 +72,7 @@
   /* 填滿組件的格子；每一格的待辦太多時在格子裡捲動 */
   .matrix {
     height: 100%;
+    padding: 10px;
     display: flex;
     flex-direction: column;
   }
@@ -89,7 +90,7 @@
   .cols {
     flex: none;
     margin-bottom: 6px;
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs, 1));
     font-weight: 700;
     color: var(--sub);
     text-align: center;
@@ -98,7 +99,7 @@
     writing-mode: vertical-rl;
     display: grid;
     place-items: center;
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs, 1));
     font-weight: 700;
     color: var(--sub);
     letter-spacing: 0.2em;
@@ -112,7 +113,7 @@
     overflow-y: auto;
     padding: 10px 8px 8px;
     border-radius: 12px;
-    background: var(--raised);
+    background: var(--inner, var(--raised));
     box-shadow: 0 0 0 1px var(--line);
     border-top: 3px solid var(--tone);
   }
@@ -136,7 +137,7 @@
   }
   .qtitle {
     white-space: nowrap;
-    font-size: 13.5px;
+    font-size: calc(13.5px * var(--fs, 1));
     font-weight: 700;
     color: var(--tone);
   }
@@ -145,7 +146,7 @@
   }
   .qcount {
     margin-left: auto;
-    font-size: 12px;
+    font-size: calc(12px * var(--fs, 1));
     color: var(--faint);
   }
   .item {
@@ -157,7 +158,7 @@
     padding: 0 6px;
     border-radius: 7px;
     text-align: left;
-    font-size: 13px;
+    font-size: calc(13px * var(--fs, 1));
   }
   .item:hover {
     background: var(--hover);
@@ -171,7 +172,7 @@
   }
   .idue {
     flex: none;
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs, 1));
     color: var(--faint);
     font-variant-numeric: tabular-nums;
   }
@@ -183,7 +184,7 @@
   }
   .none {
     padding: 4px 6px;
-    font-size: 12px;
+    font-size: calc(12px * var(--fs, 1));
     color: var(--faint);
   }
 </style>

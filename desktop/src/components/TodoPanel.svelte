@@ -234,11 +234,13 @@
     flex: 1;
     min-height: 0;
   }
+  /* 捲軸的寬度一直留著（右邊的 padding 由它代替），展開待辦、出現捲軸時字才不會跳 */
   .scroll {
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 0 6px 0 8px;
+    scrollbar-gutter: stable;
+    padding: 0 0 0 8px;
   }
   .loading {
     padding: 56px 0;

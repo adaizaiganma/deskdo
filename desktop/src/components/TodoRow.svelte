@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { slide } from "svelte/transition";
+  import { fade, slide } from "svelte/transition";
   import { addDays, localDate, monthDay, nextMonday, relativeDue, rowDue } from "@deskdo/core/dates";
   import { parseQuickAdd } from "@deskdo/core/quickadd";
   import { store } from "@deskdo/core/store.svelte";
@@ -296,7 +296,8 @@
   {/if}
 
   {#if editing}
-    <div class="editor" transition:slide={{ duration: 200 }}>
+    <!-- 直接展開、只淡入：用 slide 的話，變成卡片的底色和陰影會跟著高度從上往下刷過去，看起來像閃一下 -->
+    <div class="editor" in:fade={{ duration: 120 }}>
       <div class="field">
         <span class="ficon"><Icon name="calendar" size={14} stroke={1.5} /></span>
         {#each dueChips as c (c.label)}
@@ -416,7 +417,11 @@
 <style>
   .row {
     border-radius: 10px;
-    transition: background 0.15s, box-shadow 0.2s, margin 0.2s;
+    transition: background 0.15s;
+  }
+  /* 展開、收起時底色、陰影直接換，不要動畫 */
+  .row.editing {
+    transition: none;
   }
   /* 只在有滑鼠時：觸控螢幕點過之後 :hover 會一直留著 */
   @media (hover: hover) {

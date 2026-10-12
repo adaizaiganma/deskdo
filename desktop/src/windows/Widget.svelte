@@ -1,11 +1,12 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { onMount, tick } from "svelte";
+  import { tick } from "svelte";
   import { scale } from "svelte/transition";
   import Icon from "../components/Icon.svelte";
   import TodoPanel from "../components/TodoPanel.svelte";
   import { longDate } from "@deskdo/core/dates";
   import { store } from "@deskdo/core/store.svelte";
+  import { theme } from "../lib/theme.svelte";
   import SyncStatus from "./SyncStatus.svelte";
 
   let menuOpen = $state(false);
@@ -18,14 +19,17 @@
     action();
   }
 
-  onMount(() => {
-    const media = matchMedia("(prefers-color-scheme: dark)");
-    const applyTheme = async () => {
-      effects = await invoke<boolean>("set_widget_theme", { dark: media.matches });
-    };
-    media.addEventListener("change", applyTheme);
-    applyTheme().then(tick).then(() => invoke("widget_ready"));
-    return () => media.removeEventListener("change", applyTheme);
+  // 毛玻璃的底色跟著深色、淺色（設定頁可以強制，見 theme.svelte.ts）
+  let ready = false;
+  $effect(() => {
+    const dark = theme.dark;
+    invoke<boolean>("set_widget_theme", { dark }).then((ok) => {
+      effects = ok;
+      if (!ready) {
+        ready = true;
+        tick().then(() => invoke("widget_ready"));
+      }
+    });
   });
 </script>
 

@@ -18,6 +18,7 @@
     "core:window:allow-is-maximized",
     "core:window:allow-close",
     "core:window:allow-hide",
+    "core:app:allow-set-app-theme",
     "opener:default"
   ]
 }

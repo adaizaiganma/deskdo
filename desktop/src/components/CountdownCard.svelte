@@ -36,7 +36,6 @@
     gap: 2px;
     padding: 8px 14px;
     border-radius: 12px;
-    background: var(--bg2);
     text-align: left;
     overflow: hidden;
   }
@@ -50,7 +49,7 @@
     white-space: nowrap;
   }
   .title {
-    font-size: 13px;
+    font-size: calc(13px * var(--fs, 1));
     font-weight: 500;
   }
   .num {
@@ -60,11 +59,11 @@
     white-space: nowrap;
   }
   small {
-    font-size: 12px;
+    font-size: calc(12px * var(--fs, 1));
     color: var(--sub);
   }
   b {
-    font-size: 26px;
+    font-size: calc(26px * var(--fs, 1));
     font-weight: 700;
     line-height: 1.15;
     color: var(--accent);
@@ -74,11 +73,11 @@
     color: var(--text);
   }
   b.now {
-    font-size: 20px;
+    font-size: calc(20px * var(--fs, 1));
     color: var(--warn);
   }
   .sub {
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--fs, 1));
     color: var(--faint);
   }
 </style>
