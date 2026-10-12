@@ -3,7 +3,7 @@
   import { fade, scale } from "svelte/transition";
   import { countdowns, resolve } from "@deskdo/core/countdowns.svelte";
   import { addDays, diffDays, monthDay, weekday } from "@deskdo/core/dates";
-  import { quoteOf } from "@deskdo/core/quotes";
+  import { dailyQuote } from "@deskdo/core/saying.svelte";
   import { store } from "@deskdo/core/store.svelte";
   import Fab from "../components/Fab.svelte";
   import Icon from "../components/Icon.svelte";
@@ -27,7 +27,7 @@
   }
   let { today, top, onmenu, onsearch, onall, oncountdowns }: Props = $props();
 
-  const quote = $derived(quoteOf(today));
+  const quote = dailyQuote(() => today);
   const tomorrow = $derived(addDays(today, 1));
   const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
   const dueToday = $derived(store.open.filter((t) => t.due === today).length);
@@ -73,8 +73,8 @@
     {@render top?.()}
 
     <figure class="card quote">
-      <figcaption>每日一言 · {quote.source}</figcaption>
-      <blockquote>{quote.text}</blockquote>
+      <figcaption>每日一言 · {quote.current.source}</figcaption>
+      <blockquote>{quote.current.text}</blockquote>
     </figure>
 
     {#if pinned.length}
