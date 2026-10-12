@@ -5,6 +5,7 @@
   import { addDays, diffDays, monthDay, weekday } from "@deskdo/core/dates";
   import { dailyQuote } from "@deskdo/core/saying.svelte";
   import { store } from "@deskdo/core/store.svelte";
+  import { toast } from "@deskdo/core/toast.svelte";
   import Fab from "../components/Fab.svelte";
   import Icon from "../components/Icon.svelte";
   import TodoGroups from "../components/TodoGroups.svelte";
@@ -28,6 +29,7 @@
   let { today, top, onmenu, onsearch, onall, oncountdowns }: Props = $props();
 
   const quote = dailyQuote(() => today);
+  const refreshQuote = () => quote.refresh().catch(() => toast.error("換不了句子，請檢查網路"));
   const tomorrow = $derived(addDays(today, 1));
   const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
   const dueToday = $derived(store.open.filter((t) => t.due === today).length);
@@ -72,10 +74,10 @@
 
     {@render top?.()}
 
-    <figure class="card quote">
-      <figcaption>每日一言 · {quote.current.source}</figcaption>
-      <blockquote>{quote.current.text}</blockquote>
-    </figure>
+    <button class="card quote" class:loading={quote.loading} onclick={refreshQuote} aria-label="每日一言：{quote.current.text}（{quote.current.source}），點一下換一句">
+      <span class="qcap"><span class="clip">每日一言 · {quote.current.source}</span><Icon name="refresh" size={14} /></span>
+      <span class="qtext">{quote.current.text}</span>
+    </button>
 
     {#if pinned.length}
       <div class="cds" aria-label="倒數日">
@@ -196,21 +198,45 @@
     background: var(--c);
   }
   .quote {
+    width: calc(100% - 32px);
     margin: 12px 16px 0;
     padding: 16px 18px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    text-align: left;
   }
-  figcaption {
+  .quote:active {
+    filter: brightness(1.08);
+  }
+  .qcap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     font-size: 12px;
     color: var(--sub);
   }
-  blockquote {
-    margin: 0;
+  .qcap :global(svg) {
+    flex: none;
+    color: var(--faint);
+  }
+  .loading .qcap :global(svg) {
+    animation: spin 0.8s linear infinite;
+  }
+  .qtext {
     font-size: 17px;
     font-weight: 500;
     line-height: 1.6;
+    transition: opacity 0.2s;
+  }
+  .loading .qtext {
+    opacity: 0.5;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
   .cds {
     display: flex;
