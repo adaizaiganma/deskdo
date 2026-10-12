@@ -607,6 +607,7 @@
   /* 「全部」頁的資料夾、標籤 */
   .chips {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
