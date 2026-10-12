@@ -31,7 +31,7 @@
   }
 
   // 依標籤、資料夾篩選時，也列出還沒輪到的步驟（淡色顯示）：它的前一步可能是別的標籤，不列出來就找不到了
-  const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
+  const countOf = (tag: string) => store.allOpen.filter((t) => t.tags.includes(tag)).length;
   const withCounts = (tags: string[]) => tags.map((tag) => ({ tag, count: countOf(tag) }));
   /** 第一排：有標籤的資料夾（裡面的標籤還沒有待辦也列出），接著是不在資料夾裡的標籤 */
   const groups = $derived(
@@ -39,13 +39,15 @@
       .filter((f) => f.tags.length)
       .map((f) => {
         const tags = withCounts(f.tags);
-        return { name: f.name, all: new Set(f.tags), tags, count: tags.reduce((n, t) => n + t.count, 0) };
+        const all = new Set(f.tags);
+        // 有好幾個標籤在同一個資料夾的待辦只算一次
+        return { name: f.name, all, tags, count: store.allOpen.filter((t) => t.tags.some((g) => all.has(g))).length };
       }),
   );
   const loose = $derived(withCounts(store.looseTags).filter((f) => f.count > 0));
   const current = $derived(groups.find((g) => g.name === folder));
 
-  const match = (t: Todo) => (filter ? t.tag === filter : current ? !!t.tag && current.all.has(t.tag) : true);
+  const match = (t: Todo) => (filter ? t.tags.includes(filter) : current ? t.tags.some((g) => current.all.has(g)) : true);
   const todos = $derived((filter || current ? store.allOpen.filter(match) : store.open).filter(matches));
   // 只看今天完成的（確認剛剛勾了什麼、順手復原），完整紀錄在「全部」
   const done = $derived(store.doneToday.filter(match).filter(matches));

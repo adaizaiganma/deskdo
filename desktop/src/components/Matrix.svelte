@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { diffDays, rowDue } from "@deskdo/core/dates";
+  import { compareDue, diffDays, rowDue } from "@deskdo/core/dates";
   import { store } from "@deskdo/core/store.svelte";
   import type { Todo } from "@deskdo/core/types";
 
@@ -16,15 +16,12 @@
 
   const URGENT_DAYS = 2;
 
-  const PRIORITY_RANK = { high: 0, normal: 1, low: 2 } as const;
   const sorted = $derived(
     store.open
       .filter(matches)
       .sort(
         (a, b) =>
-          (a.due ?? "9999").localeCompare(b.due ?? "9999") ||
-          (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1) ||
-          a.createdAt.localeCompare(b.createdAt),
+          compareDue(a, b),
       ),
   );
   const urgent = (t: Todo) => !!t.due && diffDays(today, t.due) <= URGENT_DAYS;
@@ -57,7 +54,7 @@
       <span class="qcount">{q.items.length}</span>
     </div>
     {#each q.items as t (t.id)}
-      {@const due = t.due ? rowDue(t.due, today) : null}
+      {@const due = t.due ? rowDue(t.due, today, t.dueTime, store.now) : null}
       <button class="item" onclick={() => onpick(t)} title={t.title}>
         <span class="ititle">{t.title}</span>
         {#if due}<span class="idue {due.tone}">{due.count}</span>{/if}

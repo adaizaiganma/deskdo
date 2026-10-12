@@ -76,8 +76,8 @@
 
   const quote = dailyQuote(() => today);
   const refreshQuote = () => quote.refresh().catch(() => toast.error("換不了句子，請檢查網路"));
-  const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
-  const dueToday = $derived(store.open.filter((t) => t.due === today).length);
+  const late = $derived(store.overdueCount);
+  const dueToday = $derived(store.open.filter((t) => t.due === today && !store.overdue(t)).length);
   const summary = $derived(
     [late && `${late} 項逾期`, dueToday && `今天到期 ${dueToday} 項`, `共 ${store.open.length} 項待辦`].filter(Boolean).join("・"),
   );

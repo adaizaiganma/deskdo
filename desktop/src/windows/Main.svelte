@@ -63,18 +63,20 @@
     { id: "countdown", label: "倒數日", icon: "hourglass", count: () => 0 },
   ];
   // 依標籤、資料夾篩選時也列出還沒輪到的步驟（淡色顯示）：它的前一步可能是別的標籤，不列出來就找不到了
-  const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
+  const countOf = (tag: string) => store.allOpen.filter((t) => t.tags.includes(tag)).length;
   /** 「全部」頁的標籤列：資料夾（含還沒有待辦的標籤），接著是未分類的標籤 */
   const groups = $derived(
     store.folders.map((f) => {
       const tags = f.tags.map((tag) => ({ tag, count: countOf(tag) }));
-      return { name: f.name, all: new Set(f.tags), tags, count: tags.reduce((n, t) => n + t.count, 0) };
+      const all = new Set(f.tags);
+      // 有好幾個標籤在同一個資料夾的待辦只算一次
+      return { name: f.name, all, tags, count: store.allOpen.filter((t) => t.tags.some((g) => all.has(g))).length };
     }),
   );
   const looseCounts = $derived(store.looseTags.map((tag) => ({ tag, count: countOf(tag) })));
   const current = $derived(groups.find((g) => g.name === scopeFolder));
   const scoped = $derived(!!scopeTag || !!current);
-  const inScope = (t: Todo) => (scopeTag ? t.tag === scopeTag : current ? !!t.tag && current.all.has(t.tag) : true);
+  const inScope = (t: Todo) => (scopeTag ? t.tags.includes(scopeTag) : current ? t.tags.some((g) => current.all.has(g)) : true);
   const scopeOpen = $derived(scoped ? store.allOpen.filter(inScope) : open);
   const scopeDone = $derived(scoped ? store.done.filter(inScope) : store.done);
 
@@ -147,7 +149,7 @@
   function matches(t: Todo): boolean {
     const q = query.trim().toLowerCase();
     if (!q) return true;
-    return [t.title, t.note, t.tag].some((s) => s?.toLowerCase().includes(q));
+    return [t.title, t.note, ...t.tags].some((s) => s?.toLowerCase().includes(q));
   }
 
   /** 每個頁面要顯示的內容 */
