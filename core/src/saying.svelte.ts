@@ -77,8 +77,10 @@ export function dailyQuote(today: () => string) {
 
   $effect(() => {
     const day = today();
-    online = cached(day);
-    if (online || Date.now() - failedAt < RETRY_MS) return;
+    // 只寫不讀 online，不然換句子時會再跑一次
+    const saved = cached(day);
+    online = saved;
+    if (saved || Date.now() - failedAt < RETRY_MS) return;
     if (pending?.day !== day) pending = { day, p: fetchDaily(day) };
     const n = picked;
     let alive = true;
