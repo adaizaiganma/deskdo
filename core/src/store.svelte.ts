@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { isOverdue, localDate, localTime, localToday } from "./dates";
+import { localDate, localToday } from "./dates";
 import { toast } from "./toast.svelte";
 import type { Folder, NewTodo, Prefs, Snapshot, Todo, TodoPatch, UpdateInfo } from "./types";
 
@@ -13,8 +13,6 @@ class Store {
   /** 要展開的待辦（手機上從主畫面小工具點進來）；清單展開它之後清掉 */
   focus = $state<string | null>(null);
   #localToday = $state(localToday());
-  /** 現在的時間 HH:MM，每分鐘更新：今天有時間的待辦過了時間就算逾期 */
-  now = $state(localTime());
 
   /** 跨日時不必等伺服器，本機日期往前就跟著換 */
   today = $derived(this.snap.today > this.#localToday ? this.snap.today : this.#localToday);
@@ -33,7 +31,7 @@ class Store {
     this.snap.todos.filter((t) => t.done).sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? "")),
   );
   doneToday = $derived(this.done.filter((t) => localDate(t.doneAt) === this.today));
-  tags = $derived([...new Set(this.snap.todos.flatMap((t) => t.tags))].sort((a, b) => a.localeCompare(b, "zh-Hant")));
+  tags = $derived([...new Set(this.snap.todos.flatMap((t) => (t.tag ? [t.tag] : [])))].sort((a, b) => a.localeCompare(b, "zh-Hant")));
   folders = $derived(this.snap.folders ?? []);
   /** 標籤 → 所在的資料夾 */
   folderOf = $derived(new Map(this.folders.flatMap((f) => f.tags.map((t) => [t, f.name] as const))));
@@ -41,13 +39,11 @@ class Store {
   looseTags = $derived(this.tags.filter((t) => !this.folderOf.has(t)));
   /** 依資料夾排序的標籤（資料夾裡的照資料夾順序，含還沒有待辦的；其餘照名稱） */
   orderedTags = $derived([...this.folders.flatMap((f) => f.tags), ...this.looseTags]);
-  overdueCount = $derived(this.open.filter((t) => this.overdue(t)).length);
+  overdueCount = $derived(this.open.filter((t) => t.due && t.due < this.today).length);
   /** 雲端版本 3 起才支援低優先；還不知道版本時先放行 */
   supportsLow = $derived((this.prefs?.cloudVersion ?? 3) >= 3);
   /** 雲端版本 5 起才有接續的步驟 */
   supportsSteps = $derived((this.prefs?.cloudVersion ?? 5) >= 5);
-  /** 雲端版本 6 起才有多個標籤、期限的時間 */
-  supportsV6 = $derived((this.prefs?.cloudVersion ?? 6) >= 6);
   /** 雲端版本 4 起才能儲存資料夾 */
   supportsFolders = $derived((this.prefs?.cloudVersion ?? 4) >= 4);
   cloudOutdated = $derived(
@@ -61,10 +57,7 @@ class Store {
     this.snap = await invoke<Snapshot>("get_state");
     this.prefs = await invoke<Prefs>("get_prefs");
     this.appUpdate = (await invoke<UpdateInfo | null>("get_update")) ?? null;
-    setInterval(() => {
-      this.#localToday = localToday();
-      this.now = localTime();
-    }, 60_000);
+    setInterval(() => (this.#localToday = localToday()), 60_000);
   }
 
   async #call<T>(cmd: string, args?: Record<string, unknown>): Promise<T | undefined> {
@@ -80,17 +73,6 @@ class Store {
   canUseLow(): boolean {
     if (!this.supportsLow) toast.error("低優先需要先更新雲端：到「設定 → 雲端」按「更新雲端」");
     return this.supportsLow;
-  }
-
-  /** 已經過期了（今天到期、時間已經過了的也算） */
-  overdue(t: Todo): boolean {
-    return isOverdue(t, this.today, this.now);
-  }
-
-  /** 要用期限的時間、第二個標籤前先問；雲端太舊時提示更新並回傳 false */
-  canUseV6(what: "time" | "tags"): boolean {
-    if (!this.supportsV6) toast.error(`${what === "time" ? "期限的時間" : "多個標籤"}需要先更新雲端：到「設定 → 雲端」按「更新雲端」`);
-    return this.supportsV6;
   }
 
   setFolders(folders: Folder[]) {

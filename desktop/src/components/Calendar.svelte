@@ -30,7 +30,7 @@
   const monthLabel = $derived(`${Number(month.slice(0, 4))}年${Number(month.slice(5))}月`);
 
   const PRIORITY_RANK = { high: 0, normal: 1, low: 2 } as const;
-  /** 每一天到期的待辦：未完成的在前（有時間的照時間、再來高優先先），已完成的在後 */
+  /** 每一天到期的待辦：未完成的在前（高優先先），已完成的在後 */
   const byDay = $derived.by(() => {
     const first = days[0];
     const last = days[days.length - 1];
@@ -48,7 +48,6 @@
         (a, b) =>
           Number(a.done) - Number(b.done) ||
           Number(store.waiting.has(a.id)) - Number(store.waiting.has(b.id)) ||
-          (a.dueTime ?? "99:99").localeCompare(b.dueTime ?? "99:99") ||
           (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1) ||
           a.createdAt.localeCompare(b.createdAt),
       );
@@ -128,7 +127,7 @@
   function tone(t: Todo): string {
     if (t.done) return "done";
     if (store.waiting.has(t.id)) return "waiting";
-    if (store.overdue(t)) return "late";
+    if (t.due! < today) return "late";
     return t.priority;
   }
 </script>
@@ -170,11 +169,11 @@
             <button
               class="chip {tone(t)}"
               class:lifted={drag?.moved && drag.todo.id === t.id}
-              title={t.dueTime ? `${t.dueTime} ${t.title}` : t.title}
+              title={t.title}
               onpointerdown={(e) => dragStart(e, t)}
               onclick={(e) => (e.stopPropagation(), openTodo(t))}
             >
-              {#if t.dueTime}<span class="at">{t.dueTime}</span>{/if}{t.title}
+              {t.title}
             </button>
           {/each}
           {#if items.length > SHOWN}
@@ -298,13 +297,6 @@
     background: var(--accent);
     color: #fff;
     font-weight: 700;
-  }
-  /* 有時間的待辦，時間放在標題前面 */
-  .chip .at {
-    margin-right: 4px;
-    font-size: 10.5px;
-    font-variant-numeric: tabular-nums;
-    color: var(--sub);
   }
   .chip {
     display: block;

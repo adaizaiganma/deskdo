@@ -21,9 +21,7 @@
   let draftNote = $state("");
   /** 期限、標籤、優先也先改在這裡，收合時才一起存（每按一下就送出、重新整理清單，手機上會卡） */
   let draftDue = $state<string | null>(null);
-  /** 期限的時間；null 是一整天 */
-  let draftTime = $state<string | null>(null);
-  let draftTags = $state<string[]>([]);
+  let draftTag = $state<string | null>(null);
   let draftPriority = $state<Todo["priority"]>("normal");
   let titleInput = $state<HTMLInputElement>();
   /** 展開的選單：tag = 選標籤，new = 新增下一步，link = 從現有的待辦挑一筆接在後面 */
@@ -34,7 +32,7 @@
   const sending = $derived(todo.id.startsWith("tmp-"));
   const high = $derived(todo.priority === "high");
   const low = $derived(todo.priority === "low");
-  const due = $derived(!todo.done && todo.due ? rowDue(todo.due, today, todo.dueTime, store.now) : null);
+  const due = $derived(!todo.done && todo.due ? rowDue(todo.due, today) : null);
   const draftHigh = $derived(draftPriority === "high");
   const draftLow = $derived(draftPriority === "low");
   const checked = $derived(todo.done || checking);
@@ -55,7 +53,7 @@
     const q = query.trim().toLowerCase();
     return store.allOpen
       .filter((t) => !ancestors.has(t.id) && t.id !== next?.id && !t.id.startsWith("tmp-"))
-      .filter((t) => !q || t.title.toLowerCase().includes(q) || t.tags.some((g) => g.toLowerCase().includes(q)))
+      .filter((t) => !q || t.title.toLowerCase().includes(q) || t.tag?.toLowerCase().includes(q))
       .slice(0, 8);
   });
 
@@ -78,8 +76,7 @@
         draftTitle = todo.title;
         draftNote = todo.note ?? "";
         draftDue = todo.due;
-        draftTime = todo.dueTime;
-        draftTags = [...todo.tags];
+        draftTag = todo.tag;
         draftPriority = todo.priority;
         panel = null;
         queueMicrotask(() => titleInput?.focus());
@@ -106,10 +103,7 @@
     const note = draftNote.trim() || null;
     if (note !== (todo.note ?? null)) p.note = note;
     if (draftDue !== todo.due) p.due = draftDue;
-    // 沒有期限就沒有時間（雲端也會清掉）
-    const time = draftDue ? draftTime : null;
-    if (time !== todo.dueTime) p.dueTime = time;
-    if (draftTags.join("\n") !== todo.tags.join("\n")) p.tags = [...draftTags];
+    if (draftTag !== todo.tag) p.tag = draftTag;
     if (draftPriority !== todo.priority) p.priority = draftPriority;
     if (Object.keys(p).length) patch(p);
   }
@@ -136,21 +130,6 @@
     }
   }
 
-  let timeInput = $state<HTMLInputElement>();
-  function pickTime() {
-    if (!store.canUseV6("time")) return;
-    try {
-      timeInput?.showPicker();
-    } catch {
-      timeInput?.focus();
-    }
-  }
-
-  function setTime(v: string) {
-    if (v && !store.canUseV6("time")) return;
-    draftTime = v || null;
-  }
-
   function openEditor() {
     if (!sending && !todo.done) onedit(todo.id);
   }
@@ -170,31 +149,19 @@
     queueMicrotask(() => panelInput?.focus());
   }
 
-  /** 點一下加上，已經有的再點一下拿掉；選單保持打開，可以連續選好幾個 */
-  function pickTag(tag: string) {
-    if (draftTags.includes(tag)) {
-      removeTag(tag);
-    } else {
-      if (draftTags.length && !store.canUseV6("tags")) return;
-      draftTags = [...draftTags, tag];
-    }
-    query = "";
-    panelInput?.focus();
-  }
-
-  function removeTag(tag: string) {
-    draftTags = draftTags.filter((t) => t !== tag);
+  function pickTag(tag: string | null) {
+    draftTag = tag;
+    panel = null;
   }
 
   function tagKey(e: KeyboardEvent) {
     if (e.isComposing) return;
     if (e.key === "Escape") panel = null;
     if (e.key === "Enter") {
-      // Enter 只加不拿掉
       const exact = store.orderedTags.find((t) => t.toLowerCase() === tagQuery.toLowerCase());
-      const tag = exact ?? (canCreateTag ? tagQuery : tagOptions.length === 1 ? tagOptions[0] : null);
-      if (tag && !draftTags.includes(tag)) pickTag(tag);
-      else query = "";
+      if (exact) pickTag(exact);
+      else if (canCreateTag) pickTag(tagQuery);
+      else if (tagOptions.length === 1) pickTag(tagOptions[0]);
     }
   }
 
@@ -215,9 +182,7 @@
     const step = parseQuickAdd(query, today);
     if (!step) return;
     if (step.priority === "low" && !store.canUseLow()) return;
-    if (step.dueTime && !store.canUseV6("time")) return;
-    if ((step.tags?.length ?? 0) > 1 && !store.canUseV6("tags")) return;
-    store.add({ ...(draftTags.length ? { tags: draftTags } : {}), ...step, afterId: todo.id });
+    store.add({ ...(draftTag ? { tag: draftTag } : {}), ...step, afterId: todo.id });
     query = "";
     panel = null;
   }
@@ -295,7 +260,7 @@
         disabled={sending}
       >
         <span class="title" class:struck={checked}>{todo.title}</span>
-        {#if high || low || todo.tags.length || todo.source === "email" || todo.note || todo.done || waitingFor}
+        {#if high || low || todo.tag || todo.source === "email" || todo.note || todo.done || waitingFor}
           <span class="meta">
             {#if waitingFor}
               <span class="mi faint"><Icon name="link" size={12} stroke={1.5} />等「{waitingFor.title}」完成</span>
@@ -309,7 +274,7 @@
             {#if low && !todo.done}
               <span class="mi faint">低優先</span>
             {/if}
-            {#each todo.tags as tag (tag)}<span class="mi tagname" title="#{tag}"><span class="clip">#{tag}</span></span>{/each}
+            {#if todo.tag}<span class="mi tagname" title="#{todo.tag}"><span class="clip">#{todo.tag}</span></span>{/if}
             {#if todo.source === "email"}<span class="mi"><Icon name="mail" size={12} stroke={1.5} />Gmail</span>{/if}
             {#if todo.note && !todo.done}<span class="mi" title={todo.note}><Icon name="note" size={12} stroke={1.5} />備註</span>{/if}
           </span>
@@ -317,7 +282,7 @@
       </button>
       {#if due}
         <!-- 點期限也會展開；鍵盤使用者用標題那顆按鈕 -->
-        <button class="due {due.tone}" title={todo.dueTime ? `${todo.due} ${todo.dueTime}` : todo.due} tabindex="-1" onclick={openEditor} disabled={sending}>
+        <button class="due {due.tone}" title={todo.due} tabindex="-1" onclick={openEditor} disabled={sending}>
           <span class="count">{due.count}</span>
           {#if due.date}<span class="date">{due.date}</span>{/if}
         </button>
@@ -326,7 +291,7 @@
   </div>
   {#if next && !editing}
     <button class="next" onclick={() => onedit(next.id)} title="編輯下一步">
-      ↳ 接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}
+      ↳ 接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today)}` : ""}
     </button>
   {/if}
 
@@ -354,37 +319,15 @@
           {/if}
         </span>
       </div>
-      {#if draftDue}
-        <!-- 有期限才能設時間；沒設時間就是一整天 -->
-        <div class="field">
-          <span class="ficon"><Icon name="upcoming" size={14} stroke={1.5} /></span>
-          <button class="pill" class:on={!draftTime} onclick={() => setTime("")}>整天</button>
-          <span class="date-wrap">
-            <input
-              bind:this={timeInput}
-              type="time"
-              class="pill date-input"
-              class:on={!!draftTime}
-              class:empty={!draftTime}
-              value={draftTime ?? ""}
-              onchange={(e) => setTime(e.currentTarget.value)}
-              aria-label="期限的時間"
-            />
-            {#if !draftTime}
-              <button class="pill pick-date" onclick={pickTime} tabindex="-1">指定時間</button>
-            {/if}
-          </span>
-        </div>
-      {/if}
       <div class="field">
         <span class="ficon"><Icon name="hash" size={14} stroke={1.5} /></span>
-        {#each draftTags as tag (tag)}
-          <span class="pill on tag-on" title="#{tag}">
-            <span class="clip">#{tag}</span>
-            <button onclick={() => removeTag(tag)} aria-label="移除標籤 {tag}"><Icon name="close" size={10} stroke={2} /></button>
+        {#if draftTag}
+          <span class="pill on tag-on" title="#{draftTag}">
+            <span class="clip">#{draftTag}</span>
+            <button onclick={() => pickTag(null)} aria-label="移除標籤"><Icon name="close" size={10} stroke={2} /></button>
           </span>
-        {/each}
-        <button class="pill" class:on={panel === "tag"} onclick={openTags}>{draftTags.length ? "加標籤" : "選擇標籤"}</button>
+        {/if}
+        <button class="pill" class:on={panel === "tag"} onclick={openTags}>{draftTag ? "更換標籤" : "選擇標籤"}</button>
       </div>
       {#if panel === "tag"}
         <div class="step-box" transition:slide={{ duration: 150 }}>
@@ -403,10 +346,10 @@
               </button>
             {/if}
             {#each tagOptions as tag (tag)}
-              <button class="cand" class:cur={draftTags.includes(tag)} onclick={() => pickTag(tag)}>
+              <button class="cand" class:cur={draftTag === tag} onclick={() => pickTag(tag)}>
                 <span class="ctitle" title="#{tag}">#{tag}</span>
                 {#if store.folderOf.get(tag)}<span class="ctag">{store.folderOf.get(tag)}</span>{/if}
-                {#if draftTags.includes(tag)}<span class="ctag check">✓</span>{/if}
+                {#if draftTag === tag}<span class="ctag check">✓</span>{/if}
               </button>
             {:else}
               {#if !canCreateTag}<span class="none">還沒有標籤，輸入名稱就能新增</span>{/if}
@@ -426,7 +369,7 @@
           <button class="tbtn" onclick={() => patch({ afterId: null })}>取消連接</button>
         {/if}
         {#if next}
-          <button class="step-info" onclick={() => onedit(next.id)} title="編輯下一步">接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}</button>
+          <button class="step-info" onclick={() => onedit(next.id)} title="編輯下一步">接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today)}` : ""}</button>
           <button class="tbtn" onclick={() => store.update(next.id, { afterId: null })}>取消連接</button>
         {/if}
         <button class="pill" class:on={panel === "new"} onclick={() => startStep("new")}>
@@ -451,8 +394,8 @@
               {#each candidates as c (c.id)}
                 <button class="cand" onclick={() => link(c)}>
                   <span class="ctitle">{c.title}</span>
-                  {#if c.tags.length}<span class="ctag">{c.tags.map((t) => `#${t}`).join(" ")}</span>{/if}
-                  {#if c.due}<span class="ctag">{relativeDue(c.due, today, c.dueTime)}</span>{/if}
+                  {#if c.tag}<span class="ctag">#{c.tag}</span>{/if}
+                  {#if c.due}<span class="ctag">{relativeDue(c.due, today)}</span>{/if}
                 </button>
               {:else}
                 <span class="none">沒有符合的待辦</span>

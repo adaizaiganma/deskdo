@@ -111,15 +111,14 @@
     <table>
       <thead><tr><th>標記</th><th>意義</th><th>範例</th></tr></thead>
       <tbody>
-        <tr><td><code>#標籤</code></td><td>標籤（課名、專案），可以加好幾個</td><td><code>#微積分 #考試</code></td></tr>
+        <tr><td><code>#標籤</code></td><td>標籤（課名、專案）</td><td><code>#微積分</code></td></tr>
         <tr><td><code>@期限</code></td><td>今天、明天、後天、週一…週日、下週三、10/15、2026-10-15</td><td><code>@週五</code></td></tr>
-        <tr><td><code>時:分</code></td><td>期限的時間（24 小時制）；沒寫日期就是今天，沒寫時間就是一整天</td><td><code>@週五 14:30</code></td></tr>
         <tr><td><code>!</code></td><td>高優先（同一天到期時排在最前面）</td><td><code>!</code></td></tr>
         <tr><td><code>~</code></td><td>低優先（同一天到期時排在最後面）</td><td><code>~</code></td></tr>
         <tr><td><code>&gt;</code></td><td>下一步：後一步要等前一步完成才出現（也可以用 <code>＞</code>、<code>→</code>）</td><td><code>做預報 &gt; 印預報</code></td></tr>
       </tbody>
     </table>
-    <p>例如 <code>交作業三 #微積分 @週五 23:59 !</code>。今天到期的待辦過了指定的時間，就會移到「逾期」。</p>
+    <p>例如 <code>交作業三 #微積分 @週五 !</code>。</p>
     <p>有先後順序的事可以用 <code>&gt;</code> 一次建好，例如 <code>做預報 @週三 &gt; 印預報 @週四 #機工實驗</code>：標籤和優先度寫一次就套用到每一步；沒寫期限的步驟，會用下一步的期限。</p>
 
     <h3>其他操作</h3>

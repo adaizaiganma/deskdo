@@ -15,10 +15,9 @@
   let text = $state("");
   let input = $state<HTMLInputElement>();
 
-  // 只寫時間沒寫日期時，放在所在頁面的日期（沒有的話是今天）
-  const steps = $derived(parseSteps(text, store.today, defaultDue ?? store.today));
+  const steps = $derived(parseSteps(text, store.today));
   const parsed = $derived(steps?.[0] ?? null);
-  const tags = $derived(parsed?.tags ?? (text.trim() && defaultTag ? [defaultTag] : []));
+  const tag = $derived(parsed?.tag ?? (text.trim() ? defaultTag : null));
   const due = $derived(parsed?.due ?? (text.trim() ? defaultDue : null));
 
   export function focus() {
@@ -30,12 +29,10 @@
     // 雲端還不支援時保留輸入內容，提示先更新
     if (steps.some((s) => s.priority === "low") && !store.canUseLow()) return;
     if (steps.length > 1 && !store.canUseSteps()) return;
-    if (steps.some((s) => s.dueTime) && !store.canUseV6("time")) return;
-    if (steps.some((s) => (s.tags?.length ?? 0) > 1) && !store.canUseV6("tags")) return;
     // 預設的標籤和期限（目前篩選中的標籤、所在頁面的日期）只補在沒寫的步驟上
     const filled = steps.map((s) => ({
       ...s,
-      ...(!s.tags && defaultTag ? { tags: [defaultTag] } : {}),
+      ...(!s.tag && defaultTag ? { tag: defaultTag } : {}),
       ...(!s.due && defaultDue ? { due: defaultDue } : {}),
     }));
     if (filled.length > 1) store.addSteps(filled);
@@ -59,13 +56,13 @@
   <div class="meta">
     <span class="hint" title="例如：交報告 #電路學 @週五 !">
       <span><b>#</b>標籤</span>
-      <span title="@今天 @明天 @週五 @下週三 @10/15，加上 15:00 指定時間"><b>@</b>期限</span>
+      <span title="@今天 @明天 @週五 @下週三 @10/15"><b>@</b>期限</span>
       <span><b>!</b>高優先</span>
       <span><b>~</b>低優先</span>
       <span title="例如：做預報 &gt; 印預報"><b>&gt;</b>下一步</span>
     </span>
-    {#if due}<span class="chip"><Icon name="calendar" size={11} stroke={1.7} />{relativeDue(due, store.today, parsed?.dueTime ?? null)}</span>{/if}
-    {#each tags as tag (tag)}<span class="chip" title="#{tag}"><span class="clip">#{tag}</span></span>{/each}
+    {#if due}<span class="chip"><Icon name="calendar" size={11} stroke={1.7} />{relativeDue(due, store.today)}</span>{/if}
+    {#if tag}<span class="chip" title="#{tag}"><span class="clip">#{tag}</span></span>{/if}
     {#if parsed?.priority === "high"}<span class="chip warn">高優先</span>{/if}
     {#if parsed?.priority === "low"}<span class="chip low">低優先</span>{/if}
     {#if steps && steps.length > 1}<span class="chip"><span class="clip">{steps.length} 個步驟：{steps.map((s) => s.title).join(" → ")}</span></span>{/if}

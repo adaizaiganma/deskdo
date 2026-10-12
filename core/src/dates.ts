@@ -16,21 +16,6 @@ export function localToday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 現在的時間 HH:MM */
-export function localTime(): string {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-/**
- * 過期了沒：期限在今天以前，或今天到期而且時間已經過了。
- * now 是現在的時間 HH:MM；沒給的話只看日期
- */
-export function isOverdue(t: Pick<Todo, "due" | "dueTime">, today: string, now = ""): boolean {
-  if (!t.due) return false;
-  return t.due < today || (t.due === today && !!t.dueTime && !!now && t.dueTime < now);
-}
-
 export function addDays(iso: string, n: number): string {
   const d = parse(iso);
   d.setUTCDate(d.getUTCDate() + n);
@@ -66,15 +51,14 @@ export function nextMonday(today: string): string {
   return addDays(today, 7 - mondayIndex(today));
 }
 
-/** 快速新增預覽、編輯面板用：今天／明天 15:00／後天／週五 10/16 */
-export function relativeDue(due: string, today: string, time: string | null = null): string {
-  const at = time ? ` ${time}` : "";
+/** 快速新增預覽、編輯面板用：今天／明天／後天／週五 10/16 */
+export function relativeDue(due: string, today: string): string {
   const n = diffDays(today, due);
-  if (n === 0) return `今天${at}`;
-  if (n === 1) return `明天${at}`;
-  if (n === 2) return `後天${at}`;
-  if (n < 0) return `${monthDay(due, today)}${at}（已過）`;
-  return `${weekday(due)} ${monthDay(due, today)}${at}`;
+  if (n === 0) return "今天";
+  if (n === 1) return "明天";
+  if (n === 2) return "後天";
+  if (n < 0) return `${monthDay(due, today)}（已過）`;
+  return `${weekday(due)} ${monthDay(due, today)}`;
 }
 
 export interface RowDue {
@@ -86,20 +70,12 @@ export interface RowDue {
   tone: "warn" | "soon" | "";
 }
 
-/**
- * 清單列右側的期限：上面是倒數天數，下面是日期（有時間的話加上時間）。
- * 今天到期而且有時間的：上面直接寫時間，時間過了就是「已逾期」
- */
-export function rowDue(due: string, today: string, time: string | null = null, now = ""): RowDue {
-  const at = time ? ` ${time}` : "";
+/** 清單列右側的期限：上面是倒數天數，下面是日期 */
+export function rowDue(due: string, today: string): RowDue {
   const n = diffDays(today, due);
-  const date = (n >= 0 && n <= 7 ? `${weekday(due)} ${monthDay(due, today)}` : monthDay(due, today)) + at;
+  const date = n >= 0 && n <= 7 ? `${weekday(due)} ${monthDay(due, today)}` : monthDay(due, today);
   if (n < 0) return { count: `逾期 ${-n} 天`, date, tone: "warn" };
-  if (n === 0) {
-    if (!time) return { count: "今天到期", date: "", tone: "warn" };
-    if (now && time < now) return { count: "已逾期", date: `今天${at}`, tone: "warn" };
-    return { count: `今天${at}`, date: "", tone: "warn" };
-  }
+  if (n === 0) return { count: "今天到期", date: "", tone: "warn" };
   return { count: `還有 ${n} 天`, date, tone: n <= 3 ? "soon" : "" };
 }
 
@@ -113,23 +89,22 @@ export interface Group {
   items: Todo[];
 }
 
-export function groupOf(due: string | null, today: string, time: string | null = null, now = ""): GroupKey {
+export function groupOf(due: string | null, today: string): GroupKey {
   if (!due) return "none";
   const n = diffDays(today, due);
-  if (n < 0 || isOverdue({ due, dueTime: time }, today, now)) return "overdue";
+  if (n < 0) return "overdue";
   if (n === 0) return "today";
   if (n === 1) return "tomorrow";
   if (n <= 7) return "week";
   return "later";
 }
 
-/** 同一天到期時：有時間的照時間排在前面，一整天的在後面；再來高優先在前、低優先在後 */
+/** 同一天到期時：高優先在前、低優先在後 */
 const PRIORITY_RANK = { high: 0, normal: 1, low: 2 } as const;
 
-export function compareDue(a: Todo, b: Todo): number {
+function compare(a: Todo, b: Todo): number {
   return (
     (a.due ?? "9999").localeCompare(b.due ?? "9999") ||
-    (a.dueTime ?? "99:99").localeCompare(b.dueTime ?? "99:99") ||
     (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1) ||
     a.createdAt.localeCompare(b.createdAt)
   );
@@ -139,7 +114,7 @@ export function compareDue(a: Todo, b: Todo): number {
  * 依期限分組，只回傳有項目的組。
  * pinned：編輯中的項目先固定在原本的組，避免改期限時整列跳走
  */
-export function groupTodos(todos: Todo[], today: string, pinned?: { id: string; key: GroupKey } | null, now = ""): Group[] {
+export function groupTodos(todos: Todo[], today: string, pinned?: { id: string; key: GroupKey } | null): Group[] {
   const tomorrow = addDays(today, 1);
   const defs: Omit<Group, "items">[] = [
     { key: "overdue", label: "逾期", sub: "", tone: "warn" },
@@ -150,9 +125,9 @@ export function groupTodos(todos: Todo[], today: string, pinned?: { id: string; 
     { key: "none", label: "沒有期限", sub: "", tone: "" },
   ];
   const buckets = new Map<GroupKey, Todo[]>(defs.map((d) => [d.key, []]));
-  for (const t of todos) buckets.get(pinned?.id === t.id ? pinned.key : groupOf(t.due, today, t.dueTime, now))!.push(t);
+  for (const t of todos) buckets.get(pinned?.id === t.id ? pinned.key : groupOf(t.due, today))!.push(t);
   return defs
-    .map((d) => ({ ...d, items: buckets.get(d.key)!.sort(compareDue) }))
+    .map((d) => ({ ...d, items: buckets.get(d.key)!.sort(compare) }))
     .filter((g) => g.items.length > 0);
 }
 

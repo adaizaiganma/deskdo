@@ -18,10 +18,6 @@ export interface Todo {
   done: boolean;
   doneAt: string | null;
   due: string | null;
-  /** 期限的時間 HH:MM（當地時間）；null 表示一整天的待辦。沒有 due 時一定是 null */
-  dueTime: string | null;
-  tags: string[];
-  /** 第一個標籤（舊版 App 只認得這個欄位） */
   tag: string | null;
   priority: Priority;
   note: string | null;
@@ -36,7 +32,7 @@ export interface Todo {
 /** 接續關係不成立（找不到前一步、會繞成圈…），訊息直接給使用者看 */
 export class ChainError extends Error {}
 
-type TodoRow = Omit<Todo, "done" | "tags"> & { done: number; tags: string | null };
+type TodoRow = Omit<Todo, "done"> & { done: number };
 
 // ---------- 驗證 ----------
 
@@ -50,8 +46,6 @@ export const dateSchema = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式必須是 YYYY-MM-DD")
   .refine(isValidDate, "不是有效的日期");
 
-export const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "時間格式必須是 HH:MM");
-
 // 空字串視為 null，方便表單直接送出
 const nullableText = (max: number) =>
   z
@@ -63,13 +57,7 @@ const nullableText = (max: number) =>
 export const fields = {
   title: z.string().trim().min(1, "標題不能是空的").max(200),
   due: dateSchema.nullable(),
-  dueTime: timeSchema.nullable(),
   tag: nullableText(50),
-  /** 去掉空白、重複的標籤，順序照原本的 */
-  tags: z
-    .array(z.string().trim().max(50))
-    .max(20)
-    .transform((tags) => [...new Set(tags.map((t) => t.replace(/^[#＃]+/, "").trim()).filter(Boolean))]),
   priority: z.enum(["high", "normal", "low"]),
   note: nullableText(4000),
   source: z.enum(["manual", "claude", "email"]),
@@ -81,9 +69,6 @@ export const fields = {
 export const addSchema = z.object({
   title: fields.title,
   due: fields.due.optional(),
-  dueTime: fields.dueTime.optional(),
-  /** 有 tags 時忽略 tag；舊版 App 只會送 tag */
-  tags: fields.tags.optional(),
   tag: fields.tag.optional(),
   priority: fields.priority.optional(),
   note: fields.note.optional(),
@@ -96,10 +81,6 @@ export type AddInput = z.infer<typeof addSchema>;
 export const patchSchema = z.object({
   title: fields.title.optional(),
   due: fields.due.optional(),
-  /** 改了期限但沒給時間時，保留原本的時間；期限清掉時時間也一起清掉 */
-  dueTime: fields.dueTime.optional(),
-  /** 整份取代；有 tags 時忽略 tag。舊版 App 只會送 tag，等於只留這一個標籤 */
-  tags: fields.tags.optional(),
   tag: fields.tag.optional(),
   priority: fields.priority.optional(),
   note: fields.note.optional(),
@@ -135,16 +116,6 @@ export function today(env: Env): string {
   }).format(new Date());
 }
 
-/** 現在的當地時間 HH:MM，用來判斷今天有時間的待辦是不是已經過了 */
-export function nowTime(env: Env): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: env.TIMEZONE || "Asia/Taipei",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date());
-}
-
 export function addDays(date: string, n: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
@@ -158,24 +129,8 @@ function newId(): string {
   return Array.from(bytes, (b) => ID_ALPHABET[b % 32]).join("");
 }
 
-function parseTags(raw: string | null, tag: string | null): string[] {
-  try {
-    const tags = JSON.parse(raw ?? "[]");
-    if (Array.isArray(tags) && tags.length) return tags.filter((t): t is string => typeof t === "string");
-  } catch {}
-  return tag ? [tag] : [];
-}
-
 function fromRow(row: TodoRow): Todo {
-  const tags = parseTags(row.tags, row.tag);
-  return { ...row, done: row.done === 1, tags, tag: tags[0] ?? null, dueTime: row.due ? (row.dueTime ?? null) : null };
-}
-
-/** 要存的標籤：有 tags 用 tags，否則用舊版的 tag；都沒給回傳 undefined */
-function tagsOf(input: { tags?: string[]; tag?: string | null }): string[] | undefined {
-  if (input.tags !== undefined) return input.tags;
-  if (input.tag !== undefined) return input.tag ? [input.tag] : [];
-  return undefined;
+  return { ...row, done: row.done === 1 };
 }
 
 // 只有前一個語句真的改到資料時才遞增版本號（在同一個 batch 交易中執行）
@@ -201,7 +156,7 @@ export async function listTodos(env: Env, f: TodoFilter): Promise<Todo[]> {
   if (status === "open") where.push("done = 0");
   if (status === "done") where.push("done = 1");
   if (f.tag) {
-    where.push("EXISTS (SELECT 1 FROM json_each(todos.tags) WHERE value = ? COLLATE NOCASE)");
+    where.push("tag = ? COLLATE NOCASE");
     params.push(f.tag);
   }
   if (f.priority) {
@@ -217,10 +172,8 @@ export async function listTodos(env: Env, f: TodoFilter): Promise<Todo[]> {
     params.push(f.dueAfter);
   }
   if (f.overdue) {
-    // 今天到期、時間已經過了的也算
-    where.push("done = 0 AND due IS NOT NULL AND (due < ? OR (due = ? AND dueTime IS NOT NULL AND dueTime < ?))");
-    const day = today(env);
-    params.push(day, day, nowTime(env));
+    where.push("done = 0 AND due IS NOT NULL AND due < ?");
+    params.push(today(env));
   }
   if (f.noDue) where.push("due IS NULL");
   if (f.doneSince) {
@@ -229,10 +182,8 @@ export async function listTodos(env: Env, f: TodoFilter): Promise<Todo[]> {
     params.push(f.doneSince);
   }
   if (f.q) {
-    where.push(
-      "(instr(lower(title), lower(?)) > 0 OR instr(lower(coalesce(note, '')), lower(?)) > 0 OR instr(lower(tags), lower(?)) > 0)",
-    );
-    params.push(f.q, f.q, f.q);
+    where.push("(instr(lower(title), lower(?)) > 0 OR instr(lower(coalesce(note, '')), lower(?)) > 0)");
+    params.push(f.q, f.q);
   }
 
   const limit = Math.min(Math.max(f.limit ?? 200, 1), 500);
@@ -242,8 +193,7 @@ export async function listTodos(env: Env, f: TodoFilter): Promise<Todo[]> {
     // 未完成在前（依期限、優先度），已完成在後（最近完成的在前）
     " ORDER BY done ASC," +
     " CASE WHEN done = 1 THEN doneAt END DESC," +
-    // 同一天：有時間的照時間排在前面，一整天的在後面
-    " CASE WHEN due IS NULL THEN 1 ELSE 0 END, due ASC, CASE WHEN dueTime IS NULL THEN 1 ELSE 0 END, dueTime ASC," +
+    " CASE WHEN due IS NULL THEN 1 ELSE 0 END, due ASC," +
     " CASE priority WHEN 'high' THEN 0 WHEN 'low' THEN 2 ELSE 1 END, createdAt ASC" +
     ` LIMIT ${limit}`;
 
@@ -253,7 +203,7 @@ export async function listTodos(env: Env, f: TodoFilter): Promise<Todo[]> {
 
 export async function listTags(db: D1Database): Promise<string[]> {
   const { results } = await db
-    .prepare("SELECT DISTINCT j.value AS tag FROM todos, json_each(todos.tags) AS j ORDER BY tag")
+    .prepare("SELECT DISTINCT tag FROM todos WHERE tag IS NOT NULL ORDER BY tag")
     .all<{ tag: string }>();
   return results.map((r) => r.tag);
 }
@@ -266,16 +216,13 @@ export async function addTodo(db: D1Database, input: AddInput): Promise<{ todo: 
   }
 
   const now = new Date().toISOString();
-  const tags = tagsOf(input) ?? [];
   const todo: Todo = {
     id: newId(),
     title: input.title,
     done: false,
     doneAt: null,
     due: input.due ?? null,
-    dueTime: input.due ? (input.dueTime ?? null) : null,
-    tags,
-    tag: tags[0] ?? null,
+    tag: input.tag ?? null,
     priority: input.priority ?? "normal",
     note: input.note ?? null,
     createdAt: now,
@@ -290,24 +237,10 @@ export async function addTodo(db: D1Database, input: AddInput): Promise<{ todo: 
     await db.batch([
       db
         .prepare(
-          `INSERT INTO todos (id, title, done, doneAt, due, dueTime, tag, tags, priority, note, createdAt, updatedAt, source, sourceRef, afterId)
-           VALUES (?, ?, 0, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO todos (id, title, done, doneAt, due, tag, priority, note, createdAt, updatedAt, source, sourceRef, afterId)
+           VALUES (?, ?, 0, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(
-          todo.id,
-          todo.title,
-          todo.due,
-          todo.dueTime,
-          todo.tag,
-          JSON.stringify(todo.tags),
-          todo.priority,
-          todo.note,
-          now,
-          now,
-          todo.source,
-          todo.sourceRef,
-          todo.afterId,
-        ),
+        .bind(todo.id, todo.title, todo.due, todo.tag, todo.priority, todo.note, now, now, todo.source, todo.sourceRef, todo.afterId),
       db.prepare(BUMP_VERSION),
       // 前一步原本就有下一步時，插在中間：原本的下一步改接在新的這筆後面
       ...(todo.afterId
@@ -340,28 +273,11 @@ export async function updateTodo(db: D1Database, id: string, patch: PatchInput):
   const sets: string[] = [];
   const params: unknown[] = [];
 
-  for (const key of ["title", "priority", "note"] as const) {
+  for (const key of ["title", "due", "tag", "priority", "note"] as const) {
     if (patch[key] !== undefined) {
       sets.push(`${key} = ?`);
       params.push(patch[key]);
     }
-  }
-  // SET 裡的欄位讀到的都是舊值，所以時間要看新的期限：沒有期限就不能有時間
-  if (patch.due !== undefined || patch.dueTime !== undefined) {
-    const due = patch.due !== undefined ? "?" : "due";
-    const time = patch.dueTime !== undefined ? "?" : "dueTime";
-    sets.push(`dueTime = CASE WHEN ${due} IS NULL THEN NULL ELSE ${time} END`);
-    if (patch.due !== undefined) params.push(patch.due);
-    if (patch.dueTime !== undefined) params.push(patch.dueTime);
-  }
-  if (patch.due !== undefined) {
-    sets.push("due = ?");
-    params.push(patch.due);
-  }
-  const tags = tagsOf(patch);
-  if (tags !== undefined) {
-    sets.push("tags = ?", "tag = ?");
-    params.push(JSON.stringify(tags), tags[0] ?? null);
   }
   if (patch.done !== undefined) {
     // 已經完成的項目再標記完成時，保留原本的完成時間

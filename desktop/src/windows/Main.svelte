@@ -19,15 +19,12 @@
   import SyncStatus from "./SyncStatus.svelte";
   import TitleBar from "./TitleBar.svelte";
 
-  type View = "home" | "all" | "calendar" | "countdown" | "settings" | "folders";
+  type View = "home" | "all" | "calendar" | "countdown" | "settings" | "folders" | `tag:${string}` | `folder:${string}`;
   /** 「全部」頁的篩選：未完成、沒有期限、已完成 */
   type AllFilter = "open" | "nodue" | "done";
 
   let view = $state<View>("home");
   let allFilter = $state<AllFilter>("open");
-  /** 「全部」頁依資料夾、標籤篩選；scopeTag 可能在資料夾裡，也可能是未分類的 */
-  let scopeFolder = $state<string | null>(null);
-  let scopeTag = $state<string | null>(null);
   /**
    * 設定精靈：new = 第一次設定，update = 更新雲端。
    * 精靈部署到一半就會寫入設定（configured 變成 true），所以用自己的狀態決定何時關閉，
@@ -62,32 +59,34 @@
     { id: "calendar", label: "日曆", icon: "calendar", count: () => 0 },
     { id: "countdown", label: "倒數日", icon: "hourglass", count: () => 0 },
   ];
-  // 依標籤、資料夾篩選時也列出還沒輪到的步驟（淡色顯示）：它的前一步可能是別的標籤，不列出來就找不到了
-  const countOf = (tag: string) => store.allOpen.filter((t) => t.tags.includes(tag)).length;
-  /** 「全部」頁的標籤列：資料夾（含還沒有待辦的標籤），接著是未分類的標籤 */
-  const groups = $derived(
-    store.folders.map((f) => {
-      const tags = f.tags.map((tag) => ({ tag, count: countOf(tag) }));
-      const all = new Set(f.tags);
-      // 有好幾個標籤在同一個資料夾的待辦只算一次
-      return { name: f.name, all, tags, count: store.allOpen.filter((t) => t.tags.some((g) => all.has(g))).length };
-    }),
-  );
-  const looseCounts = $derived(store.looseTags.map((tag) => ({ tag, count: countOf(tag) })));
-  const current = $derived(groups.find((g) => g.name === scopeFolder));
-  const scoped = $derived(!!scopeTag || !!current);
-  const inScope = (t: Todo) => (scopeTag ? t.tags.includes(scopeTag) : current ? t.tags.some((g) => current.all.has(g)) : true);
-  const scopeOpen = $derived(scoped ? store.allOpen.filter(inScope) : open);
-  const scopeDone = $derived(scoped ? store.done.filter(inScope) : store.done);
-
   const allFilters = $derived<{ id: AllFilter; label: string; count: number }[]>([
-    { id: "open", label: "未完成", count: scopeOpen.length },
-    { id: "nodue", label: "沒有期限", count: scopeOpen.filter((t) => !t.due).length },
-    { id: "done", label: "已完成", count: scopeDone.length },
+    { id: "open", label: "未完成", count: open.length },
+    { id: "nodue", label: "沒有期限", count: open.filter((t) => !t.due).length },
+    { id: "done", label: "已完成", count: store.done.length },
   ]);
   /** 「全部」頁只看已完成的 */
   const doneOnly = $derived(view === "all" && allFilter === "done");
 
+  // 標籤、資料夾頁也列出還沒輪到的步驟（淡色顯示）：它的前一步可能是別的標籤，不列出來就找不到了
+  const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
+  /** 側欄：資料夾（含還沒有待辦的標籤），接著是未分類的標籤 */
+  const sideFolders = $derived(
+    store.folders.map((f) => {
+      const tags = f.tags.map((tag) => ({ tag, count: countOf(tag) }));
+      return { name: f.name, tags, count: tags.reduce((n, t) => n + t.count, 0) };
+    }),
+  );
+  const looseCounts = $derived(store.looseTags.map((tag) => ({ tag, count: countOf(tag) })));
+
+  /** 收合的資料夾（每台電腦各自記住） */
+  let collapsed = $state<string[]>(readCollapsed());
+  function readCollapsed(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem("main.collapsedFolders") ?? "[]");
+    } catch {
+      return [];
+    }
+  }
   function readFlag(key: string): boolean {
     try {
       return localStorage.getItem(key) === "1";
@@ -110,29 +109,6 @@
     search?.focus();
   }
 
-  function pickFolder(name: string) {
-    scopeFolder = name;
-    scopeTag = null;
-    showDone = false;
-  }
-
-  /** folder：標籤所在的資料夾，未分類的標籤是 null */
-  function pickTag(tag: string, folder: string | null) {
-    scopeFolder = folder;
-    scopeTag = tag;
-    showDone = false;
-  }
-
-  /** 標籤欄收合的資料夾（每台電腦各自記住） */
-  let collapsed = $state<string[]>(readCollapsed());
-  function readCollapsed(): string[] {
-    try {
-      return JSON.parse(localStorage.getItem("main.collapsedFolders") ?? "[]");
-    } catch {
-      return [];
-    }
-  }
-
   function toggleFolder(name: string) {
     collapsed = collapsed.includes(name) ? collapsed.filter((n) => n !== name) : [...collapsed, name];
     try {
@@ -140,64 +116,67 @@
     } catch {}
   }
 
-  function clearScope() {
-    scopeFolder = null;
-    scopeTag = null;
-    showDone = false;
-  }
-
   function matches(t: Todo): boolean {
     const q = query.trim().toLowerCase();
     if (!q) return true;
-    return [t.title, t.note, ...t.tags].some((s) => s?.toLowerCase().includes(q));
+    return [t.title, t.note, t.tag].some((s) => s?.toLowerCase().includes(q));
   }
 
   /** 每個頁面要顯示的內容 */
   const page = $derived.by(() => {
+    if (view.startsWith("folder:")) {
+      const name = view.slice(7);
+      const tags = new Set(store.folders.find((f) => f.name === name)?.tags);
+      const inFolder = (t: Todo) => !!t.tag && tags.has(t.tag);
+      return {
+        title: name,
+        sub: `${store.allOpen.filter(inFolder).length} 項待辦`,
+        todos: store.allOpen.filter(inFolder),
+        done: store.done.filter(inFolder),
+        defaultTag: null,
+        defaultDue: null,
+        empty: tags.size ? "這個資料夾沒有待辦" : "這個資料夾還沒有標籤\n到「整理標籤」把標籤放進來",
+      };
+    }
+    if (view.startsWith("tag:")) {
+      const tag = view.slice(4);
+      return {
+        title: `#${tag}`,
+        sub: `${store.allOpen.filter((t) => t.tag === tag).length} 項待辦`,
+        todos: store.allOpen.filter((t) => t.tag === tag),
+        done: store.done.filter((t) => t.tag === tag),
+        defaultTag: tag,
+        defaultDue: null,
+        empty: "這個標籤沒有待辦",
+      };
+    }
     switch (view) {
       case "home":
         // 主頁的內容在 Home.svelte，這裡只用標題
         return { title: "主頁", sub: "", todos: [], done: null, defaultTag: null, defaultDue: null, empty: "" };
       case "calendar":
         return { title: "日曆", sub: "", todos: [], done: null, defaultTag: null, defaultDue: null, empty: "" };
+      default:
+        if (allFilter === "nodue")
+          return { title: "全部", sub: "沒有期限的待辦", todos: list.filter((t) => !t.due), done: null, defaultTag: null, defaultDue: null, empty: "每件事都排好期限了" };
+        if (allFilter === "done")
+          return {
+            title: "全部",
+            sub: `最近 ${doneDays} 天完成 ${store.done.length} 項・更早的紀錄保存在雲端`,
+            todos: [],
+            done: store.done,
+            defaultTag: null,
+            defaultDue: null,
+            empty: `最近 ${doneDays} 天沒有完成的項目`,
+          };
+        // 已完成的改用上面的篩選看
+        return { title: "全部", sub: `${open.length} 項待辦`, todos: list, done: null, defaultTag: null, defaultDue: null, empty: "沒有待辦事項\n享受一下空白吧" };
     }
-    const where = scopeTag ? `#${scopeTag}・` : current ? `${current.name}・` : "";
-    const todos = scoped ? scopeOpen : list;
-    if (allFilter === "nodue")
-      return { title: "全部", sub: `${where}沒有期限的待辦`, todos: todos.filter((t) => !t.due), done: null, defaultTag: scopeTag, defaultDue: null, empty: "每件事都排好期限了" };
-    if (allFilter === "done")
-      return {
-        title: "全部",
-        sub: `${where}最近 ${doneDays} 天完成 ${scopeDone.length} 項・更早的紀錄保存在雲端`,
-        todos: [],
-        done: scopeDone,
-        defaultTag: null,
-        defaultDue: null,
-        empty: `最近 ${doneDays} 天沒有完成的項目`,
-      };
-    // 已完成的改用上面的篩選看
-    return {
-      title: "全部",
-      sub: `${where}${scopeOpen.length} 項待辦`,
-      todos,
-      done: null,
-      defaultTag: scopeTag,
-      defaultDue: null,
-      empty: scopeTag
-        ? "這個標籤沒有待辦"
-        : current
-          ? current.tags.length
-            ? "這個資料夾沒有待辦"
-            : "這個資料夾還沒有標籤\n按「整理」把標籤放進來"
-          : "沒有待辦事項\n享受一下空白吧",
-    };
   });
 
-  // 篩選中的資料夾被改名或刪除、標籤沒有了就取消篩選
+  // 正在看的資料夾被改名或刪除了就回到主頁
   $effect(() => {
-    if (scopeFolder && !current) scopeFolder = null;
-    const pool = current ? current.tags.map((t) => t.tag) : store.looseTags;
-    if (scopeTag && !pool.includes(scopeTag)) scopeTag = null;
+    if (view.startsWith("folder:") && !store.folders.some((f) => `folder:${f.name}` === view)) go("home");
   });
 
   function go(v: View) {
@@ -278,13 +257,51 @@
 
       <nav>
         {#each nav as n (n.id)}
-          <button class="nav" class:on={view === n.id || (n.id === "all" && view === "folders")} onclick={() => go(n.id)} title={narrow ? n.label : undefined}>
+          <button class="nav" class:on={view === n.id} onclick={() => go(n.id)} title={narrow ? n.label : undefined}>
             <span class="nicon" class:accent={n.id === "home"}><Icon name={n.icon} /></span>
             <span class="nlabel">{n.label}</span>
             {#if n.count()}<span class="ncount" class:warn={n.id === "home" && store.overdueCount}>{n.count()}</span>{/if}
           </button>
         {/each}
       </nav>
+
+      {#if (store.tags.length || store.folders.length) && !narrow}
+        <div class="h4-row">
+          <h4>標籤</h4>
+          <button class="tidy" class:on={view === "folders"} onclick={() => go("folders")} title="用資料夾整理標籤">整理</button>
+        </div>
+        <nav class="tags">
+          {#each sideFolders as f (f.name)}
+            {@const shut = collapsed.includes(f.name)}
+            <div class="folder-row">
+              <button class="caret" class:shut onclick={() => toggleFolder(f.name)} aria-label={shut ? "展開" : "收合"} aria-expanded={!shut}>
+                <Icon name="chevron" size={12} />
+              </button>
+              <button class="nav" class:on={view === `folder:${f.name}`} onclick={() => go(`folder:${f.name}`)}>
+                <span class="nicon"><Icon name="folder" /></span>
+                <span class="nlabel">{f.name}</span>
+                {#if f.count}<span class="ncount">{f.count}</span>{/if}
+              </button>
+            </div>
+            {#if !shut}
+              {#each f.tags as t (t.tag)}
+                <button class="nav inner" class:idle={!t.count} class:on={view === `tag:${t.tag}`} onclick={() => go(`tag:${t.tag}`)}>
+                  <span class="nicon hash">#</span>
+                  <span class="nlabel">{t.tag}</span>
+                  {#if t.count}<span class="ncount">{t.count}</span>{/if}
+                </button>
+              {/each}
+            {/if}
+          {/each}
+          {#each looseCounts as t (t.tag)}
+            <button class="nav" class:on={view === `tag:${t.tag}`} onclick={() => go(`tag:${t.tag}`)}>
+              <span class="nicon hash">#</span>
+              <span class="nlabel">{t.tag}</span>
+              {#if t.count}<span class="ncount">{t.count}</span>{/if}
+            </button>
+          {/each}
+        </nav>
+      {/if}
 
       <div class="side-foot">
         <SyncStatus compact={narrow} />
@@ -302,53 +319,8 @@
       {:else if view === "countdown"}
         <div class="scroll"><Countdowns {today} /></div>
       {:else if view === "folders"}
-        <Folders onupdatecloud={() => (wizard = "update")} onback={() => go("all")} />
+        <Folders onupdatecloud={() => (wizard = "update")} />
       {:else}
-        <div class="split">
-        {#if view === "all" && (store.tags.length || store.folders.length)}
-          <aside class="tagbar" aria-label="依資料夾或標籤篩選">
-            <div class="h4-row">
-              <h4>標籤</h4>
-              <button class="tidy" onclick={() => go("folders")} title="用資料夾整理標籤">整理</button>
-            </div>
-            <nav>
-              <button class="nav" class:on={!scoped} onclick={clearScope}>
-                <span class="nicon"><Icon name="inbox" /></span>
-                <span class="nlabel">所有標籤</span>
-                {#if open.length}<span class="ncount">{open.length}</span>{/if}
-              </button>
-              {#each groups as g (g.name)}
-                {@const shut = collapsed.includes(g.name)}
-                <div class="folder-row">
-                  <button class="caret" class:shut onclick={() => toggleFolder(g.name)} aria-label={shut ? "展開" : "收合"} aria-expanded={!shut}>
-                    <Icon name="chevron" size={12} />
-                  </button>
-                  <button class="nav" class:on={scopeFolder === g.name && !scopeTag} onclick={() => pickFolder(g.name)}>
-                    <span class="nicon"><Icon name="folder" /></span>
-                    <span class="nlabel">{g.name}</span>
-                    {#if g.count}<span class="ncount">{g.count}</span>{/if}
-                  </button>
-                </div>
-                {#if !shut}
-                  {#each g.tags as t (t.tag)}
-                    <button class="nav inner" class:idle={!t.count} class:on={scopeTag === t.tag} onclick={() => pickTag(t.tag, g.name)}>
-                      <span class="nicon hash">#</span>
-                      <span class="nlabel">{t.tag}</span>
-                      {#if t.count}<span class="ncount">{t.count}</span>{/if}
-                    </button>
-                  {/each}
-                {/if}
-              {/each}
-              {#each looseCounts as t (t.tag)}
-                <button class="nav" class:idle={!t.count} class:on={scopeTag === t.tag} onclick={() => pickTag(t.tag, null)}>
-                  <span class="nicon hash">#</span>
-                  <span class="nlabel">{t.tag}</span>
-                  {#if t.count}<span class="ncount">{t.count}</span>{/if}
-                </button>
-              {/each}
-            </nav>
-          </aside>
-        {/if}
         <div class="scroll">
           <div class="page">
             {@render banners()}
@@ -371,7 +343,7 @@
             {#if !doneOnly}
               <QuickAdd bind:this={quickAdd} defaultTag={page.defaultTag} defaultDue={page.defaultDue} />
             {/if}
-            {#key `${view}:${allFilter}:${scopeFolder}:${scopeTag}`}
+            {#key `${view}:${allFilter}`}
               <TodoList
                 todos={page.todos.filter(matches)}
                 done={page.done ? page.done.filter(matches) : null}
@@ -384,7 +356,6 @@
             {/key}
             {/if}
           </div>
-        </div>
         </div>
       {/if}
       <Toast />
@@ -534,6 +505,10 @@
   .nicon.accent {
     color: var(--accent);
   }
+  .nicon.hash {
+    font-size: 14px;
+    color: var(--faint);
+  }
   .nlabel {
     flex: 1;
     min-width: 0;
@@ -548,6 +523,69 @@
   .ncount.warn {
     color: var(--warn);
     font-weight: 500;
+  }
+  h4 {
+    margin: 18px 10px 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+  .h4-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 18px 4px 6px 0;
+  }
+  .h4-row h4 {
+    margin: 0 10px;
+  }
+  .tidy {
+    font-size: 11.5px;
+    color: var(--faint);
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  .tidy:hover,
+  .tidy.on {
+    color: var(--accent);
+    background: var(--hover);
+  }
+  .folder-row {
+    position: relative;
+  }
+  .folder-row .nav {
+    width: 100%;
+    padding-right: 30px;
+  }
+  /* 收合箭頭放在資料夾那一列的右端（數字的右邊），整個右端都可以點 */
+  .caret {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 30px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    color: var(--faint);
+  }
+  .caret:hover {
+    color: var(--text);
+  }
+  .caret :global(svg) {
+    transform: rotate(90deg);
+    transition: transform 0.15s;
+  }
+  .caret.shut :global(svg) {
+    transform: rotate(0deg);
+  }
+  /* 資料夾裡還沒有待辦的標籤 */
+  .nav.idle:not(.on) {
+    color: var(--faint);
+  }
+  .nav.inner {
+    padding-left: 30px;
   }
   .side-foot {
     margin-top: auto;
@@ -639,86 +677,6 @@
   }
   .filters button.on span {
     color: var(--accent);
-  }
-  /* 「全部」頁左邊的標籤欄 */
-  .split {
-    height: 100%;
-    display: flex;
-  }
-  .split > .scroll {
-    flex: 1;
-    min-width: 0;
-  }
-  .tagbar {
-    width: 200px;
-    flex: none;
-    padding: 18px 4px 16px 10px;
-    border-right: 1px solid var(--line);
-    overflow-y: auto;
-    scrollbar-gutter: stable;
-  }
-  h4 {
-    margin: 0 10px;
-    font-size: 11.5px;
-    font-weight: 700;
-    color: var(--faint);
-    letter-spacing: 0.04em;
-  }
-  .h4-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 0 4px 8px 0;
-  }
-  .tidy {
-    font-size: 11.5px;
-    color: var(--faint);
-    padding: 2px 8px;
-    border-radius: 6px;
-  }
-  .tidy:hover {
-    color: var(--accent);
-    background: var(--hover);
-  }
-  .nicon.hash {
-    font-size: 14px;
-    color: var(--faint);
-  }
-  .folder-row {
-    position: relative;
-  }
-  .folder-row .nav {
-    width: 100%;
-    padding-right: 30px;
-  }
-  /* 收合箭頭放在資料夾那一列的右端（數字的右邊），整個右端都可以點 */
-  .caret {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 30px;
-    z-index: 1;
-    display: grid;
-    place-items: center;
-    color: var(--faint);
-  }
-  .caret:hover {
-    color: var(--text);
-  }
-  .caret :global(svg) {
-    transform: rotate(90deg);
-    transition: transform 0.15s;
-  }
-  .caret.shut :global(svg) {
-    transform: rotate(0deg);
-  }
-  /* 還沒有待辦的標籤 */
-  .nav.idle:not(.on) {
-    color: var(--faint);
-  }
-  .nav.inner {
-    padding-left: 30px;
   }
   .banner {
     display: flex;

@@ -20,13 +20,11 @@ import { getFolders } from "./folders";
 // MCP 的 inputSchema 會轉成 JSON Schema，所以這裡只用不含 transform 的基本型別，
 // 實際驗證與正規化交給 todos.ts 的 addSchema / patchSchema。
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const time = z.string().regex(/^\d{2}:\d{2}$/);
 
 const instructions = (env: Env) => `Personal to-do list of the user (UI language: Traditional Chinese).
 - Dates are YYYY-MM-DD in the ${env.TIMEZONE || "Asia/Taipei"} timezone; list_todos returns "today" for reference.
-- A to-do may have a due time ("due_time", HH:MM, 24-hour, same timezone) on its due date; without one it is due any time that day. Only set due_time when a specific time is known (e.g. a deadline at 23:59 or a meeting at 14:00).
-- A to-do can have several tags ("tags"), usually a course name or project; reuse existing tags (returned by list_todos as "tags") instead of inventing near-duplicates.
-- The user may group tags into folders (list_todos returns them as "folders"). Folders are only for display, never set a folder name as a tag.
+- "tag" is usually a course name or project; reuse existing tags (returned by list_todos as "tags") instead of inventing near-duplicates.
+- The user may group tags into folders (list_todos returns them as "folders"). Folders are only for display: a to-do still has a single tag, never set a folder name as a tag.
 - Write titles and notes in Traditional Chinese unless the user says otherwise.
 - To-dos can be chained into steps: "after_id" is the previous step. A step whose previous step is not done yet is hidden from the user's list (list_todos marks it waiting=true) and appears once the previous step is completed. When a task has a clear order (e.g. write the report, then print it), create the first step and add the next ones with after_id. Each step has its own due date and tag.
 - When creating to-dos from emails, set source="email" and source_ref to the Gmail message ID so that re-running never creates duplicates.`;
@@ -65,13 +63,13 @@ function buildServer(env: Env): McpServer {
         "Open to-dos whose previous step (after_id) is not done yet have waiting=true.",
       inputSchema: {
         status: z.enum(["open", "done", "all"]).optional().describe("Default: open"),
-        tag: z.string().optional().describe("To-dos that have this tag (exact match, case-insensitive)"),
+        tag: z.string().optional().describe("Exact tag match, case-insensitive"),
         priority: z.enum(["high", "normal", "low"]).optional(),
         due_before: date.optional().describe("Due on or before this date (YYYY-MM-DD)"),
         due_after: date.optional().describe("Due on or after this date (YYYY-MM-DD)"),
-        overdue: z.boolean().optional().describe("Only open items that are past due (due date before today, or today with a due_time already passed)"),
+        overdue: z.boolean().optional().describe("Only open items whose due date is before today"),
         no_due: z.boolean().optional().describe("Only items without a due date"),
-        query: z.string().optional().describe("Substring search in title, note and tags"),
+        query: z.string().optional().describe("Substring search in title and note"),
         limit: z.number().int().min(1).max(500).optional().describe("Default: 200"),
       },
       annotations: { readOnlyHint: true },
@@ -108,9 +106,7 @@ function buildServer(env: Env): McpServer {
       inputSchema: {
         title: z.string().describe("Short actionable title"),
         due: date.nullable().optional().describe("Due date YYYY-MM-DD"),
-        due_time: time.nullable().optional().describe("Due time HH:MM (24-hour) on the due date; omit for an all-day to-do"),
-        tags: z.array(z.string()).optional().describe("Course names / projects"),
-        tag: z.string().nullable().optional().describe("Deprecated: a single tag, same as tags=[tag]"),
+        tag: z.string().nullable().optional().describe("Course name / project"),
         priority: z.enum(["high", "normal", "low"]).optional().describe("Default: normal"),
         note: z.string().nullable().optional().describe("Details, links, email sender/subject, etc."),
         source: z
@@ -128,8 +124,6 @@ function buildServer(env: Env): McpServer {
       const parsed = addSchema.safeParse({
         title: a.title,
         due: a.due,
-        dueTime: a.due_time,
-        tags: a.tags,
         tag: a.tag,
         priority: a.priority,
         note: a.note,
@@ -147,24 +141,21 @@ function buildServer(env: Env): McpServer {
     {
       title: "修改待辦",
       description:
-        "Update fields of a to-do. Only the fields you pass are changed; pass null to clear due/due_time/note. " +
-        "tags replaces the whole list (pass [] to remove all tags). Changing due keeps the due_time; clearing due also clears due_time. " +
+        "Update fields of a to-do. Only the fields you pass are changed; pass null to clear due/tag/note. " +
         "after_id links it as the next step of another to-do (its own later steps move with it); after_id=null unlinks it.",
       inputSchema: {
         id: z.string(),
         title: z.string().optional(),
         due: date.nullable().optional(),
-        due_time: time.nullable().optional(),
-        tags: z.array(z.string()).optional(),
-        tag: z.string().nullable().optional().describe("Deprecated: same as tags=[tag]"),
+        tag: z.string().nullable().optional(),
         priority: z.enum(["high", "normal", "low"]).optional(),
         note: z.string().nullable().optional(),
         done: z.boolean().optional(),
         after_id: z.string().nullable().optional(),
       },
     },
-    async ({ id, after_id, due_time, ...rest }) => {
-      const parsed = patchSchema.safeParse({ ...rest, dueTime: due_time, afterId: after_id });
+    async ({ id, after_id, ...rest }) => {
+      const parsed = patchSchema.safeParse({ ...rest, afterId: after_id });
       if (!parsed.success) return invalid(parsed.error);
       return chainSafe(async () => {
         const todo = await updateTodo(env.DB, id, parsed.data);

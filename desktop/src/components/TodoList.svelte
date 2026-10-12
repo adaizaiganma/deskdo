@@ -35,12 +35,12 @@
 
   let editingId = $state<string | null>(null);
   let pinned = $state<{ id: string; key: GroupKey } | null>(null);
-  const groups = $derived(groupTodos(todos, today, pinned, store.now));
+  const groups = $derived(groupTodos(todos, today, pinned));
 
   function setEditing(id: string | null) {
     editingId = id;
     const t = id ? todos.find((x) => x.id === id) : undefined;
-    pinned = t ? { id: t.id, key: groupOf(t.due, today, t.dueTime, store.now) } : null;
+    pinned = t ? { id: t.id, key: groupOf(t.due, today) } : null;
   }
 
   // 要展開的那一筆（從主畫面小工具或日曆點進來）：展開並捲到看得到的地方。剛打開 App 時資料可能還沒載入，等找到為止

@@ -33,11 +33,6 @@ pub struct Todo {
     pub done: bool,
     pub done_at: Option<String>,
     pub due: Option<String>,
-    /// 期限的時間 HH:MM；沒有就是一整天的待辦（雲端版本 6 起）
-    pub due_time: Option<String>,
-    /// 雲端版本 6 起可以有好幾個標籤；舊版雲端只有 tag
-    pub tags: Vec<String>,
-    /// 第一個標籤（舊版雲端只認得這個欄位）
     pub tag: Option<String>,
     pub priority: String,
     pub note: Option<String>,
@@ -47,34 +42,6 @@ pub struct Todo {
     pub source_ref: Option<String>,
     /// 前一步的 id；前一步還沒完成時，這一筆先不顯示（雲端版本 5 起）
     pub after_id: Option<String>,
-}
-
-impl Todo {
-    /// 舊版雲端沒有 tags 時用 tag 補上；tag 一律是第一個標籤，沒有期限就沒有時間
-    fn normalized(mut self) -> Todo {
-        if self.tags.is_empty() {
-            self.tags.extend(self.tag.take());
-        }
-        self.tag = self.tags.first().cloned();
-        if self.due.is_none() {
-            self.due_time = None;
-        }
-        self
-    }
-}
-
-/// 新增、修改時 tags 和 tag 一起送：新版雲端看 tags，舊版雲端只看 tag
-fn pair_tags(fields: &mut Map<String, Value>) {
-    if let Some(tags) = fields.get("tags").and_then(Value::as_array) {
-        let first = tags.iter().find_map(Value::as_str).map(|s| Value::String(s.into())).unwrap_or(Value::Null);
-        fields.insert("tag".into(), first);
-    } else if let Some(tag) = fields.get("tag").cloned() {
-        let tags = match tag.as_str().map(str::trim).filter(|s| !s.is_empty()) {
-            Some(t) => vec![Value::String(t.into())],
-            None => vec![],
-        };
-        fields.insert("tags".into(), Value::Array(tags));
-    }
 }
 
 /// 標籤資料夾（只影響顯示；順序就是顯示順序）
@@ -205,7 +172,7 @@ impl Inner {
             .iter()
             .filter(|t| !self.hidden.contains(&t.id))
             .map(|t| {
-                let mut t = t.clone().normalized();
+                let mut t = t.clone();
                 let mut guard = 0;
                 while let Some(prev) = t.after_id.clone().filter(|p| self.hidden.contains(p)) {
                     t.after_id = after_of(&prev);
@@ -399,9 +366,8 @@ pub fn refresh_now(app: AppHandle) {
 }
 
 #[tauri::command]
-pub async fn add_todo(app: AppHandle, mut fields: Map<String, Value>) -> Result<Todo, String> {
+pub async fn add_todo(app: AppHandle, fields: Map<String, Value>) -> Result<Todo, String> {
     let title = str_field(&fields, "title").ok_or("標題不能是空的")?;
-    pair_tags(&mut fields);
     let s = shared(&app);
     let cfg = s.config();
     let tmp_id = format!("tmp-{:x}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default());
@@ -410,12 +376,7 @@ pub async fn add_todo(app: AppHandle, mut fields: Map<String, Value>) -> Result<
         id: tmp_id.clone(),
         title,
         due: str_field(&fields, "due"),
-        due_time: str_field(&fields, "dueTime"),
-        tags: fields
-            .get("tags")
-            .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect())
-            .unwrap_or_default(),
+        tag: str_field(&fields, "tag"),
         priority: str_field(&fields, "priority").unwrap_or_else(|| "normal".into()),
         note: str_field(&fields, "note"),
         created_at: now.clone(),
@@ -462,9 +423,8 @@ pub async fn add_todo(app: AppHandle, mut fields: Map<String, Value>) -> Result<
 
 #[tauri::command]
 pub async fn update_todo(app: AppHandle, id: String, patch: Map<String, Value>) -> Result<(), String> {
-    const ALLOWED: [&str; 9] = ["title", "due", "dueTime", "tags", "tag", "priority", "note", "done", "afterId"];
-    let mut patch: Map<String, Value> = patch.into_iter().filter(|(k, _)| ALLOWED.contains(&k.as_str())).collect();
-    pair_tags(&mut patch);
+    const ALLOWED: [&str; 7] = ["title", "due", "tag", "priority", "note", "done", "afterId"];
+    let patch: Map<String, Value> = patch.into_iter().filter(|(k, _)| ALLOWED.contains(&k.as_str())).collect();
     if id.starts_with("tmp-") || patch.is_empty() {
         return Ok(());
     }
@@ -481,7 +441,7 @@ pub async fn update_todo(app: AppHandle, id: String, patch: Map<String, Value>) 
         if let Some(done) = patch.get("done").and_then(Value::as_bool) {
             v["doneAt"] = if done { Value::String(now_iso()) } else { Value::Null };
         }
-        *t = serde_json::from_value::<Todo>(v).map_err(|e| e.to_string())?.normalized();
+        *t = serde_json::from_value(v).map_err(|e| e.to_string())?;
         g.pending += 1;
         old
     };
@@ -597,49 +557,5 @@ pub async fn flush_deletes(app: &AppHandle) {
             api::send(&s.client, &cfg, Method::DELETE, &path, None, None),
         )
         .await;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    fn todo(v: Value) -> Todo {
-        serde_json::from_value::<Todo>(v).unwrap().normalized()
-    }
-
-    #[test]
-    fn old_cloud_tag_becomes_tags() {
-        let t = todo(json!({ "id": "a", "tag": "微積分", "due": null, "dueTime": "09:00" }));
-        assert_eq!(t.tags, ["微積分"]);
-        assert_eq!(t.tag.as_deref(), Some("微積分"));
-        assert_eq!(t.due_time, None);
-    }
-
-    #[test]
-    fn tag_is_first_of_tags() {
-        let t = todo(json!({ "id": "a", "tags": ["考試", "微積分"], "tag": "微積分", "due": "2030-01-02", "dueTime": "09:00" }));
-        assert_eq!(t.tag.as_deref(), Some("考試"));
-        assert_eq!(t.due_time.as_deref(), Some("09:00"));
-    }
-
-    #[test]
-    fn pair_tags_fills_the_other_field() {
-        let mut m = json!({ "tags": ["a", "b"] }).as_object().unwrap().clone();
-        pair_tags(&mut m);
-        assert_eq!(m["tag"], json!("a"));
-        let mut m = json!({ "tags": [] }).as_object().unwrap().clone();
-        pair_tags(&mut m);
-        assert_eq!(m["tag"], Value::Null);
-        let mut m = json!({ "tag": "x" }).as_object().unwrap().clone();
-        pair_tags(&mut m);
-        assert_eq!(m["tags"], json!(["x"]));
-        let mut m = json!({ "tag": null }).as_object().unwrap().clone();
-        pair_tags(&mut m);
-        assert_eq!(m["tags"], json!([]));
-        let mut m = json!({ "title": "t" }).as_object().unwrap().clone();
-        pair_tags(&mut m);
-        assert!(!m.contains_key("tags") && !m.contains_key("tag"));
     }
 }

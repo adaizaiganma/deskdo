@@ -4,9 +4,8 @@
   import { store } from "@deskdo/core/store.svelte";
   import { toast } from "@deskdo/core/toast.svelte";
   import type { Folder } from "@deskdo/core/types";
-  import Icon from "../components/Icon.svelte";
 
-  let { onupdatecloud, onback }: { onupdatecloud: () => void; onback: () => void } = $props();
+  let { onupdatecloud }: { onupdatecloud: () => void } = $props();
 
   /** 資料夾依順序輪流用這些色相 */
   const PALETTE = [214, 152, 268, 28, 336, 190, 96, 48];
@@ -20,7 +19,7 @@
   const used = $derived(new Set(store.tags));
   const counts = $derived.by(() => {
     const m = new Map<string, number>();
-    for (const t of store.allOpen) for (const tag of t.tags) m.set(tag, (m.get(tag) ?? 0) + 1);
+    for (const t of store.allOpen) if (t.tag) m.set(t.tag, (m.get(t.tag) ?? 0) + 1);
     return m;
   });
 
@@ -351,7 +350,6 @@
 
 <div class="page">
   <header>
-    <button class="back" onclick={onback}><Icon name="chevron" size={12} />全部</button>
     <h1>整理標籤</h1>
     <p>把小泡泡（標籤）拖進大泡泡（資料夾），拖出來就移出。右鍵可以新增資料夾或標籤，也可以改名、刪除。</p>
   </header>
@@ -543,23 +541,6 @@
   }
   header {
     padding: 28px 38px 6px;
-  }
-  .back {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin: 0 0 4px -6px;
-    padding: 2px 8px 2px 4px;
-    border-radius: 6px;
-    font-size: 12.5px;
-    color: var(--faint);
-  }
-  .back:hover {
-    color: var(--accent);
-    background: var(--hover);
-  }
-  .back :global(svg) {
-    transform: rotate(180deg);
   }
   h1 {
     margin: 0;

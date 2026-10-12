@@ -4,11 +4,6 @@ export interface Todo {
   done: boolean;
   doneAt: string | null;
   due: string | null; // YYYY-MM-DD
-  /** 期限的時間 HH:MM；null 表示一整天的待辦（雲端版本 6 起） */
-  dueTime: string | null;
-  /** 標籤，第一個是主要的（雲端版本 6 起可以有好幾個） */
-  tags: string[];
-  /** @deprecated 第一個標籤，請改用 tags */
   tag: string | null;
   priority: Priority;
   note: string | null;
@@ -22,7 +17,7 @@ export interface Todo {
 
 export type SyncStatus = "syncing" | "ok" | "offline" | "error";
 
-/** 標籤資料夾：只影響顯示，和待辦有哪些標籤無關 */
+/** 標籤資料夾：只影響顯示，每筆待辦仍然只有一個標籤 */
 export interface Folder {
   name: string;
   tags: string[];
@@ -108,18 +103,11 @@ export interface Device {
 
 export type Priority = "high" | "normal" | "low";
 
-export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "dueTime" | "tags" | "priority" | "note" | "done" | "afterId">> & {
-  /** @deprecated 請改用 tags */
-  tag?: string | null;
-};
+export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "tag" | "priority" | "note" | "done" | "afterId">>;
 
 export interface NewTodo {
   title: string;
   due?: string;
-  /** HH:MM；要有 due 才有用 */
-  dueTime?: string;
-  tags?: string[];
-  /** @deprecated 請改用 tags */
   tag?: string;
   priority?: "high" | "low";
   note?: string;
