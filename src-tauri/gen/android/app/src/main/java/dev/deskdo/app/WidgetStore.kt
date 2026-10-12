@@ -4,6 +4,9 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** 小工具的資料：App 最後一次交過來的清單（widget.json，放在 App 自己的資料夾） */
 object WidgetStore {
@@ -35,12 +38,27 @@ object WidgetStore {
 
   private fun file(context: Context) = File(context.filesDir, "widget.json")
 
+  /** 每存一次就加一：自己抓資料的途中 App 交來了新的、或勾了完成，抓回來的就不要蓋掉 */
+  private var version = 0L
+
+  /** 上次拿到雲端資料的時間（自己抓的，或 App 交來的） */
+  @Volatile private var fetchedAt = 0L
+
+  private val fetching = AtomicBoolean(false)
+
   @Synchronized
   fun save(context: Context, json: String) {
     val f = file(context)
     val tmp = File(f.path + ".tmp")
     tmp.writeText(json)
     tmp.renameTo(f)
+    version++
+  }
+
+  /** App 交來的整份資料（WidgetPlugin.update） */
+  fun saveFromApp(context: Context, json: String) {
+    save(context, json)
+    fetchedAt = System.currentTimeMillis()
   }
 
   @Synchronized
@@ -111,4 +129,98 @@ object WidgetStore {
     o.put("items", change(o.optJSONArray("items") ?: return))
     save(context, o.toString())
   }
+
+  /**
+   * 不靠 App，自己向雲端抓一次清單（GET /api/todos），換掉小工具的待辦和資料夾；
+   * 在別的裝置、電腦版或 Claude 改過的，App 沒開也看得到。
+   * 要在背景執行緒呼叫；[minAgeMs] 內已經拿過新資料就不抓。有換掉內容時回傳 true。
+   */
+  fun fetch(context: Context, minAgeMs: Long = 0): Boolean {
+    if (System.currentTimeMillis() - fetchedAt < minAgeMs) return false
+    if (!fetching.compareAndSet(false, true)) return false
+    try {
+      val (base, token, started) = synchronized(this) {
+        val o = try {
+          JSONObject(raw(context) ?: return false)
+        } catch (e: Exception) {
+          return false
+        }
+        if (!o.optBoolean("configured")) return false
+        Triple(o.optString("apiBase"), o.optString("apiToken"), version)
+      }
+      val body = try {
+        val conn = URL(base.trim().trimEnd('/') + "/api/todos?status=open").openConnection() as HttpURLConnection
+        conn.connectTimeout = 8_000
+        conn.readTimeout = 10_000
+        conn.setRequestProperty("Authorization", "Bearer " + token.trim())
+        try {
+          if (conn.responseCode != 200) return false
+          conn.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+          conn.disconnect()
+        }
+      } catch (e: Exception) {
+        return false
+      }
+      val data = try {
+        JSONObject(body)
+      } catch (e: Exception) {
+        return false
+      }
+      synchronized(this) {
+        if (version != started) return false
+        val o = JSONObject(raw(context) ?: return false)
+        val old = o.optJSONArray("items") ?: JSONArray()
+        val completing = (0 until old.length()).map { old.getJSONObject(it) }
+          .filter { it.optBoolean("completing") }.map { it.getString("id") }.toHashSet()
+        o.put("today", data.optString("today", o.optString("today")))
+        // 雲端版本 4 起才有資料夾；舊版沒有這個欄位就當作沒有資料夾
+        o.put("folders", data.optJSONArray("folders") ?: JSONArray())
+        o.put("items", items(data.optJSONArray("todos") ?: JSONArray(), completing))
+        val json = o.toString()
+        fetchedAt = System.currentTimeMillis()
+        if (json == raw(context)) return false
+        save(context, json)
+        return true
+      }
+    } finally {
+      fetching.set(false)
+    }
+  }
+
+  /** 雲端的待辦換成小工具的格式，排法和 src/mobile.rs 的 widget_items 一樣 */
+  private fun items(todos: JSONArray, completing: Set<String>): JSONArray {
+    val open = (0 until todos.length()).map { todos.getJSONObject(it) }.filter { !it.optBoolean("done") }
+    val ids = open.map { it.getString("id") }.toHashSet()
+    fun rank(p: String) = when (p) {
+      "high" -> 0
+      "low" -> 2
+      else -> 1
+    }
+    val sorted = open.sortedWith(
+      compareBy<JSONObject>({ str(it, "due") == null }, { str(it, "due") })
+        .thenBy { rank(it.optString("priority", "normal")) }
+        .thenBy { it.optString("createdAt") },
+    ).take(WIDGET_LIMIT)
+    val out = JSONArray()
+    for (t in sorted) {
+      val id = t.getString("id")
+      out.put(
+        JSONObject()
+          .put("id", id)
+          .put("title", t.optString("title"))
+          .put("due", str(t, "due") ?: JSONObject.NULL)
+          .put("tag", str(t, "tag") ?: JSONObject.NULL)
+          .put("priority", t.optString("priority", "normal"))
+          .put("after", str(t, "afterId")?.takeIf { it in ids } ?: JSONObject.NULL)
+          .put("mail", t.optString("source") == "email")
+          .put("note", str(t, "note")?.isNotBlank() == true)
+          .apply { if (id in completing) put("completing", true) },
+      )
+    }
+    return out
+  }
+
+  /** 和 src/mobile.rs 的 WIDGET_LIMIT 一樣 */
+  private const val WIDGET_LIMIT = 300
 }
