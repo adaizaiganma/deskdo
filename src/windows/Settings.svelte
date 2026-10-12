@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";
   import { localDate, monthDay } from "@deskdo/core/dates";
+  import { SAYING_CATEGORIES, sayingPrefs } from "@deskdo/core/saying.svelte";
   import { store } from "@deskdo/core/store.svelte";
   import type { Connector, Device, UpdateInfo } from "@deskdo/core/types";
 
@@ -201,6 +202,17 @@
     </section>
   {/if}
 
+  <section class="card">
+    <h2>每日一言</h2>
+    <p class="hint">要顯示哪些句子，可以選好幾種。換了之後主頁會抓一句新的。</p>
+    <div class="chips" role="group" aria-label="每日一言的類型">
+      {#each SAYING_CATEGORIES as c (c.id)}
+        {@const on = sayingPrefs.categories.includes(c.id)}
+        <button class="pill" class:on aria-pressed={on} onclick={() => sayingPrefs.toggle(c.id)}>{c.label}</button>
+      {/each}
+    </div>
+  </section>
+
   {#if p}
     <section class="card">
       <h2>主畫面小工具</h2>
@@ -336,6 +348,12 @@
     font-size: 13px;
     color: var(--sub);
     margin-top: 2px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
   }
   .callout {
     display: flex;
