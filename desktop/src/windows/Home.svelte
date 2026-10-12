@@ -286,7 +286,9 @@
     flex: 1;
     min-width: 0;
     overflow-y: auto;
-    padding: 28px 24px 40px 32px;
+    /* 捲軸的寬度（10px）一直留著，右邊的 padding 少 10px */
+    scrollbar-gutter: stable;
+    padding: 28px 14px 40px 32px;
   }
   /* 調整版面時浮在左半下方的提示列 */
   .edit-dock {
@@ -543,6 +545,7 @@
     .home {
       flex-direction: column;
       overflow-y: auto;
+      scrollbar-gutter: stable;
     }
     .left {
       flex: none;
