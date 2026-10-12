@@ -12,6 +12,7 @@
   import { homePrefs } from "@deskdo/core/homePrefs.svelte";
   import { dailyQuote } from "@deskdo/core/saying.svelte";
   import { store } from "@deskdo/core/store.svelte";
+  import { toast } from "@deskdo/core/toast.svelte";
   import type { Todo } from "@deskdo/core/types";
 
   interface Props {
@@ -69,6 +70,7 @@
   }
 
   const quote = dailyQuote(() => today);
+  const refreshQuote = () => quote.refresh().catch(() => toast.error("換不了句子，請檢查網路"));
   const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
   const dueToday = $derived(store.open.filter((t) => t.due === today).length);
   const summary = $derived(
@@ -146,10 +148,10 @@
   {:else if id === "clock"}
     <div class="clock-box"><Clock size={120} mode={homePrefs.clock} /></div>
   {:else if id === "quote"}
-    <figure class="quote">
-      <figcaption><span class="qlabel">每日一言</span>{quote.current.source}</figcaption>
-      <blockquote>{quote.current.text}</blockquote>
-    </figure>
+    <button class="quote" class:loading={quote.loading} onclick={refreshQuote} title="換一句">
+      <span class="qcap"><span class="qlabel">每日一言</span>{quote.current.source}<Icon name="refresh" size={12} /></span>
+      <span class="qtext">{quote.current.text}</span>
+    </button>
   {:else if id === "matrix"}
     <Matrix {today} {matches} onpick={(t) => (store.focus = t.id)} />
   {:else if isCountdown(id)}
@@ -382,8 +384,10 @@
     font-size: clamp(24px, min(24cqw, 70cqh), 80px);
   }
   .quote {
+    width: 100%;
     height: 100%;
     margin: 0;
+    text-align: left;
     box-sizing: border-box;
     overflow-y: auto;
     display: flex;
@@ -394,22 +398,45 @@
     border-radius: 12px;
     background: var(--bg2);
   }
-  figcaption {
+  .qcap {
     display: flex;
+    align-items: center;
     gap: 8px;
     font-size: 11.5px;
     color: var(--faint);
+  }
+  .qcap :global(svg) {
+    margin-left: auto;
+    flex: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .quote:hover .qcap :global(svg),
+  .quote:focus-visible .qcap :global(svg),
+  .loading .qcap :global(svg) {
+    opacity: 1;
+  }
+  .loading .qcap :global(svg) {
+    animation: spin 0.8s linear infinite;
   }
   .qlabel {
     font-weight: 700;
     color: var(--sub);
     letter-spacing: 0.04em;
   }
-  blockquote {
-    margin: 0;
+  .qtext {
     font-size: 15px;
     font-weight: 500;
     line-height: 1.5;
+    transition: opacity 0.2s;
+  }
+  .loading .qtext {
+    opacity: 0.5;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .resizer {
