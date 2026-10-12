@@ -367,8 +367,9 @@
     </div>
 
     <div class="bottom">
-      <button class="done-btn" class:reopen={todo.done} onclick={toggleDone}>
-        <Icon name={todo.done ? "refresh" : "check"} size={20} stroke={2} />{todo.done ? "改回未完成" : "標記完成"}
+      <!-- 存好改的內容再關掉；完成／未完成用標題左邊的圓圈 -->
+      <button class="done-btn" onclick={close}>
+        <Icon name="check" size={20} stroke={2} />修改完成
       </button>
     </div>
   {/if}
@@ -688,10 +689,6 @@
     gap: 8px;
     font-size: 16px;
     font-weight: 500;
-  }
-  .done-btn.reopen {
-    background: var(--sel);
-    color: var(--on-sel);
   }
   .search {
     width: 100%;
