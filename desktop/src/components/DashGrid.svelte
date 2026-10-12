@@ -163,16 +163,22 @@
       background 0.15s,
       box-shadow 0.15s;
   }
+  /* --inner：組件裡面的小卡片（矩陣的四格、時鐘的錶面）跟著背景變 */
   .bg-solid {
+    --inner: var(--raised);
     background: var(--raised);
     box-shadow: var(--card-shadow);
   }
   .bg-glass {
+    --inner: color-mix(in srgb, var(--raised) 45%, transparent);
     background: var(--glass);
     box-shadow:
       inset 0 0 0 1px var(--glass-line),
       var(--card-shadow);
     backdrop-filter: blur(18px) saturate(1.4);
+  }
+  .bg-none {
+    --inner: transparent;
   }
   .editing .cell {
     cursor: grab;

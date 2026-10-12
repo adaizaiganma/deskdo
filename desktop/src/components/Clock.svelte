@@ -94,7 +94,7 @@
     color: var(--faint);
   }
   .face {
-    fill: var(--raised);
+    fill: var(--inner, var(--raised));
     stroke: var(--line);
     stroke-width: 1.5;
   }

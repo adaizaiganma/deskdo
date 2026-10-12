@@ -113,7 +113,7 @@
     overflow-y: auto;
     padding: 10px 8px 8px;
     border-radius: 12px;
-    background: var(--raised);
+    background: var(--inner, var(--raised));
     box-shadow: 0 0 0 1px var(--line);
     border-top: 3px solid var(--tone);
   }
