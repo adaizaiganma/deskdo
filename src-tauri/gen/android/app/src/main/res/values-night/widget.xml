@@ -11,5 +11,5 @@
     <color name="widget_on_accent">#FF1F2126</color>
     <color name="widget_on_text">#FF1F2126</color>
     <!-- App 的底色（狀態列、導覽列後面），和網頁的背景色一樣 -->
-    <color name="app_bg">#FF1F2126</color>
+    <color name="app_bg">#FF111318</color>
 </resources>

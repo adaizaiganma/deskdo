@@ -350,8 +350,7 @@
 
 <div class="page">
   <header>
-    <h1>整理標籤</h1>
-    <p>把小泡泡（標籤）拖進大泡泡（資料夾），拖出來就移出。右鍵可以新增資料夾或標籤，也可以改名、刪除。</p>
+    <p>把小泡泡（標籤）拖進大泡泡（資料夾），拖出來就移出。長按可以新增資料夾或標籤，也可以改名、刪除。</p>
   </header>
 
   {#if locked}
@@ -540,16 +539,12 @@
     flex-direction: column;
   }
   header {
-    padding: 28px 38px 6px;
-  }
-  h1 {
-    margin: 0;
-    font-size: 26px;
-    font-weight: 700;
+    padding: 0 20px 6px;
   }
   header p {
-    margin: 4px 0 0;
+    margin: 0;
     font-size: 13px;
+    line-height: 1.6;
     color: var(--sub);
   }
   .callout {

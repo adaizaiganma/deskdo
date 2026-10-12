@@ -3,7 +3,10 @@ import { mount } from "svelte";
 import { store } from "@deskdo/core/store.svelte";
 import Main from "./windows/Main.svelte";
 
-// 手機版的樣式（app.css 和各元件裡的 html.mobile）；長按要能叫出系統的選取、貼上選單，所以不停用右鍵選單
-document.documentElement.classList.add("mobile");
+// 系統導覽列的高度：網頁畫到導覽列底下，底部的東西要讓開（MainActivity.kt，之後有變化會直接改這個變數）
+const insets = (window as { DeskdoInsets?: { navInset(): number } }).DeskdoInsets;
+const nav = insets?.navInset() ?? 0;
+if (nav) document.documentElement.style.setProperty("--nav-inset", `${nav}px`);
+
 await store.init();
 mount(Main, { target: document.getElementById("app")! });

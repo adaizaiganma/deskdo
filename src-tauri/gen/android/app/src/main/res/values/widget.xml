@@ -18,7 +18,7 @@
     <color name="widget_on_accent">#FFFFFFFF</color>
     <color name="widget_on_text">#FFFFFFFF</color>
     <!-- App 的底色（狀態列、導覽列後面），和網頁的背景色一樣 -->
-    <color name="app_bg">#FFFAFAF8</color>
+    <color name="app_bg">#FFF9F9FF</color>
 
     <!-- 待辦標題下面的小字（優先、標籤、Gmail…），預設不顯示 -->
     <style name="WidgetMeta">

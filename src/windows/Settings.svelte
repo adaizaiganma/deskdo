@@ -2,17 +2,10 @@
   import { invoke } from "@tauri-apps/api/core";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
-  import Clock from "../components/Clock.svelte";
-  import { homePrefs, type ClockStyle } from "@deskdo/core/homePrefs.svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";
   import { localDate, monthDay } from "@deskdo/core/dates";
   import { store } from "@deskdo/core/store.svelte";
   import type { Connector, Device, UpdateInfo } from "@deskdo/core/types";
-
-  const clockStyles: { id: ClockStyle; label: string }[] = [
-    { id: "analog", label: "指針" },
-    { id: "digital", label: "數位" },
-  ];
 
   /** 開啟設定精靈（new：第一次設定；update：更新雲端） */
   let { onsetup }: { onsetup: (mode: "new" | "update") => void } = $props();
@@ -122,7 +115,6 @@
 </script>
 
 <div class="settings">
-  <h1>設定</h1>
 
   {#if p && !p.configured}
     <section class="card callout">
@@ -209,22 +201,6 @@
     </section>
   {/if}
 
-  <section class="card">
-    <h2>主頁</h2>
-    <div class="toggle-row">
-      <div>
-        <div>時鐘樣式</div>
-        <div class="hint">顯示在主頁日期的右邊</div>
-      </div>
-      <div class="seg" role="radiogroup" aria-label="時鐘樣式">
-        {#each clockStyles as c (c.id)}
-          <button role="radio" aria-checked={homePrefs.clock === c.id} class:on={homePrefs.clock === c.id} onclick={() => homePrefs.setClock(c.id)}>{c.label}</button>
-        {/each}
-      </div>
-    </div>
-    <div class="clock-preview"><Clock size={104} mode={homePrefs.clock} /></div>
-  </section>
-
   {#if p}
     <section class="card">
       <h2>主畫面小工具</h2>
@@ -278,85 +254,45 @@
       </div>
     </form>
   </details>
-
-  <p class="foot">設定檔位置：%APPDATA%\Deskdo\config.json</p>
 </div>
 
 <style>
   .settings {
-    max-width: 640px;
-    margin: 0 auto;
-    padding: 28px 32px 40px;
-  }
-  h1 {
-    font-size: 26px;
-    font-weight: 700;
-    margin: 0 0 20px;
+    padding: 4px 16px 32px;
   }
   h2 {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
-    color: var(--sub);
+    color: var(--accent);
     margin: 0 0 12px;
   }
-  .seg {
-    flex: none;
-    display: inline-flex;
-    padding: 2px;
-    border-radius: 9px;
-    background: var(--bg2);
-  }
-  .seg button {
-    height: 30px;
-    padding: 0 16px;
-    border-radius: 7px;
-    font-size: 13px;
-    color: var(--sub);
-  }
-  .seg button.on {
-    background: var(--raised);
-    color: var(--text);
-    font-weight: 500;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-  }
-  .clock-preview {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 170px;
-    margin-top: 6px;
-    border-radius: 10px;
-    background: var(--bg2);
-  }
   .card {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 18px 20px;
-    margin-bottom: 16px;
+    background: var(--c);
+    border-radius: 20px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
   }
   .field {
     display: grid;
-    grid-template-columns: 96px 1fr;
+    grid-template-columns: 84px 1fr;
     align-items: center;
     gap: 12px;
     margin-bottom: 12px;
-    font-size: 13px;
+    font-size: 14px;
   }
   .field input,
   .with-unit input {
     width: 100%;
-    height: 34px;
-    padding: 0 10px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    background: var(--bg2);
+    height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    border: 0;
+    background: var(--c-highest);
     outline: none;
-    font-size: 13px;
+    font-size: 14px;
   }
   .field input:focus {
-    border-color: var(--accent);
-    background: var(--raised);
+    box-shadow: inset 0 0 0 2px var(--accent);
   }
   .with-btn {
     display: flex;
@@ -376,7 +312,6 @@
     align-items: center;
     gap: 12px;
     margin-top: 4px;
-    padding-left: 108px;
     flex-wrap: wrap;
   }
   .result {
@@ -392,26 +327,23 @@
     justify-content: space-between;
     gap: 16px;
     padding: 10px 0;
-    font-size: 13.5px;
+    font-size: 15px;
   }
   .toggle-row + .toggle-row {
     border-top: 1px solid var(--line);
   }
   .hint {
-    font-size: 12px;
-    color: var(--faint);
+    font-size: 13px;
+    color: var(--sub);
     margin-top: 2px;
-  }
-  .foot {
-    font-size: 12px;
-    color: var(--faint);
   }
   .callout {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    border-color: var(--accent);
+    background: var(--accent-container);
+    color: var(--on-accent-container);
   }
   .callout h2 {
     color: var(--text);
@@ -458,8 +390,14 @@
     color: var(--accent);
     font-size: 11px;
   }
+  .advanced {
+    padding: 4px 4px 0;
+  }
   .advanced summary {
-    font-size: 13px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
     font-weight: 700;
     color: var(--sub);
     cursor: pointer;

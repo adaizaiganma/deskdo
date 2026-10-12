@@ -1,9 +1,7 @@
 <script lang="ts">
   import { store } from "@deskdo/core/store.svelte";
 
-  /** compact：同步正常時只顯示小圓點（桌面小工具空間有限） */
-  let { compact = false }: { compact?: boolean } = $props();
-
+  /** 同步狀態的小標籤；點一下立即同步 */
   const s = $derived(store.snap);
   const label = $derived(
     s.status === "ok"
@@ -16,38 +14,30 @@
           ? "離線"
           : "同步錯誤",
   );
-  const tip = $derived(s.message ? `${s.message}\n點一下重新同步` : `${label}\n點一下立即同步`);
-  const hideLabel = $derived(compact && s.status === "ok");
 </script>
 
-<button class="sync {s.status}" class:compact={hideLabel} title={tip} aria-label={label} onclick={() => store.refresh()}>
-  <span class="dot"></span>{#if !hideLabel}{label}{/if}
+<button class="sync {s.status}" title={s.message || undefined} aria-label="{label}，點一下立即同步" onclick={() => store.refresh()}>
+  <span class="dot"></span>{label}
 </button>
 
 <style>
   .sync {
+    flex: none;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 28px;
-    padding: 0 8px;
-    border-radius: 6px;
-    font-size: 11.5px;
-    color: var(--faint);
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 16px;
+    background: var(--c);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--sub);
     white-space: nowrap;
   }
-  .sync.compact {
-    width: 28px;
-    padding: 0;
-    justify-content: center;
-  }
-  .sync:hover {
-    background: var(--hover);
-    color: var(--sub);
-  }
   .dot {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: var(--ok);
   }

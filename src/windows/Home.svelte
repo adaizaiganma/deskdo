@@ -1,492 +1,427 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import Clock from "../components/Clock.svelte";
-  import CountdownCard from "../components/CountdownCard.svelte";
-  import DashGrid from "../components/DashGrid.svelte";
-  import Icon from "../components/Icon.svelte";
-  import Matrix from "../components/Matrix.svelte";
-  import TodoPanel from "../components/TodoPanel.svelte";
-  import { weekday } from "@deskdo/core/dates";
-  import { countdowns } from "@deskdo/core/countdowns.svelte";
-  import { BASE, countdownId, homeLayout, isCountdown, spec, type WidgetId } from "../lib/homeLayout.svelte";
-  import { homePrefs } from "@deskdo/core/homePrefs.svelte";
+  import { fade, scale } from "svelte/transition";
+  import { countdowns, resolve } from "@deskdo/core/countdowns.svelte";
+  import { addDays, diffDays, monthDay, weekday } from "@deskdo/core/dates";
   import { quoteOf } from "@deskdo/core/quotes";
   import { store } from "@deskdo/core/store.svelte";
-  import type { Todo } from "@deskdo/core/types";
+  import Fab from "../components/Fab.svelte";
+  import Icon from "../components/Icon.svelte";
+  import TodoGroups from "../components/TodoGroups.svelte";
+  import TodoItem from "../components/TodoItem.svelte";
+  import TopBar from "../components/TopBar.svelte";
+  import { closeOnBack } from "../lib/back.svelte";
+  import { quadrants, type QuadrantKey } from "../lib/matrix";
+  import { ui } from "../lib/ui.svelte";
+  import SyncStatus from "./SyncStatus.svelte";
 
+  /** 主頁：日期、每日一言、釘選的倒數日、四象限，以及今天、明天到期的待辦 */
   interface Props {
     today: string;
-    matches: (t: Todo) => boolean;
     /** 頁面最上方的提示（有新版本等） */
     top?: Snippet;
+    onmenu: () => void;
+    onsearch: () => void;
+    onall: () => void;
     oncountdowns: () => void;
   }
-  let { today, matches, top, oncountdowns }: Props = $props();
-
-  let panel = $state<ReturnType<typeof TodoPanel>>();
-  export function focus() {
-    panel?.focus();
-  }
-
-  /** 調整版面：拖曳移動、調整大小、拿掉或加回組件（從右鍵選單進入） */
-  let editing = $state(false);
-
-  // ---- 左半的右鍵選單：調整版面、拿掉這個組件、加回組件、還原預設 ----
-  let menu = $state<{ x: number; y: number; id: WidgetId | null } | null>(null);
-  /** 可以加回來的：拿掉的組件，和還沒加到主頁的倒數日 */
-  const addable = $derived<{ id: WidgetId; label: string }[]>([
-    ...homeLayout.hidden.map((id) => ({ id, label: BASE[id].label })),
-    ...countdowns.list.filter((c) => c.pinned === false).map((c) => ({ id: `cd:${c.id}` as const, label: c.title })),
-  ]);
-
-  function openMenu(e: MouseEvent) {
-    e.preventDefault();
-    const cell = (e.target as HTMLElement).closest<HTMLElement>("[data-widget]");
-    menu = { x: e.clientX, y: e.clientY, id: (cell?.dataset.widget as WidgetId | undefined) ?? null };
-  }
-
-  function act(fn: () => void) {
-    fn();
-    menu = null;
-  }
-
-  /** 選單別超出視窗 */
-  function place(node: HTMLElement) {
-    const r = node.getBoundingClientRect();
-    if (r.right > innerWidth - 8) node.style.left = `${Math.max(8, innerWidth - 8 - r.width)}px`;
-    if (r.bottom > innerHeight - 8) node.style.top = `${Math.max(8, innerHeight - 8 - r.height)}px`;
-    node.querySelector<HTMLElement>("[role=menuitem]")?.focus();
-  }
-
-  function onWindowKey(e: KeyboardEvent) {
-    if (e.key !== "Escape") return;
-    if (menu) menu = null;
-    else if (editing) editing = false;
-  }
-
-  function onWindowDown(e: PointerEvent) {
-    if (menu && !(e.target as HTMLElement).closest(".ctx")) menu = null;
-  }
+  let { today, top, onmenu, onsearch, onall, oncountdowns }: Props = $props();
 
   const quote = $derived(quoteOf(today));
+  const tomorrow = $derived(addDays(today, 1));
   const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
   const dueToday = $derived(store.open.filter((t) => t.due === today).length);
-  const summary = $derived(
-    [late && `${late} 項逾期`, dueToday && `今天到期 ${dueToday} 項`, `共 ${store.open.length} 項待辦`].filter(Boolean).join("・"),
+  /** 逾期、今天、明天到期的 */
+  const soon = $derived(store.open.filter((t) => t.due && t.due <= tomorrow));
+  /** 接下來 7 天（不含今天、明天）到期的 */
+  const week = $derived(store.open.filter((t) => t.due && t.due > tomorrow && diffDays(today, t.due) <= 7).length);
+
+  /** 釘選在主頁的倒數日：還沒到的（越近越前面），接著是已經過了的 */
+  const pinned = $derived(
+    countdowns.list
+      .filter((c) => c.pinned !== false)
+      .map((c) => resolve(c, today))
+      .sort((a, b) => ((a.n >= 0) !== (b.n >= 0) ? (a.n >= 0 ? -1 : 1) : Math.abs(a.n) - Math.abs(b.n))),
   );
 
-  // ---- 右邊待辦的寬度：拖曳中間的分隔線調整，每台電腦各自記住 ----
-  const WIDTH_KEY = "home.panelWidth";
-  const DEFAULT_WIDTH = 400;
-  let width = $state(readWidth());
-  let resizing = $state(false);
-
-  function readWidth(): number {
-    try {
-      const w = Number(localStorage.getItem(WIDTH_KEY));
-      return w >= 280 ? w : DEFAULT_WIDTH;
-    } catch {
-      return DEFAULT_WIDTH;
-    }
-  }
-
-  function saveWidth() {
-    try {
-      localStorage.setItem(WIDTH_KEY, String(Math.round(width)));
-    } catch {}
-  }
-
-  let panelEl = $state<HTMLElement>();
-  function startResize(e: PointerEvent) {
-    if (e.button !== 0 || !panelEl) return;
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-    // 從畫面上實際的寬度開始（視窗變窄時可能被 CSS 壓小了）
-    const startX = e.clientX;
-    const startW = panelEl.getBoundingClientRect().width;
-    resizing = true;
-    let moved = false;
-    const move = (ev: PointerEvent) => {
-      moved = true;
-      width = Math.max(280, startW + startX - ev.clientX);
-    };
-    const up = () => {
-      resizing = false;
-      // 只是點一下沒有拖，不要把被視窗壓小的寬度存起來
-      if (moved && panelEl) {
-        width = panelEl.getBoundingClientRect().width;
-        saveWidth();
-      }
-      target.removeEventListener("pointermove", move);
-      target.removeEventListener("pointerup", up);
-      target.removeEventListener("pointercancel", up);
-    };
-    target.addEventListener("pointermove", move);
-    target.addEventListener("pointerup", up);
-    target.addEventListener("pointercancel", up);
-  }
-
-  function resizeKey(e: KeyboardEvent) {
-    const step = e.shiftKey ? 60 : 20;
-    if (e.key === "ArrowLeft") width += step;
-    else if (e.key === "ArrowRight") width = Math.max(280, width - step);
-    else return;
-    e.preventDefault();
-    saveWidth();
-  }
+  const quads = $derived(quadrants(store.open, today));
+  let openQ = $state<QuadrantKey | null>(null);
+  const shown = $derived(quads.find((q) => q.key === openQ));
+  closeOnBack("quadrant", () => !!openQ, () => (openQ = null));
 </script>
 
-{#snippet widget(id: WidgetId)}
-  {#if id === "date"}
+<div class="page">
+  <TopBar lead="menu" onlead={onmenu}>
+    <span></span>
+    {#snippet actions()}
+      <button class="icon-btn" onclick={onsearch} aria-label="搜尋"><Icon name="search" size={24} /></button>
+      <SyncStatus />
+    {/snippet}
+  </TopBar>
+
+  <div class="scroll">
     <div class="when">
-      <span class="year">{Number(today.slice(0, 4))}年・{weekday(today)}</span>
+      <span class="year">{Number(today.slice(0, 4))}年 · {weekday(today)}</span>
       <h1>{Number(today.slice(5, 7))}月{Number(today.slice(8))}日</h1>
-      <span class="summary" class:warn={late > 0} title={summary}>{summary}</span>
+      <p class="summary">
+        {#if late}<span class="warn">逾期 <b>{late}</b> 項</span> · {/if}
+        {#if dueToday}今天到期 <b class="warn">{dueToday}</b> 項 · {/if}
+        共 <b>{store.open.length}</b> 項待辦
+      </p>
     </div>
-  {:else if id === "clock"}
-    <div class="clock-box"><Clock size={120} mode={homePrefs.clock} /></div>
-  {:else if id === "quote"}
-    <figure class="quote">
-      <figcaption><span class="qlabel">每日一言</span>{quote.source}</figcaption>
+
+    {@render top?.()}
+
+    <figure class="card quote">
+      <figcaption>每日一言 · {quote.source}</figcaption>
       <blockquote>{quote.text}</blockquote>
     </figure>
-  {:else if id === "matrix"}
-    <Matrix {today} {matches} onpick={(t) => (store.focus = t.id)} />
-  {:else if isCountdown(id)}
-    <CountdownCard id={countdownId(id)} {today} onopen={oncountdowns} />
-  {/if}
-{/snippet}
 
-<svelte:window onkeydown={onWindowKey} onpointerdown={onWindowDown} onblur={() => (menu = null)} />
-
-<!-- 外層是 container，下面才能依自己的寬度切換排版 -->
-<div class="wrap">
-<div class="home" class:resizing>
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="left" oncontextmenu={openMenu} onscroll={() => (menu = null)}>
-    {@render top?.()}
-    <DashGrid {editing} content={widget} />
-    {#if editing}
-      <!-- 浮在下面，不佔版面 -->
-      <div class="edit-dock">
-        <div class="edit-bar">
-          <span>拖曳移動・拖右下角調整大小・按右鍵加回組件</span>
-          <button class="done" onclick={() => (editing = false)}>完成</button>
-        </div>
+    {#if pinned.length}
+      <div class="cds" aria-label="倒數日">
+        {#each pinned as c (c.id)}
+          <button class="card cd" onclick={oncountdowns}>
+            <span class="cd-title clip">{c.title}</span>
+            {#if c.n === 0}
+              <span class="cd-num"><b class="now">就是今天</b></span>
+            {:else}
+              <span class="cd-num"><small>{c.n > 0 ? "還有" : "已經"}</small><b class:past={c.n < 0}>{Math.abs(c.n)}</b><small>天</small></span>
+            {/if}
+            <span class="cd-date">{monthDay(c.target, today)} {weekday(c.target)}{c.yearly ? " · 每年" : ""}</span>
+          </button>
+        {/each}
       </div>
     {/if}
+
+    <section class="card matrix" aria-label="四象限">
+      <div class="mhead">
+        <span class="mtitle">四象限</span>
+        <span class="maxis">重要 × 緊急</span>
+      </div>
+      <div class="mgrid">
+        {#each quads as q (q.key)}
+          <button class="tile" onclick={() => (openQ = q.key)} aria-haspopup="dialog" aria-label="{q.title}，{q.items.length} 項">
+            <span class="trow">
+              <span class="tname"><span class="dot {q.key}"></span>{q.title}</span>
+              <span class="tcount">{q.items.length}</span>
+            </span>
+            <span class="tpeek clip">{q.items.length ? q.items.slice(0, 3).map((t) => t.title).join(" · ") : "沒有"}</span>
+          </button>
+        {/each}
+      </div>
+    </section>
+
+    <TodoGroups todos={soon} {today} emptyText="今天和明天沒有到期的待辦" />
+
+    <button class="more" onclick={onall}>
+      <span>{week ? `接下來 7 天還有 ${week} 項` : `查看全部 ${store.open.length} 項待辦`}</span>
+      <Icon name="chevron" size={20} />
+    </button>
   </div>
 
-  <!-- 可以聚焦的分隔線（ARIA 的 window splitter）：拖曳或用方向鍵調整寬度 -->
-  <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-  <div
-    class="resizer"
-    role="separator"
-    aria-orientation="vertical"
-    aria-label="調整待辦清單的寬度"
-    aria-valuenow={Math.round(width)}
-    tabindex="0"
-    onpointerdown={startResize}
-    ondblclick={() => ((width = DEFAULT_WIDTH), saveWidth())}
-    onkeydown={resizeKey}
-    title="拖曳調整寬度，按兩下還原"
-  ></div>
-
-  <section class="panel" bind:this={panelEl} style:--w="{width}px">
-    <header>
-      <h2>待辦事項</h2>
-    </header>
-    <TodoPanel bind:this={panel} doneKey="home.showDone" {matches} />
-  </section>
-</div>
+  <Fab aria="新增待辦" onclick={() => ui.add()} />
 </div>
 
-{#if menu}
-  {@const m = menu}
-  <div class="ctx" role="menu" aria-label="主頁版面" style:left="{m.x}px" style:top="{m.y}px" use:place>
-    {#if m.id}
-      <div class="mhead">{spec(m.id).label}</div>
-    {/if}
-    <button role="menuitem" onclick={() => act(() => (editing = !editing))}>
-      <Icon name="widget" size={14} />{editing ? "完成調整" : "調整版面"}
-    </button>
-    {#if m.id}
-      {@const id = m.id}
-      <button role="menuitem" onclick={() => act(() => homeLayout.remove(id))}>
-        <Icon name="close" size={14} />{isCountdown(id) ? "從主頁拿掉" : "拿掉這個組件"}
-      </button>
-    {/if}
-    {#if addable.length}
-      <div class="sep"></div>
-      <div class="mhead">加回組件</div>
-      {#each addable as a (a.id)}
-        <button role="menuitem" onclick={() => act(() => homeLayout.add(a.id))}>
-          <Icon name={isCountdown(a.id) ? "hourglass" : "plus"} size={14} /><span class="clip">{a.label}</span>
-        </button>
-      {/each}
-    {/if}
-    <div class="sep"></div>
-    <button role="menuitem" onclick={() => act(() => homeLayout.reset())}><Icon name="refresh" size={14} />還原預設版面</button>
+{#if shown}
+  <div class="dlg-layer">
+    <button class="scrim" onclick={() => (openQ = null)} aria-label="關閉" transition:fade={{ duration: 180 }}></button>
+    <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="qtitle" transition:scale={{ start: 0.92, duration: 200 }}>
+      <header class="dhead">
+        <div class="dtext">
+          <h2 id="qtitle"><span class="dot big {shown.key}"></span>{shown.title}<span class="dcount">{shown.items.length}</span></h2>
+          <span class="daxis">{shown.axis}</span>
+        </div>
+        <button class="icon-btn" onclick={() => (openQ = null)} aria-label="關閉"><Icon name="close" size={22} /></button>
+      </header>
+      <div class="dlist">
+        {#each shown.items as t (t.id)}
+          <TodoItem todo={t} {today} />
+        {:else}
+          <p class="dnone">這一格沒有待辦</p>
+        {/each}
+      </div>
+      <footer class="dfoot">
+        <button class="text-btn" onclick={() => ((openQ = null), onall())}>在「全部」查看</button>
+      </footer>
+    </div>
   </div>
 {/if}
 
 <style>
-  .wrap {
-    height: 100%;
-    container-type: inline-size;
-  }
-  /* 手機：主畫面上方有標題列，填滿剩下的高度 */
-  :global(html.mobile) .wrap {
+  .page {
     flex: 1;
     min-height: 0;
-  }
-  .home {
-    height: 100%;
-    display: flex;
-  }
-  .home.resizing {
-    cursor: col-resize;
-    user-select: none;
-  }
-  .left {
-    flex: 1;
-    min-width: 0;
-    overflow-y: auto;
-    padding: 28px 24px 40px 32px;
-  }
-  /* 調整版面時浮在左半下方的提示列 */
-  .edit-dock {
-    position: sticky;
-    bottom: 16px;
-    margin-top: 20px;
-    display: flex;
-    justify-content: center;
-    z-index: 6;
-    pointer-events: none;
-  }
-  .edit-bar {
-    pointer-events: auto;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 6px 6px 6px 16px;
-    border-radius: 999px;
-    background: var(--raised);
-    box-shadow: var(--pop-shadow);
-    font-size: 12.5px;
-    color: var(--sub);
-    white-space: nowrap;
-  }
-  .done {
-    height: 30px;
-    padding: 0 16px;
-    border-radius: 999px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 12.5px;
-    font-weight: 500;
-  }
-
-  .ctx {
-    position: fixed;
-    z-index: 50;
-    width: 200px;
-    padding: 5px;
-    background: var(--raised);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    box-shadow: var(--pop-shadow);
-  }
-  .ctx button {
-    width: 100%;
-    height: 32px;
-    padding: 0 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border-radius: 6px;
-    font-size: 13px;
-    text-align: left;
-    color: var(--text);
-  }
-  .ctx button:hover,
-  .ctx button:focus-visible {
-    background: var(--hover);
-    outline: none;
-  }
-  .ctx :global(svg) {
-    flex: none;
-    color: var(--sub);
-  }
-  .mhead {
-    padding: 6px 10px 4px;
-    font-size: 11.5px;
-    font-weight: 700;
-    color: var(--faint);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .sep {
-    height: 1px;
-    margin: 4px 6px;
-    background: var(--line);
-  }
-  .clip {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* 日期和一言的字是固定大小，不跟著組件縮放；放不下就截斷或捲動 */
-  .when {
-    height: 100%;
-    min-width: 0;
-    overflow: hidden;
+    position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+  }
+  .scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 96px;
+  }
+  .when {
+    display: flex;
+    flex-direction: column;
     gap: 2px;
+    padding: 0 20px 8px;
   }
   .year {
     font-size: 14px;
-    font-weight: 500;
     color: var(--sub);
   }
   h1 {
     margin: 0;
-    white-space: nowrap;
     font-size: 44px;
-    font-weight: 800;
-    line-height: 1.1;
-    letter-spacing: 0.01em;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
   }
   .summary {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
+    margin: 0;
+    font-size: 14px;
     color: var(--sub);
   }
-  .summary.warn {
+  .summary b {
+    color: var(--text);
+  }
+  .summary .warn,
+  .summary b.warn,
+  .summary .warn b {
     color: var(--warn);
   }
-
-  /* 時鐘是圖，跟著組件的大小縮放 */
-  .clock-box {
-    height: 100%;
-    display: grid;
-    place-items: center;
-  }
-  .clock-box :global(.clock) {
-    width: min(100cqw, calc(100cqh - 36px));
-    height: auto;
-  }
-  .clock-box :global(.digital .hm) {
-    font-size: clamp(24px, min(24cqw, 70cqh), 80px);
+  .card {
+    border-radius: 20px;
+    background: var(--c);
   }
   .quote {
-    height: 100%;
-    margin: 0;
-    box-sizing: border-box;
-    overflow-y: auto;
+    margin: 12px 16px 0;
+    padding: 16px 18px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    padding: 10px 16px;
-    border-radius: 12px;
-    background: var(--bg2);
+    gap: 8px;
   }
   figcaption {
-    display: flex;
-    gap: 8px;
-    font-size: 11.5px;
-    color: var(--faint);
-  }
-  .qlabel {
-    font-weight: 700;
+    font-size: 12px;
     color: var(--sub);
-    letter-spacing: 0.04em;
   }
   blockquote {
     margin: 0;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 500;
-    line-height: 1.5;
+    line-height: 1.6;
   }
-
-  .resizer {
+  .cds {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px 0;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 16px;
+  }
+  .cd {
     flex: none;
-    width: 10px;
-    margin: 12px -3px;
-    cursor: col-resize;
-    position: relative;
-    z-index: 2;
-    outline: none;
-  }
-  .resizer::after {
-    content: "";
-    position: absolute;
-    left: 4px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    border-radius: 2px;
-    background: transparent;
-    transition: background 0.15s;
-  }
-  .resizer:hover::after,
-  .resizer:focus-visible::after,
-  .resizing .resizer::after {
-    background: var(--accent);
-  }
-
-  .panel {
-    flex: none;
-    /* 左邊至少留 420px 給日期和矩陣 */
-    width: min(var(--w), calc(100% - 420px));
-    min-width: 280px;
-    margin: 12px 12px 12px 0;
+    width: 150px;
+    padding: 14px 16px;
     display: flex;
     flex-direction: column;
+    gap: 2px;
+    text-align: left;
+    scroll-snap-align: start;
+  }
+  .cd-title {
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .cd-num {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+  .cd-num b {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--accent);
+  }
+  .cd-num b.past {
+    color: var(--text);
+  }
+  .cd-num b.now {
+    font-size: 22px;
+    color: var(--warn);
+  }
+  .cd-num small,
+  .cd-date {
+    font-size: 12px;
+    color: var(--sub);
+  }
+  .matrix {
+    margin: 12px 16px 0;
+    padding: 14px 12px 12px;
+  }
+  .mhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px 10px;
+  }
+  .mtitle {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .maxis {
+    font-size: 12px;
+    color: var(--sub);
+  }
+  .mgrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .tile {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
     border-radius: 14px;
-    background: var(--raised);
-    box-shadow: var(--card-shadow);
+    background: var(--c-high);
+    text-align: left;
+  }
+  .tile:active {
+    filter: brightness(1.08);
+  }
+  .trow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .tname {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .tcount {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .tpeek {
+    font-size: 12px;
+    color: var(--sub);
+  }
+  .dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .dot.big {
+    width: 10px;
+    height: 10px;
+  }
+  .dot.do {
+    background: var(--warn);
+  }
+  .dot.plan {
+    background: var(--accent);
+  }
+  .dot.quick {
+    background: var(--yellow);
+  }
+  .dot.later {
+    background: var(--faint);
+  }
+  .more {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: calc(100% - 32px);
+    height: 48px;
+    margin: 8px 16px 0;
+    padding: 0 12px 0 16px;
+    border-radius: 24px;
+    background: var(--c);
+    font-size: 14px;
+    color: var(--text);
+  }
+  .more :global(svg) {
+    color: var(--sub);
+  }
+
+  .dlg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    display: grid;
+    place-items: center;
+    padding: 24px 20px calc(24px + var(--nav-inset));
+  }
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--scrim);
+  }
+  .dlg {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    border-radius: 28px;
+    background: var(--c-high);
+    box-shadow: var(--pop-shadow);
     overflow: hidden;
   }
-  .panel header {
-    padding: 14px 18px 10px;
+  .dhead {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 20px 8px 8px 24px;
+  }
+  .dtext {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   h2 {
     margin: 0;
-    font-size: 17px;
-    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 22px;
+    font-weight: 500;
   }
-
-  /* 太窄（或手機）：改成上下排，待辦清單放在下面 */
-  @container (max-width: 720px) {
-    .home {
-      flex-direction: column;
-      overflow-y: auto;
-    }
-    .left {
-      flex: none;
-      overflow: visible;
-      padding: 20px 20px 8px;
-    }
-    .resizer {
-      display: none;
-    }
-    .panel {
-      width: auto;
-      min-width: 0;
-      margin: 8px 12px 16px;
-      flex: none;
-    }
+  .dcount {
+    font-size: 15px;
+    color: var(--sub);
   }
-  :global(html.mobile) .left {
-    padding: 4px 16px 8px;
+  .daxis {
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .dlist {
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 4px;
+  }
+  .dnone {
+    margin: 0;
+    padding: 24px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--sub);
+  }
+  .dfoot {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 16px 16px;
+    border-top: 1px solid var(--c-highest);
   }
 </style>

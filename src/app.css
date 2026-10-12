@@ -1,54 +1,87 @@
 @import "@fontsource-variable/noto-sans-tc";
 
+/*
+ * Material 3 的配色（藍色系）。名稱：
+ * --bg 頁面底色、--c-low／--c／--c-high／--c-highest 由淺到深的容器（卡片、底部面板、輸入框）、
+ * --text 主要文字、--sub 次要文字、--faint 提示文字和外框、--line 分隔線、
+ * --accent 主色（--on-accent 放在主色上的字）、--accent-container 主色容器（浮動按鈕）、
+ * --sel 選中的底色（導覽列、篩選標籤）、--warn 高優先和到期（橘色）。
+ */
 :root {
-  --font: "Noto Sans TC Variable", "Microsoft JhengHei UI", "Segoe UI", sans-serif;
-  --bg: #fafaf8;
-  --raised: #ffffff;
-  --bg2: #efefec;
-  --text: #1e2126;
-  --sub: #5f656e;
-  --faint: #8e949c;
-  --ring: #bfc4cb;
-  --line: rgba(20, 24, 30, 0.08);
-  --hover: rgba(20, 24, 30, 0.045);
-  --active: rgba(20, 24, 30, 0.07);
-  --accent: #2563eb;
-  --accent-soft: #e6eefd;
-  --warn: #c2410c;
-  --warn-soft: #fcebe2;
-  --ok: #16a34a;
-  --toast-bg: #1e2126;
-  --toast-text: #f4f4f5;
-  --toast-accent: #9dbcff;
-  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 14px rgba(16, 24, 40, 0.08);
-  --pop-shadow: 0 8px 28px rgba(16, 24, 40, 0.18);
-  --layer: rgba(255, 255, 255, 0.72);
+  --font: "Noto Sans TC Variable", "Noto Sans TC", sans-serif;
+  --bg: #f9f9ff;
+  --c-low: #f3f3fa;
+  --c: #ededf4;
+  --c-high: #e7e8ee;
+  --c-highest: #e2e2e9;
+  --text: #191c20;
+  --sub: #44474f;
+  --faint: #74777f;
+  --ring: #74777f;
+  --line: #c4c6d0;
+  --accent: #415f91;
+  --on-accent: #ffffff;
+  --accent-container: #d6e3ff;
+  --on-accent-container: #284777;
+  --sel: #dae2f9;
+  --on-sel: #3e4759;
+  --warn: #9c4a14;
+  --warn-container: #ffdbc8;
+  --on-warn-container: #5c2700;
+  --yellow: #8a6a00;
+  --ok: #2e7d4f;
+  --scrim: rgba(0, 0, 0, 0.4);
+  --inverse: #2e3036;
+  --on-inverse: #eff0f7;
+  --inverse-accent: #adc6ff;
+
+  /* 舊名稱（設定、設定精靈、整理標籤還在用） */
+  --raised: var(--c);
+  --bg2: var(--c-high);
+  --hover: color-mix(in srgb, var(--text) 8%, transparent);
+  --active: color-mix(in srgb, var(--text) 12%, transparent);
+  --accent-soft: var(--accent-container);
+  --warn-soft: var(--warn-container);
+  --toast-bg: var(--inverse);
+  --toast-text: var(--on-inverse);
+  --toast-accent: var(--inverse-accent);
+  --card-shadow: none;
+  --pop-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  --layer: var(--bg);
+
+  /* 系統導覽列的高度（MainActivity 告訴網頁），貼著底部的東西要讓開 */
+  --nav-inset: 0px;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1f2126;
-    --raised: #2a2d33;
-    --bg2: #2b2e35;
-    --text: #ecedef;
-    --sub: #a3a8b1;
-    --faint: #7a7f88;
-    --ring: #5a5f69;
-    --line: rgba(255, 255, 255, 0.08);
-    --hover: rgba(255, 255, 255, 0.05);
-    --active: rgba(255, 255, 255, 0.08);
-    --accent: #6e9dff;
-    --accent-soft: rgba(110, 157, 255, 0.16);
-    --warn: #f2905c;
-    --warn-soft: rgba(242, 144, 92, 0.15);
-    --ok: #4ade80;
-    --toast-bg: #ecedef;
-    --toast-text: #1e2126;
-    --toast-accent: #2563eb;
-    --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-    --pop-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
-    --layer: rgba(32, 34, 39, 0.55);
+    --bg: #111318;
+    --c-low: #191c20;
+    --c: #1d2024;
+    --c-high: #282a2f;
+    --c-highest: #33353a;
+    --text: #e2e2e9;
+    --sub: #c4c6d0;
+    --faint: #8e9099;
+    --ring: #8e9099;
+    --line: #44474f;
+    --accent: #adc6ff;
+    --on-accent: #102f60;
+    --accent-container: #2b4678;
+    --on-accent-container: #d8e2ff;
+    --sel: #3e4759;
+    --on-sel: #dae2f9;
+    --warn: #ffb77c;
+    --warn-container: #6a3a12;
+    --on-warn-container: #ffdcc4;
+    --yellow: #e8c547;
+    --ok: #9dd4a8;
+    --scrim: rgba(0, 0, 0, 0.55);
+    --inverse: #e2e2e9;
+    --on-inverse: #2e3036;
+    --inverse-accent: #415f91;
+    --pop-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
     color-scheme: dark;
   }
 }
@@ -62,18 +95,14 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: transparent;
+  background: var(--bg);
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
   user-select: none;
   cursor: default;
-}
-
-/* 不支援毛玻璃（Windows 10）時用實心背景 */
-html.no-effects body {
-  background: var(--bg);
 }
 
 #app {
@@ -97,121 +126,129 @@ button {
   cursor: pointer;
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* 手機：拿掉 WebView 按下時的藍色框；長按按鈕不要選取文字、跳出系統選單 */
-html.mobile {
-  -webkit-tap-highlight-color: transparent;
-}
-html.mobile button,
-html.mobile a {
+/* 長按按鈕不要選取文字、跳出系統選單 */
+button,
+a {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
 }
 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--ring);
-  border-radius: 10px;
-  border: 3px solid transparent;
-  background-clip: content-box;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* 圓形圖示按鈕（48dp 的點擊範圍） */
 .icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
   display: grid;
   place-items: center;
   color: var(--sub);
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s;
 }
-.icon-btn:hover {
+.icon-btn:active {
   background: var(--hover);
-  color: var(--text);
 }
 
+/* 篩選標籤（chip） */
 .pill {
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: var(--bg2);
-  font-size: 12px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 500;
   color: var(--sub);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
-}
-.pill:hover {
-  color: var(--text);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .pill.on {
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 500;
+  background: var(--sel);
+  border-color: transparent;
+  color: var(--on-sel);
 }
 .pill.warn-on {
-  background: var(--warn-soft);
-  color: var(--warn);
-  font-weight: 500;
+  background: var(--warn-container);
+  border-color: transparent;
+  color: var(--on-warn-container);
 }
 
-/* 按鈕：primary 主要動作、ghost 次要動作 */
+/* 按鈕：primary 填滿、ghost 色調（tonal） */
 .primary,
 .ghost {
-  height: 34px;
-  padding: 0 16px;
-  border-radius: 8px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  transition: background 0.15s, opacity 0.15s;
+  gap: 8px;
+  transition: filter 0.15s, opacity 0.15s;
 }
 .primary {
   background: var(--accent);
-  color: #fff;
-  font-weight: 500;
+  color: var(--on-accent);
 }
-.primary:hover {
-  filter: brightness(1.06);
-}
-/* 用半透明底色：放在卡片（--raised）或頁面（--bg）上都看得出是按鈕 */
 .ghost {
-  padding: 0 14px;
-  background: var(--active);
-}
-.ghost:hover {
-  background: color-mix(in srgb, var(--text) 13%, transparent);
+  padding: 0 20px;
+  background: var(--sel);
+  color: var(--on-sel);
 }
 .ghost.danger {
-  color: var(--warn);
+  background: var(--warn-container);
+  color: var(--on-warn-container);
+}
+.primary:active,
+.ghost:active {
+  filter: brightness(1.08);
 }
 .primary.big {
-  height: 42px;
-  padding: 0 22px;
-  font-size: 14px;
-  border-radius: 10px;
+  height: 48px;
+  padding: 0 28px;
+  font-size: 15px;
+  border-radius: 24px;
 }
 .primary:disabled,
 .ghost:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: default;
 }
+
+/* 文字按鈕 */
+.text-btn {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.text-btn:active {
+  background: var(--hover);
+}
+.text-btn.danger {
+  color: var(--warn);
+}
+
 /* 太長的名稱（標籤、資料夾）截斷成「…」；放在 flex 容器裡也有效 */
 .clip {
   min-width: 0;
@@ -222,20 +259,27 @@ html.mobile a {
 
 .link {
   color: var(--accent);
-  font-size: 13px;
-}
-.link:hover {
-  text-decoration: underline;
+  font-size: 14px;
 }
 
-/* 測試版標示（標題列、小工具標題） */
+/* 測試版標示 */
 .beta {
   margin-left: 8px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--warn-soft);
-  color: var(--warn);
+  background: var(--warn-container);
+  color: var(--on-warn-container);
   font-size: 11px;
   font-weight: 600;
   vertical-align: middle;
+}
+
+/* 只給螢幕閱讀器的文字 */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

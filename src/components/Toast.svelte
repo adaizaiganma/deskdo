@@ -3,14 +3,15 @@
   import { toast } from "@deskdo/core/toast.svelte";
 </script>
 
+<!-- Material 的 snackbar；放在浮動按鈕上面 -->
 {#if toast.current}
   {#key toast.current.id}
-    <div class="toast" class:error={toast.current.kind === "error"} role="status" transition:fly={{ y: 10, duration: 220 }}>
-      <span class="msg" title={toast.current.message}>{toast.current.message}</span>
+    <div class="toast" class:error={toast.current.kind === "error"} role="status" transition:fly={{ y: 16, duration: 220 }}>
+      <span class="msg">{toast.current.message}</span>
       {#if toast.current.undo}
-        <button class="undo" onclick={() => toast.runUndo()}>復原</button>
+        <button class="act" onclick={() => toast.runUndo()}>復原</button>
       {:else}
-        <button class="undo" onclick={() => toast.dismiss()} aria-label="關閉">✕</button>
+        <button class="act" onclick={() => toast.dismiss()} aria-label="關閉">✕</button>
       {/if}
     </div>
   {/key}
@@ -21,38 +22,37 @@
     position: absolute;
     left: 12px;
     right: 12px;
-    bottom: 12px;
-    z-index: 10;
-    height: 42px;
-    padding: 0 6px 0 14px;
-    border-radius: 10px;
-    background: var(--toast-bg);
-    color: var(--toast-text);
+    bottom: var(--toast-bottom, 16px);
+    z-index: 60;
+    min-height: 48px;
+    padding: 6px 6px 6px 16px;
+    border-radius: 4px;
+    background: var(--inverse);
+    color: var(--on-inverse);
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 13px;
+    gap: 8px;
+    font-size: 14px;
     box-shadow: var(--pop-shadow);
   }
   .toast.error {
-    background: var(--warn);
+    background: #ba1a1a;
     color: #fff;
   }
   .msg {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.4;
   }
-  .undo {
-    height: 32px;
-    padding: 0 10px;
-    border-radius: 6px;
+  .act {
+    flex: none;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 18px;
     font-weight: 700;
-    color: var(--toast-accent);
+    color: var(--inverse-accent);
   }
-  .toast.error .undo {
+  .toast.error .act {
     color: #fff;
   }
 </style>
