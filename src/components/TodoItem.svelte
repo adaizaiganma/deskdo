@@ -14,13 +14,13 @@
   const sending = $derived(todo.id.startsWith("tmp-"));
   const high = $derived(todo.priority === "high" && !todo.done);
   const low = $derived(todo.priority === "low" && !todo.done);
-  const due = $derived(!todo.done && todo.due ? rowDue(todo.due, today) : null);
+  const due = $derived(!todo.done && todo.due ? rowDue(todo.due, today, todo.dueTime, store.now) : null);
   const checked = $derived(todo.done || checking);
   const next = $derived(todo.done ? undefined : store.nextOf.get(todo.id));
   /** 前一步還沒完成（標籤頁、搜尋時才看得到） */
   const waitingFor = $derived(store.waiting.has(todo.id) ? store.prevOf(todo) : undefined);
   const doneOn = $derived(todo.done && todo.doneAt ? monthDay(localDate(todo.doneAt) ?? today, today) : "");
-  const hasMeta = $derived(high || low || !!todo.tag || todo.source === "email" || (!!todo.note && !todo.done) || !!doneOn || !!waitingFor);
+  const hasMeta = $derived(high || low || todo.tags.length > 0 || todo.source === "email" || (!!todo.note && !todo.done) || !!doneOn || !!waitingFor);
 
   function toggle() {
     if (sending || checking) return;
@@ -57,13 +57,13 @@
           {#if doneOn}<span>{doneOn} 完成</span>{/if}
           {#if high}<span class="mi warn"><Icon name="flag" size={13} stroke={1.8} />高優先</span>{/if}
           {#if low}<span class="mi">低優先</span>{/if}
-          {#if todo.tag}<span class="mi clip">#{todo.tag}</span>{/if}
+          {#each todo.tags as tag (tag)}<span class="mi clip">#{tag}</span>{/each}
           {#if todo.source === "email"}<span class="mi"><Icon name="mail" size={13} />Gmail</span>{/if}
           {#if todo.note && !todo.done}<span class="mi"><Icon name="note" size={13} />備註</span>{/if}
         </span>
       {/if}
       {#if next}
-        <span class="next clip">↳ 接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today)}` : ""}</span>
+        <span class="next clip">↳ 接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}</span>
       {/if}
     </span>
     {#if due}

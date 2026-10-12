@@ -171,6 +171,8 @@ class DeskdoWidget : AppWidgetProvider() {
   /** 一個小工具要顯示的全部內容（依它的篩選算好） */
   class Model(
     val today: String,
+    /** 算的時候的時間 HH:mm：今天有時間的待辦過了就算逾期 */
+    val now: String,
     val openCount: Int,
     val overdue: Int,
     val chips: List<Chip>,
@@ -224,7 +226,7 @@ class DeskdoWidget : AppWidgetProvider() {
     fun model(context: Context, widgetId: Int, data: WidgetStore.Data?): Model {
       val today = today(data)
       if (data == null || !data.configured) {
-        return Model(today, 0, 0, emptyList(), emptyList(), emptyList(), "打開 Deskdo 完成設定")
+        return Model(today, "", 0, 0, emptyList(), emptyList(), emptyList(), "打開 Deskdo 完成設定")
       }
       val all = data.items
       val ids = all.map { it.id }.toHashSet()
@@ -233,11 +235,11 @@ class DeskdoWidget : AppWidgetProvider() {
       val waiting = all.filter { it.after != null && it.after in ids }.map { it.id }.toHashSet()
       val open = all.filter { it.id !in waiting }
 
-      val countOf = all.groupingBy { it.tag }.eachCount()
+      val countOf = all.flatMap { it.tags }.groupingBy { it }.eachCount()
       val groups = data.folders.filter { it.tags.isNotEmpty() }
       val inFolders = groups.flatMap { it.tags }.toHashSet()
       val collator = Collator.getInstance(Locale.TRADITIONAL_CHINESE)
-      val loose = all.mapNotNull { it.tag }.distinct().filter { it !in inFolders }.sortedWith(collator)
+      val loose = all.flatMap { it.tags }.distinct().filter { it !in inFolders }.sortedWith(collator)
 
       // 篩選的資料夾或標籤已經不在了就往上一層退
       val p = prefs(context)
@@ -248,7 +250,8 @@ class DeskdoWidget : AppWidgetProvider() {
       val chips = buildList {
         add(Chip("all", null, "全部", open.size, on = current == null && tag == null))
         for (g in groups) {
-          val n = g.tags.sumOf { countOf[it] ?: 0 }
+          // 有好幾個標籤在同一個資料夾的待辦只算一次
+          val n = all.count { t -> t.tags.any { it in g.tags } }
           add(Chip("folder", g.name, g.name, n, on = current == g && tag == null, open = current == g))
         }
         for (t in loose) add(Chip("loose", t, "#$t", countOf[t] ?: 0, on = current == null && tag == t))
@@ -259,18 +262,19 @@ class DeskdoWidget : AppWidgetProvider() {
       } ?: emptyList()
 
       val shown = when {
-        tag != null -> all.filter { it.tag == tag }
-        current != null -> all.filter { it.tag != null && it.tag in current.tags }
+        tag != null -> all.filter { tag in it.tags }
+        current != null -> all.filter { t -> t.tags.any { it in current.tags } }
         else -> open
       }
-      val rows = groupRows(shown, today) { if (it.id in waiting) titles[it.after] else null }
+      val now = SimpleDateFormat("HH:mm", Locale.US).format(Date())
+      val rows = groupRows(shown, today, now) { if (it.id in waiting) titles[it.after] else null }
       val empty = when {
         tag != null -> "這個標籤沒有待辦"
         current != null -> "這個資料夾沒有待辦"
         else -> "沒有待辦事項\n享受一下空白吧"
       }
-      val overdue = open.count { it.due != null && it.due < today }
-      return Model(today, open.size, overdue, chips, subChips, rows, empty)
+      val overdue = open.count { isOverdue(it, today, now) }
+      return Model(today, now, open.size, overdue, chips, subChips, rows, empty)
     }
 
     /** App 交來的「今天」可能是好幾天前的（App 很久沒開），這時以手機的日期為準 */
@@ -281,9 +285,9 @@ class DeskdoWidget : AppWidgetProvider() {
     }
 
     /** 依期限分組，和 App 的 groupTodos 一樣；項目已經排好了 */
-    private fun groupRows(items: List<WidgetStore.Item>, today: String, waitingFor: (WidgetStore.Item) -> String?): List<Row> {
+    private fun groupRows(items: List<WidgetStore.Item>, today: String, now: String, waitingFor: (WidgetStore.Item) -> String?): List<Row> {
       val keys = listOf("overdue", "today", "tomorrow", "week", "later", "none")
-      val buckets = items.groupBy { groupOf(it.due, today) }
+      val buckets = items.groupBy { if (isOverdue(it, today, now)) "overdue" else groupOf(it.due, today) }
       val tomorrow = addDays(today, 1)
       return keys.flatMap { key ->
         val list = buckets[key] ?: return@flatMap emptyList()
@@ -329,7 +333,7 @@ class DeskdoWidget : AppWidgetProvider() {
 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val b = RemoteViews.RemoteCollectionItems.Builder().setHasStableIds(true).setViewTypeCount(2)
-        for (row in m.rows) b.addItem(row.stableId, rowView(context, m.today, row))
+        for (row in m.rows) b.addItem(row.stableId, rowView(context, m.today, m.now, row))
         views.setRemoteAdapter(R.id.list, b.build())
       } else {
         val svc = Intent(context, WidgetService::class.java).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
@@ -421,7 +425,7 @@ class DeskdoWidget : AppWidgetProvider() {
       return v
     }
 
-    fun rowView(context: Context, today: String, row: Row): RemoteViews = when (row) {
+    fun rowView(context: Context, today: String, now: String, row: Row): RemoteViews = when (row) {
       is Row.Header -> {
         val v = RemoteViews(context.packageName, R.layout.widget_group)
         v.setTextViewText(R.id.label, row.label)
@@ -430,10 +434,10 @@ class DeskdoWidget : AppWidgetProvider() {
         v.setTextViewText(R.id.gcount, row.count.toString())
         v
       }
-      is Row.Item -> itemView(context, today, row.item, row.waitingFor)
+      is Row.Item -> itemView(context, today, now, row.item, row.waitingFor)
     }
 
-    private fun itemView(context: Context, today: String, item: WidgetStore.Item, waitingFor: String?): RemoteViews {
+    private fun itemView(context: Context, today: String, now: String, item: WidgetStore.Item, waitingFor: String?): RemoteViews {
       val v = RemoteViews(context.packageName, R.layout.widget_item)
       val high = item.priority == "high"
       val low = item.priority == "low"
@@ -450,13 +454,13 @@ class DeskdoWidget : AppWidgetProvider() {
       meta(R.id.waiting, waitingFor != null, "等「$waitingFor」完成")
       meta(R.id.high, high)
       meta(R.id.low, low)
-      meta(R.id.tag, item.tag != null, "#${item.tag}")
+      meta(R.id.tag, item.tags.isNotEmpty(), item.tags.joinToString(" ") { "#$it" })
       meta(R.id.mail, item.mail)
       meta(R.id.note, item.note)
-      val hasMeta = waitingFor != null || high || low || item.tag != null || item.mail || item.note
+      val hasMeta = waitingFor != null || high || low || item.tags.isNotEmpty() || item.mail || item.note
       v.setViewVisibility(R.id.meta, if (hasMeta) View.VISIBLE else View.GONE)
 
-      val due = item.due?.let { rowDue(it, today) }
+      val due = item.due?.let { rowDue(it, today, item.dueTime, now) }
       if (due == null) {
         v.setViewVisibility(R.id.due, View.GONE)
       } else {
@@ -530,13 +534,22 @@ class DeskdoWidget : AppWidgetProvider() {
       }
     }
 
-    /** 右側的期限：倒數（逾期 2 天／今天到期／還有 3 天）、日期、顏色 */
-    private fun rowDue(due: String, today: String): Triple<String, String, Int>? {
+    /** 過期了沒：期限在今天以前，或今天到期而且時間已經過了 */
+    private fun isOverdue(item: WidgetStore.Item, today: String, now: String): Boolean {
+      val due = item.due ?: return false
+      return due < today || (due == today && item.dueTime != null && item.dueTime < now)
+    }
+
+    /** 右側的期限：倒數（逾期 2 天／今天到期／今天 15:00／還有 3 天）、日期（加上時間）、顏色 */
+    private fun rowDue(due: String, today: String, time: String?, now: String): Triple<String, String, Int>? {
       val n = diffDays(today, due) ?: return null
-      val date = if (n in 0..7) "${weekday(due)} ${monthDay(due, today)}" else monthDay(due, today)
+      val at = if (time != null) " $time" else ""
+      val date = (if (n in 0..7) "${weekday(due)} ${monthDay(due, today)}" else monthDay(due, today)) + at
       return when {
         n < 0 -> Triple("逾期 ${-n} 天", date, R.color.widget_warn)
-        n == 0 -> Triple("今天到期", "", R.color.widget_warn)
+        n == 0 && time == null -> Triple("今天到期", "", R.color.widget_warn)
+        n == 0 && time != null && time < now -> Triple("已逾期", "今天$at", R.color.widget_warn)
+        n == 0 -> Triple("今天$at", "", R.color.widget_warn)
         else -> Triple("還有 $n 天", date, if (n <= 3) R.color.widget_accent else R.color.widget_sub)
       }
     }
@@ -558,7 +571,7 @@ class WidgetService : RemoteViewsService() {
     override fun getCount() = model?.rows?.size ?: 0
     override fun getViewAt(position: Int): RemoteViews {
       val m = model ?: return RemoteViews(context.packageName, R.layout.widget_item)
-      return DeskdoWidget.rowView(context, m.today, m.rows[position])
+      return DeskdoWidget.rowView(context, m.today, m.now, m.rows[position])
     }
     override fun getLoadingView(): RemoteViews? = null
     override fun getViewTypeCount() = 2

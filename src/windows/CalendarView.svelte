@@ -20,7 +20,7 @@
   const monthLabel = $derived(`${Number(month.slice(0, 4))}年${Number(month.slice(5))}月`);
 
   const PRIORITY_RANK = { high: 0, normal: 1, low: 2 } as const;
-  /** 每一天到期的未完成待辦（高優先先） */
+  /** 每一天到期的未完成待辦（有時間的照時間，再來高優先先） */
   const byDay = $derived.by(() => {
     const first = days[0];
     const last = days[days.length - 1];
@@ -31,7 +31,12 @@
       if (list) list.push(t);
       else map.set(t.due, [t]);
     }
-    for (const list of map.values()) list.sort((a, b) => (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1));
+    for (const list of map.values())
+      list.sort(
+        (a, b) =>
+          (a.dueTime ?? "99:99").localeCompare(b.dueTime ?? "99:99") ||
+          (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1),
+      );
     return map;
   });
 
@@ -63,7 +68,7 @@
 
   function tone(t: Todo): string {
     if (store.waiting.has(t.id)) return "waiting";
-    if (t.due! < today || t.priority === "high") return "warn";
+    if (store.overdue(t) || t.priority === "high") return "warn";
     return t.priority;
   }
 </script>

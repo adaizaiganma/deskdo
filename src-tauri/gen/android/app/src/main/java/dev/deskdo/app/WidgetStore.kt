@@ -14,7 +14,9 @@ object WidgetStore {
     val id: String,
     val title: String,
     val due: String?,
-    val tag: String?,
+    /** 期限的時間 HH:mm；null 是一整天 */
+    val dueTime: String?,
+    val tags: List<String>,
     val priority: String,
     /** 還沒完成的前一步；有的話這一步還沒輪到 */
     val after: String?,
@@ -67,6 +69,13 @@ object WidgetStore {
   private fun str(o: JSONObject, key: String): String? =
     if (o.isNull(key)) null else o.optString(key).takeIf { it.isNotEmpty() }
 
+  /** 標籤：雲端版本 6 起是 tags 陣列，舊版只有一個 tag */
+  private fun tagsOf(o: JSONObject): List<String> {
+    val arr = o.optJSONArray("tags")
+    val tags = if (arr == null) emptyList() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf { s -> s.isNotEmpty() } }
+    return tags.ifEmpty { listOfNotNull(str(o, "tag")) }
+  }
+
   fun load(context: Context): Data? {
     val o = try {
       JSONObject(raw(context) ?: return null)
@@ -80,7 +89,8 @@ object WidgetStore {
         id = it.getString("id"),
         title = it.optString("title"),
         due = str(it, "due"),
-        tag = str(it, "tag"),
+        dueTime = str(it, "dueTime"),
+        tags = tagsOf(it),
         priority = it.optString("priority", "normal"),
         after = str(it, "after"),
         mail = it.optBoolean("mail"),
@@ -199,6 +209,9 @@ object WidgetStore {
     }
     val sorted = open.sortedWith(
       compareBy<JSONObject>({ str(it, "due") == null }, { str(it, "due") })
+        // 同一天：有時間的照時間排在前面，一整天的在後面
+        .thenBy { str(it, "dueTime") == null }
+        .thenBy { str(it, "dueTime") }
         .thenBy { rank(it.optString("priority", "normal")) }
         .thenBy { it.optString("createdAt") },
     ).take(WIDGET_LIMIT)
@@ -210,7 +223,8 @@ object WidgetStore {
           .put("id", id)
           .put("title", t.optString("title"))
           .put("due", str(t, "due") ?: JSONObject.NULL)
-          .put("tag", str(t, "tag") ?: JSONObject.NULL)
+          .put("dueTime", str(t, "due")?.let { str(t, "dueTime") } ?: JSONObject.NULL)
+          .put("tags", JSONArray(tagsOf(t)))
           .put("priority", t.optString("priority", "normal"))
           .put("after", str(t, "afterId")?.takeIf { it in ids } ?: JSONObject.NULL)
           .put("mail", t.optString("source") == "email")

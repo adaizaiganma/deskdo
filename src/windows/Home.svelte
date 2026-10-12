@@ -31,8 +31,9 @@
   const quote = dailyQuote(() => today);
   const refreshQuote = () => quote.refresh().catch(() => toast.error("換不了句子，請檢查網路"));
   const tomorrow = $derived(addDays(today, 1));
-  const late = $derived(store.open.filter((t) => t.due && t.due < today).length);
-  const dueToday = $derived(store.open.filter((t) => t.due === today).length);
+  const late = $derived(store.overdueCount);
+  // 今天到期、時間已經過了的算在逾期
+  const dueToday = $derived(store.open.filter((t) => t.due === today && !store.overdue(t)).length);
   /** 逾期、今天、明天到期的 */
   const soon = $derived(store.open.filter((t) => t.due && t.due <= tomorrow));
   /** 接下來 7 天（不含今天、明天）到期的 */

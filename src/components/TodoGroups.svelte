@@ -2,6 +2,7 @@
   import { flip } from "svelte/animate";
   import { fly, slide } from "svelte/transition";
   import { groupTodos } from "@deskdo/core/dates";
+  import { store } from "@deskdo/core/store.svelte";
   import type { Todo } from "@deskdo/core/types";
   import Icon from "./Icon.svelte";
   import TodoItem from "./TodoItem.svelte";
@@ -22,7 +23,7 @@
   }
   let { todos, done = null, today, showDone, ontoggledone, doneLimit = 50, emptyText = "沒有待辦事項", flat = false }: Props = $props();
 
-  const groups = $derived(groupTodos(todos, today));
+  const groups = $derived(groupTodos(todos, today, null, store.now));
   const doneShown = $derived(done ? done.slice(0, doneLimit) : []);
   const doneOpen = $derived(showDone ?? true);
 </script>

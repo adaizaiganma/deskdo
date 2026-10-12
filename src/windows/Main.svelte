@@ -76,7 +76,7 @@
   function matches(t: Todo): boolean {
     const q = query.trim().toLowerCase();
     if (!q) return false;
-    return [t.title, t.note, t.tag].some((s) => s?.toLowerCase().includes(q));
+    return [t.title, t.note, ...t.tags].some((s) => s?.toLowerCase().includes(q));
   }
 
   const allChips = $derived([
@@ -89,13 +89,13 @@
   const sub = $derived.by(() => {
     if (page?.startsWith("tag:")) {
       const tag = page.slice(4);
-      const has = (t: Todo) => t.tag === tag;
+      const has = (t: Todo) => t.tags.includes(tag);
       return { title: `#${tag}`, todos: store.allOpen.filter(has), done: store.done.filter(has), tag, empty: "這個標籤沒有待辦" };
     }
     if (page?.startsWith("folder:")) {
       const name = page.slice(7);
       const tags = new Set(store.folders.find((f) => f.name === name)?.tags);
-      const has = (t: Todo) => !!t.tag && tags.has(t.tag);
+      const has = (t: Todo) => t.tags.some((g) => tags.has(g));
       return {
         title: name,
         todos: store.allOpen.filter(has),

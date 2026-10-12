@@ -19,7 +19,7 @@
   const used = $derived(new Set(store.tags));
   const counts = $derived.by(() => {
     const m = new Map<string, number>();
-    for (const t of store.allOpen) if (t.tag) m.set(t.tag, (m.get(t.tag) ?? 0) + 1);
+    for (const t of store.allOpen) for (const tag of t.tags) m.set(tag, (m.get(tag) ?? 0) + 1);
     return m;
   });
 

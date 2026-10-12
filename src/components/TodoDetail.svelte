@@ -21,7 +21,9 @@
   let title = $state(start?.title ?? "");
   let note = $state(start?.note ?? "");
   let due = $state<string | null>(start?.due ?? null);
-  let tag = $state<string | null>(start?.tag ?? null);
+  /** 期限的時間；null 是一整天 */
+  let dueTime = $state<string | null>(start?.dueTime ?? null);
+  let tags = $state<string[]>([...(start?.tags ?? [])]);
   let priority = $state<Todo["priority"]>(start?.priority ?? "normal");
   /** 刪掉了就不用再存 */
   let removed = false;
@@ -46,7 +48,10 @@
     const n = note.trim() || null;
     if (n !== (t.note ?? null)) p.note = n;
     if (due !== t.due) p.due = due;
-    if (tag !== t.tag) p.tag = tag;
+    // 沒有期限就沒有時間（雲端也會清掉）
+    const time = due ? dueTime : null;
+    if (time !== t.dueTime) p.dueTime = time;
+    if (tags.join("\n") !== t.tags.join("\n")) p.tags = [...tags];
     if (priority !== t.priority) p.priority = priority;
     if (Object.keys(p).length) store.update(id, p);
   }
@@ -77,7 +82,7 @@
 
   // ---- 期限 ----
   let duePanel = $state(false);
-  const dueInfo = $derived(due ? rowDue(due, today) : null);
+  const dueInfo = $derived(due ? rowDue(due, today, dueTime, store.now) : null);
   const dueChips = $derived([
     { label: "今天", value: today },
     { label: "明天", value: addDays(today, 1) },
@@ -93,22 +98,39 @@
     }
   }
 
+  // ---- 時間 ----
+  let timeInput = $state<HTMLInputElement>();
+  function pickTime() {
+    if (!store.canUseV6("time")) return;
+    try {
+      timeInput?.showPicker();
+    } catch {
+      timeInput?.focus();
+    }
+  }
+
   // ---- 標籤 ----
   let tagSheet = $state(false);
   let tagQuery = $state("");
   const tq = $derived(tagQuery.trim().replace(/^[#＃]/, "").trim());
   const tagOptions = $derived(store.orderedTags.filter((t) => !tq || t.toLowerCase().includes(tq.toLowerCase())));
   const canCreateTag = $derived(!!tq && !store.orderedTags.some((t) => t.toLowerCase() === tq.toLowerCase()));
-  function pickTag(t: string | null) {
-    tag = t;
-    tagSheet = false;
+  /** 點一下加上，已經有的再點一下拿掉；面板保持打開，可以連續選好幾個 */
+  function pickTag(t: string) {
+    if (tags.includes(t)) tags = tags.filter((x) => x !== t);
+    else {
+      if (tags.length && !store.canUseV6("tags")) return;
+      tags = [...tags, t];
+    }
+    tagQuery = "";
   }
   function tagKey(e: KeyboardEvent) {
     if (e.isComposing || e.key !== "Enter") return;
+    // Enter 只加不拿掉
     const exact = store.orderedTags.find((t) => t.toLowerCase() === tq.toLowerCase());
-    if (exact) pickTag(exact);
-    else if (canCreateTag) pickTag(tq);
-    else if (tagOptions.length === 1) pickTag(tagOptions[0]);
+    const t = exact ?? (canCreateTag ? tq : tagOptions.length === 1 ? tagOptions[0] : null);
+    if (t && !tags.includes(t)) pickTag(t);
+    else tagQuery = "";
   }
 
   // ---- 優先 ----
@@ -143,7 +165,7 @@
     const q = linkQuery.trim().toLowerCase();
     return store.allOpen
       .filter((t) => !ancestors.has(t.id) && t.id !== next?.id && !t.id.startsWith("tmp-"))
-      .filter((t) => !q || t.title.toLowerCase().includes(q) || t.tag?.toLowerCase().includes(q))
+      .filter((t) => !q || t.title.toLowerCase().includes(q) || t.tags.some((g) => g.toLowerCase().includes(q)))
       .slice(0, 30);
   });
 
@@ -158,7 +180,9 @@
     const step = parseQuickAdd(stepText, today);
     if (!step) return;
     if (step.priority === "low" && !store.canUseLow()) return;
-    store.add({ ...(tag ? { tag } : {}), ...step, afterId: id });
+    if (step.dueTime && !store.canUseV6("time")) return;
+    if ((step.tags?.length ?? 0) > 1 && !store.canUseV6("tags")) return;
+    store.add({ ...(tags.length ? { tags } : {}), ...step, afterId: id });
     stepText = "";
     stepInput = false;
   }
@@ -218,7 +242,7 @@
         <button class="row" onclick={() => (duePanel = !duePanel)} aria-expanded={duePanel}>
           <span class="ricon"><Icon name="calendar" size={22} /></span>
           <span class="rtext">
-            <span class="rmain">{due ? longDate(due) : "沒有期限"}</span>
+            <span class="rmain">{due ? longDate(due) + (dueTime ? ` ${dueTime}` : "") : "沒有期限"}</span>
             {#if dueInfo && !todo.done}<span class="rsub {dueInfo.tone}">{dueInfo.count}</span>{/if}
           </span>
           <span class="rlabel">期限</span>
@@ -245,13 +269,38 @@
           </div>
         {/if}
 
+        <!-- 時間：有期限才能設，沒設就是一整天 -->
+        {#if due}
+          <div class="row static">
+            <span class="ricon"><Icon name="clock" size={22} /></span>
+            <span class="rtext pills">
+              <span class="date-wrap">
+                <button class="pill" class:on={!dueTime} onclick={() => (dueTime = null)}>整天</button>
+              </span>
+              <span class="date-wrap">
+                <button class="pill" class:on={!!dueTime} onclick={pickTime}>{dueTime ?? "指定時間"}</button>
+                <input
+                  bind:this={timeInput}
+                  type="time"
+                  class="date-input"
+                  value={dueTime ?? ""}
+                  onchange={(e) => (dueTime = e.currentTarget.value || null)}
+                  tabindex="-1"
+                  aria-hidden="true"
+                />
+              </span>
+            </span>
+            <span class="rlabel">時間</span>
+          </div>
+        {/if}
+
         <!-- 標籤 -->
         <button class="row" onclick={() => ((tagQuery = ""), (tagSheet = true))}>
           <span class="ricon"><Icon name="hash" size={22} /></span>
           <span class="rtext">
-            <span class="rmain clip" class:muted={!tag}>{tag ?? "沒有標籤"}</span>
+            <span class="rmain clip" class:muted={!tags.length}>{tags.length ? tags.map((t) => `#${t}`).join(" ") : "沒有標籤"}</span>
           </span>
-          <span class="rlabel clip">{tag && store.folderOf.get(tag) ? `標籤 · ${store.folderOf.get(tag)}` : "標籤"}</span>
+          <span class="rlabel clip">{tags.length === 1 && store.folderOf.get(tags[0]) ? `標籤 · ${store.folderOf.get(tags[0])}` : "標籤"}</span>
         </button>
 
         <!-- 優先 -->
@@ -279,7 +328,7 @@
             {#if next}
               <div class="step">
                 <button class="step-link clip" onclick={() => openOther(next)}>
-                  接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today)}` : ""}
+                  接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}
                 </button>
                 <button class="text-btn" onclick={() => store.update(next.id, { afterId: null })}>取消連接</button>
               </div>
@@ -328,19 +377,20 @@
 {#if tagSheet}
   <Sheet label="選擇標籤" onclose={() => (tagSheet = false)}>
     <h2>標籤</h2>
+    <p class="none">可以選好幾個，再點一次拿掉</p>
     <input class="search" bind:value={tagQuery} onkeydown={tagKey} placeholder="搜尋或新增標籤" enterkeyhint="done" />
     <div class="options">
       {#if canCreateTag}
         <button class="option" onclick={() => pickTag(tq)}><Icon name="plus" size={18} />新增標籤「{tq}」</button>
       {/if}
-      {#if tag}
-        <button class="option muted" onclick={() => pickTag(null)}><Icon name="close" size={18} />移除標籤</button>
+      {#if tags.length}
+        <button class="option muted" onclick={() => (tags = [])}><Icon name="close" size={18} />移除全部標籤</button>
       {/if}
       {#each tagOptions as t (t)}
-        <button class="option" class:cur={tag === t} onclick={() => pickTag(t)}>
+        <button class="option" class:cur={tags.includes(t)} onclick={() => pickTag(t)}>
           <span class="hash">#</span><span class="clip grow">{t}</span>
           {#if store.folderOf.get(t)}<span class="folder">{store.folderOf.get(t)}</span>{/if}
-          {#if tag === t}<Icon name="check" size={18} stroke={2} />{/if}
+          {#if tags.includes(t)}<Icon name="check" size={18} stroke={2} />{/if}
         </button>
       {:else}
         {#if !canCreateTag}<p class="none">還沒有標籤，輸入名稱就能新增</p>{/if}
@@ -357,8 +407,8 @@
       {#each candidates as c (c.id)}
         <button class="option" onclick={() => link(c)}>
           <span class="clip grow">{c.title}</span>
-          {#if c.tag}<span class="folder">#{c.tag}</span>{/if}
-          {#if c.due}<span class="folder">{relativeDue(c.due, today)}</span>{/if}
+          {#if c.tags.length}<span class="folder">{c.tags.map((t) => `#${t}`).join(" ")}</span>{/if}
+          {#if c.due}<span class="folder">{relativeDue(c.due, today, c.dueTime)}</span>{/if}
         </button>
       {:else}
         <p class="none">沒有符合的待辦</p>
@@ -508,6 +558,11 @@
     flex-wrap: wrap;
     gap: 8px;
     padding: 0 12px 10px 50px;
+  }
+  /* 時間：整天／指定時間並排 */
+  .rtext.pills {
+    flex-direction: row;
+    gap: 8px;
   }
   .date-wrap {
     position: relative;

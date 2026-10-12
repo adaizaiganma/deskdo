@@ -11,6 +11,8 @@ function todo(id: string, fields: Partial<Todo> = {}): Todo {
     done: false,
     doneAt: null,
     due: null,
+    dueTime: null,
+    tags: [],
     tag: null,
     priority: "normal",
     note: null,

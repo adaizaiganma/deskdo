@@ -18,11 +18,12 @@
   closeOnBack("drawer", () => open, () => onclose());
 
   // 標籤、資料夾頁也列出還沒輪到的步驟，數字也算進去
-  const countOf = (tag: string) => store.allOpen.filter((t) => t.tag === tag).length;
+  const countOf = (tag: string) => store.allOpen.filter((t) => t.tags.includes(tag)).length;
   const folders = $derived(
     store.folders.map((f) => {
       const tags = f.tags.map((tag) => ({ tag, count: countOf(tag) }));
-      return { name: f.name, tags, count: tags.reduce((n, t) => n + t.count, 0) };
+      // 有好幾個標籤在同一個資料夾的待辦只算一次
+      return { name: f.name, tags, count: store.allOpen.filter((t) => t.tags.some((g) => f.tags.includes(g))).length };
     }),
   );
   const loose = $derived(store.looseTags.map((tag) => ({ tag, count: countOf(tag) })));

@@ -51,7 +51,10 @@ struct Item<'a> {
     id: &'a str,
     title: &'a str,
     due: Option<&'a str>,
-    tag: Option<&'a str>,
+    /// 期限的時間 HH:MM；沒有就是一整天
+    #[serde(rename = "dueTime")]
+    due_time: Option<&'a str>,
+    tags: &'a [String],
     priority: &'a str,
     /// 還沒完成的前一步的 id；有的話這一步還沒輪到（只在依標籤、資料夾篩選時顯示，淡色）
     after: Option<&'a str>,
@@ -59,7 +62,7 @@ struct Item<'a> {
     note: bool,
 }
 
-/// 小工具要的：所有還沒完成的，依期限排好（沒有期限的放最後，同一天高優先在前、低優先在後），
+/// 小工具要的：所有還沒完成的，依期限排好（沒有期限的放最後，同一天有時間的照時間在前，再來高優先在前、低優先在後），
 /// 分組由小工具自己做。每一筆附上它在等的前一步（還沒輪到的步驟只在篩選時顯示）
 fn widget_items(todos: &[Todo]) -> Vec<Item<'_>> {
     let open: HashSet<&str> = todos.iter().filter(|t| !t.done).map(|t| t.id.as_str()).collect();
@@ -70,12 +73,10 @@ fn widget_items(todos: &[Todo]) -> Vec<Item<'_>> {
     };
     let mut sorted: Vec<&Todo> = todos.iter().filter(|t| !t.done).collect();
     sorted.sort_by(|a, b| {
-        (a.due.is_none(), a.due.as_deref(), rank(&a.priority), a.created_at.as_str()).cmp(&(
-            b.due.is_none(),
-            b.due.as_deref(),
-            rank(&b.priority),
-            b.created_at.as_str(),
-        ))
+        let key = |t: &'_ Todo| {
+            (t.due.is_none(), t.due.clone(), t.due_time.is_none(), t.due_time.clone(), rank(&t.priority), t.created_at.clone())
+        };
+        key(a).cmp(&key(b))
     });
     sorted.truncate(WIDGET_LIMIT);
     sorted
@@ -84,7 +85,8 @@ fn widget_items(todos: &[Todo]) -> Vec<Item<'_>> {
             id: &t.id,
             title: &t.title,
             due: t.due.as_deref(),
-            tag: t.tag.as_deref(),
+            due_time: t.due.as_ref().and(t.due_time.as_deref()),
+            tags: &t.tags,
             priority: &t.priority,
             after: t.after_id.as_deref().filter(|a| open.contains(a)),
             mail: t.source == "email",

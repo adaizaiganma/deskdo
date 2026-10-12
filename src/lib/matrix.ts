@@ -1,4 +1,4 @@
-import { diffDays } from "@deskdo/core/dates";
+import { compareDue, diffDays } from "@deskdo/core/dates";
 import type { Todo } from "@deskdo/core/types";
 
 /**
@@ -15,19 +15,14 @@ export interface Quadrant {
 }
 
 const URGENT_DAYS = 2;
-const PRIORITY_RANK = { high: 0, normal: 1, low: 2 } as const;
 
 export function isUrgent(t: Todo, today: string): boolean {
   return !!t.due && diffDays(today, t.due) <= URGENT_DAYS;
 }
 
 export function quadrants(todos: Todo[], today: string): Quadrant[] {
-  const sorted = [...todos].sort(
-    (a, b) =>
-      (a.due ?? "9999").localeCompare(b.due ?? "9999") ||
-      (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1) ||
-      a.createdAt.localeCompare(b.createdAt),
-  );
+  // 依期限（同一天有時間的在前）、優先排序
+  const sorted = [...todos].sort(compareDue);
   const important = (t: Todo) => t.priority === "high";
   const urgent = (t: Todo) => isUrgent(t, today);
   return [

@@ -19,9 +19,10 @@
   let text = $state("");
   let input = $state<HTMLInputElement>();
 
-  const steps = $derived(parseSteps(text, store.today));
+  // 只寫時間沒寫日期時，放在預設的那天（沒有的話是今天）
+  const steps = $derived(parseSteps(text, store.today, defaultDue ?? store.today));
   const parsed = $derived(steps?.[0] ?? null);
-  const tag = $derived(parsed?.tag ?? defaultTag);
+  const tags = $derived(parsed?.tags ?? (defaultTag ? [defaultTag] : []));
   const due = $derived(parsed?.due ?? defaultDue);
 
   /** 正在輸入的 #標籤 或 @期限，下面列出可以點的建議 */
@@ -68,10 +69,12 @@
     // 雲端還不支援時保留輸入內容，提示先更新
     if (steps.some((s) => s.priority === "low") && !store.canUseLow()) return;
     if (steps.length > 1 && !store.canUseSteps()) return;
+    if (steps.some((s) => s.dueTime) && !store.canUseV6("time")) return;
+    if (steps.some((s) => (s.tags?.length ?? 0) > 1) && !store.canUseV6("tags")) return;
     // 預設的標籤和期限只補在沒寫的步驟上
     const filled = steps.map((s) => ({
       ...s,
-      ...(!s.tag && defaultTag ? { tag: defaultTag } : {}),
+      ...(!s.tags && defaultTag ? { tags: [defaultTag] } : {}),
       ...(!s.due && defaultDue ? { due: defaultDue } : {}),
     }));
     if (filled.length > 1) store.addSteps(filled);
@@ -94,7 +97,7 @@
       bind:this={input}
       bind:value={text}
       onkeydown={onKey}
-      placeholder="例如：期中考 #電子學 @10/22 !"
+      placeholder="例如：期中考 #電子學 @10/22 10:10 !"
       enterkeyhint="send"
       autocomplete="off"
     />
@@ -106,8 +109,8 @@
     {:else if parsed}
       <span class="chip strong clip">{parsed.title}</span>
     {/if}
-    {#if due}<span class="chip accent"><Icon name="calendar" size={16} />{relativeDue(due, store.today)}</span>{/if}
-    {#if tag}<span class="chip clip">#{tag}</span>{/if}
+    {#if due}<span class="chip accent"><Icon name="calendar" size={16} />{relativeDue(due, store.today, parsed?.dueTime ?? null)}</span>{/if}
+    {#each tags as tag (tag)}<span class="chip clip">#{tag}</span>{/each}
     {#if parsed?.priority === "high"}<span class="chip warn"><Icon name="flag" size={14} stroke={1.8} />高優先</span>{/if}
     {#if parsed?.priority === "low"}<span class="chip">低優先</span>{/if}
   </div>
