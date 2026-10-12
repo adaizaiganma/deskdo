@@ -392,7 +392,8 @@
   h1 {
     margin: 0;
     white-space: nowrap;
-    font-size: calc(44px * var(--fs, 1));
+    /* 組件太窄時縮小到放得下（「10月12日」大約 4.8 個字寬，左右各留 18px） */
+    font-size: min(calc(44px * var(--fs, 1)), calc((100cqw - 36px) / 4.8));
     font-weight: 800;
     line-height: 1.1;
     letter-spacing: 0.01em;
