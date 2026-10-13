@@ -108,6 +108,14 @@ export interface Device {
   current: boolean;
 }
 
+/** 網頁版的配對碼（create_pairing） */
+export interface Pairing {
+  code: string;
+  expiresAt: string;
+  /** 網頁版的網址（QR code 的內容） */
+  url: string;
+}
+
 export type Priority = "high" | "normal" | "low";
 
 export type TodoPatch = Partial<Pick<Todo, "title" | "due" | "dueTime" | "tags" | "priority" | "note" | "done" | "afterId">> & {

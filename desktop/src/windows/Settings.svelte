@@ -2,10 +2,12 @@
   import { LANG_OPTIONS, i18n, t } from "@deskdo/core/i18n.svelte";
   import { invoke } from "@deskdo/core/backend";
   import { openUrl } from "@tauri-apps/plugin-opener";
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";
   import { localDate, monthDay } from "@deskdo/core/dates";
   import { THEME_OPTIONS, theme } from "../lib/theme.svelte";
+  import { countdown, PairingFlow } from "@deskdo/core/pairing.svelte";
+  import { qrPath } from "@deskdo/core/qr";
   import { store } from "@deskdo/core/store.svelte";
   import type { Connector, Device, UpdateInfo } from "@deskdo/core/types";
 
@@ -33,6 +35,11 @@
   onMount(() => {
     if (store.prefs?.configured) loadDevices();
   });
+
+  /** 在 iPhone、iPad 使用：配對碼和 QR code（網頁版的網址） */
+  const pairing = new PairingFlow(() => loadDevices());
+  const qr = $derived(pairing.pairing ? qrPath(pairing.pairing.url) : null);
+  onDestroy(() => pairing.stop());
 
   async function saveConnection(e: SubmitEvent) {
     e.preventDefault();
@@ -195,6 +202,34 @@
         <p class="hint">{t("要在另一台電腦或手機使用：安裝 Deskdo，用同一個 Cloudflare 帳號登入即可。移除後，那台裝置就不能再讀寫待辦。", "To use another PC or phone, install Deskdo and sign in with the same Cloudflare account. A removed device can no longer read or edit your to-dos.")}</p>
       {/if}
       {#if devicesError}<p class="result bad">{devicesError}</p>{/if}
+    </section>
+
+    <section class="card">
+      <h2>{t("在 iPhone、iPad 使用", "Use on iPhone or iPad")}</h2>
+      <p class="hint">
+        {t("沒有 App 的裝置可以用網頁版：用手機相機掃描 QR code 打開，加到主畫面後輸入配對碼。配對一次之後就不用再輸入。", "Devices without the app can use the web version: scan the QR code with the phone's camera, add it to the home screen, then enter the pairing code. You only need to pair once.")}
+      </p>
+      {#if pairing.pairing && qr}
+        {@const expired = pairing.left === 0}
+        <div class="pairing" class:expired>
+          <svg class="qr" viewBox="0 0 {qr.size} {qr.size}" role="img" aria-label={t("網頁版網址的 QR code", "QR code for the web version")}>
+            <rect width={qr.size} height={qr.size} fill="#fff" />
+            <path d={qr.d} fill="#000" />
+          </svg>
+          <div class="pair-info">
+            <div class="pair-code">{pairing.pairing.code.slice(0, 3)} {pairing.pairing.code.slice(3)}</div>
+            <div class="hint">{expired ? t("配對碼已失效", "The code has expired") : t(`${countdown(pairing.left)} 後失效`, `Expires in ${countdown(pairing.left)}`)}</div>
+            <code class="pair-url">{pairing.pairing.url}</code>
+          </div>
+        </div>
+        <div class="btns">
+          <button class="ghost" onclick={() => pairing.start()}>{expired ? t("重新產生", "New code") : t("換一組", "New code")}</button>
+        </div>
+      {:else}
+        {#if pairing.joined}<p class="result">{t(`已加入「${pairing.joined}」`, `"${pairing.joined}" is connected`)}</p>{/if}
+        <div class="btns"><button class="ghost" onclick={() => pairing.start()}>{t("產生配對碼", "Make a pairing code")}</button></div>
+      {/if}
+      {#if pairing.error}<p class="result bad">{pairing.error}</p>{/if}
     </section>
 
     <section class="card">
@@ -498,6 +533,37 @@
   .card > .hint {
     margin: 0 0 12px;
     line-height: 1.6;
+  }
+  .pairing {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .pairing.expired {
+    opacity: 0.4;
+  }
+  .qr {
+    flex: none;
+    width: 140px;
+    height: 140px;
+    border-radius: 8px;
+  }
+  .pair-info {
+    min-width: 0;
+  }
+  .pair-code {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+  }
+  .pair-url {
+    display: block;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: var(--sub);
+    word-break: break-all;
+    user-select: all;
   }
   .url-box {
     display: flex;

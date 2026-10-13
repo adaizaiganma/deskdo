@@ -228,6 +228,8 @@ export class WebBackend implements Backend {
         return this.#listDevices();
       case "revoke_device":
         return this.#revokeDevice(args.id);
+      case "create_pairing":
+        return this.#createPairing();
       case "web_pair":
         return this.#pair(args.code, args.name);
       case "web_logout":
@@ -580,6 +582,15 @@ export class WebBackend implements Backend {
     this.#checkAuth(r);
     if (r.error) throw r.error;
     return Array.isArray(r.data?.devices) ? r.data.devices : [];
+  }
+
+  /** 再配對另一台（例如用 iPhone 幫 iPad 配對） */
+  async #createPairing() {
+    const r = await send("POST", "/api/pairing");
+    this.#checkAuth(r);
+    if (r.error) throw r.error;
+    if (typeof r.data?.code !== "string") throw t("伺服器回應格式錯誤", "Unexpected server response");
+    return { code: r.data.code, expiresAt: r.data.expiresAt, url: `${location.origin}/app/` };
   }
 
   async #revokeDevice(id: string) {
