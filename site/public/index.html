@@ -26,7 +26,7 @@
       <div>
         <h1>貼在桌面上的待辦，<br /><em>AI 助理</em>也能幫你管</h1>
         <p class="lead">
-          Deskdo 是 Windows 桌面上的毛玻璃待辦清單，單獨使用就很順手。
+          Deskdo 是貼在 Windows 桌面上的毛玻璃待辦清單，Android 和 iPhone、iPad 也能用，單獨使用就很順手。
           想要的話，也能接上 Claude、ChatGPT 等 AI 助理，用說的新增、查詢、完成待辦。
         </p>
         <div class="cta">
@@ -37,7 +37,7 @@
           <a class="btn" href="https://github.com/adaizaiganma/deskdo/releases/latest">Android 版</a>
           <a class="btn" href="#how">運作方式</a>
         </div>
-        <p class="cta-note">免費・開源・Windows 10／11・資料存在你自己的 Cloudflare 帳號</p>
+        <p class="cta-note">免費・開源・Windows・Android・iPhone／iPad・資料存在你自己的 Cloudflare 帳號</p>
       </div>
 
       <div class="desk" role="img" aria-label="Deskdo 桌面小工具的示意圖：毛玻璃視窗裡列出逾期和今天的待辦，旁邊是 AI 助理（Claude）的回覆">
@@ -94,7 +94,7 @@
         <ol class="steps">
           <li>
             <h3>下載並安裝</h3>
-            <p>安裝在目前的使用者底下，不需要系統管理員權限。</p>
+            <p>電腦版安裝在目前的使用者底下，不需要系統管理員權限；Android 下載 APK 安裝。iPhone、iPad 不用安裝，用網頁版。</p>
           </li>
           <li>
             <h3>登入 Cloudflare</h3>
@@ -107,9 +107,9 @@
         </ol>
 
         <h2 style="margin-top: 56px">你的資料，只在你的帳號裡</h2>
-        <p class="intro">Deskdo 沒有自己的伺服器。桌面 App 和 AI 助理讀寫的，都是你 Cloudflare 帳號裡的小程式和資料庫。</p>
-        <div class="flow" aria-label="資料流向：Deskdo 桌面 App 與 AI 助理都連到你的 Cloudflare 帳號">
-          <div class="node"><b>Deskdo</b><span>Windows 桌面 App</span></div>
+        <p class="intro">Deskdo 沒有自己的伺服器。App、網頁版和 AI 助理讀寫的，都是你 Cloudflare 帳號裡的小程式和資料庫。</p>
+        <div class="flow" aria-label="資料流向：Deskdo 的 App、網頁版與 AI 助理都連到你的 Cloudflare 帳號">
+          <div class="node"><b>Deskdo</b><span>電腦、手機 App、網頁版</span></div>
           <div class="arrow" aria-hidden="true">⇄</div>
           <div class="node yours"><b>你的 Cloudflare 帳號</b><span>Worker（小程式）＋ D1（資料庫）</span></div>
           <div class="arrow" aria-hidden="true">⇄</div>
@@ -127,7 +127,7 @@
         <h2>常見問題</h2>
         <details>
           <summary>不用 AI 也能用嗎？</summary>
-          <p>可以。桌面小工具、主視窗、快速新增、多台電腦同步都不需要 AI。設定精靈最後的「連接 AI 助理」直接略過即可，之後想接再到設定裡找網址。</p>
+          <p>可以。桌面小工具、主視窗、快速新增、手機 App、多台裝置同步都不需要 AI。設定精靈最後的「連接 AI 助理」直接略過即可，之後想接再到設定裡找網址。</p>
         </details>
         <details>
           <summary>可以用 ChatGPT 嗎？</summary>
@@ -146,7 +146,7 @@
         <details>
           <summary>為什麼要用 Cloudflare 帳號？</summary>
           <p>
-            為了讓多台電腦和 AI 助理讀寫同一份待辦，資料需要放在網路上。放在你自己的帳號裡，你就擁有完整的控制權：
+            為了讓電腦、手機和 AI 助理讀寫同一份待辦，資料需要放在網路上。放在你自己的帳號裡，你就擁有完整的控制權：
             不用信任第三方伺服器，也不會因為某個服務關閉而失去資料。
           </p>
         </details>
@@ -159,12 +159,30 @@
           <p>這是因為 Deskdo 還沒有購買程式碼簽章憑證，新的、下載次數少的程式都會出現這個提示。點「其他資訊」→「仍要執行」即可安裝。</p>
         </details>
         <details>
-          <summary>可以在好幾台電腦上使用嗎？</summary>
-          <p>可以。在另一台電腦安裝 Deskdo，用同一個 Cloudflare 帳號登入，就會自動連到同一份待辦。不用的電腦可以在「設定 → 已連線的電腦」移除。</p>
+          <summary>手機可以用嗎？</summary>
+          <p>
+            可以。Android 有 App：到 <a href="https://github.com/adaizaiganma/deskdo/releases/latest">GitHub</a> 下載 <code>Deskdo_…_arm64.apk</code> 安裝，主畫面還有小工具，可以直接打勾完成。
+            iPhone、iPad 用網頁版：在電腦或 Android 的「設定 → 在 iPhone、iPad 使用」產生配對碼，用相機掃 QR code 打開，加到主畫面後輸入配對碼，之後就像 App 一樣從主畫面打開。
+          </p>
         </details>
         <details>
-          <summary>有 Mac 版或手機 App 嗎？</summary>
-          <p>目前只有 Windows 版。手機上可以透過有接上 Deskdo 的 AI 助理 App（例如 Claude）新增和查看待辦。</p>
+          <summary>為什麼 iPhone 沒有 App？</summary>
+          <p>Deskdo 目前沒有上架 App Store，iPhone、iPad 請用網頁版。網頁版由你自己的雲端提供，資料一樣只在你的帳號裡；配對一次之後就不用再輸入配對碼。</p>
+        </details>
+        <details>
+          <summary>有 Mac 版嗎？</summary>
+          <p>目前沒有。Mac 上可以用瀏覽器開網頁版（一樣用配對碼），介面和電腦版的主視窗一樣，只是沒有桌面小工具。</p>
+        </details>
+        <details>
+          <summary>可以在好幾台電腦、手機上使用嗎？</summary>
+          <p>可以。在其他電腦或 Android 手機安裝 Deskdo，用同一個 Cloudflare 帳號登入，就會自動連到同一份待辦；iPhone、iPad 用配對碼。不用的裝置可以在「設定 → 已連線的裝置」移除。</p>
+        </details>
+        <details>
+          <summary>會自動更新嗎？</summary>
+          <p>
+            會。電腦版在背景下載新版，按「重新啟動並更新」就好；Android 會在主畫面提示，按一下下載安裝，資料都會保留；網頁版跟著你的雲端更新。
+            有些新版需要更新雲端，畫面上會出現「雲端有新版本」，按一下並登入 Cloudflare 即可，資料不會變動。
+          </p>
         </details>
         <details>
           <summary>連接器網址不小心外流了怎麼辦？</summary>

@@ -395,7 +395,8 @@
     height: 100%;
     min-width: 0;
     overflow: hidden;
-    padding: 8px 18px;
+    /* 上下不留空（內容本來就置中）：最矮的兩格（92px）才放得下年份、大字和摘要三行 */
+    padding: 0 18px;
     display: flex;
     flex-direction: column;
     justify-content: center;
