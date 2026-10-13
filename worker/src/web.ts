@@ -57,13 +57,14 @@ function deviceName(req: Request): string {
 
 /**
  * 網頁只連自己（同一個網址的 API），外加主頁「每日一句」的來源；
- * Svelte 的轉場會寫 style 屬性，所以 style 要允許 inline。
+ * Svelte 的轉場會寫 style 屬性，所以 style 要允許 inline；
+ * 主頁的背景圖片存在瀏覽器（IndexedDB），用 blob: 網址顯示。
  */
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  "img-src 'self' data: blob:",
   "font-src 'self'",
   "connect-src 'self' https://uapis.cn",
   "manifest-src 'self'",
