@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
@@ -80,9 +81,9 @@
   }
 
   const allChips = $derived([
-    { id: "open", label: "未完成", count: store.open.length },
-    { id: "nodue", label: "沒有期限", count: store.open.filter((t) => !t.due).length },
-    { id: "done", label: "已完成", count: store.done.length },
+    { id: "open", label: t("未完成", "Open"), count: store.open.length },
+    { id: "nodue", label: t("沒有期限", "No due date"), count: store.open.filter((t) => !t.due).length },
+    { id: "done", label: t("已完成", "Done"), count: store.done.length },
   ]);
 
   /** 標籤、資料夾頁的內容；標籤頁也列出還沒輪到的步驟（它的前一步可能是別的標籤） */
@@ -90,7 +91,7 @@
     if (page?.startsWith("tag:")) {
       const tag = page.slice(4);
       const has = (t: Todo) => t.tags.includes(tag);
-      return { title: `#${tag}`, todos: store.allOpen.filter(has), done: store.done.filter(has), tag, empty: "這個標籤沒有待辦" };
+      return { title: `#${tag}`, todos: store.allOpen.filter(has), done: store.done.filter(has), tag, empty: t("這個標籤沒有待辦", "No to-dos with this tag") };
     }
     if (page?.startsWith("folder:")) {
       const name = page.slice(7);
@@ -101,7 +102,7 @@
         todos: store.allOpen.filter(has),
         done: store.done.filter(has),
         tag: null,
-        empty: tags.size ? "這個資料夾沒有待辦" : "這個資料夾還沒有標籤\n到「整理標籤」把標籤放進來",
+        empty: tags.size ? t("這個資料夾沒有待辦", "No to-dos in this folder") : t("這個資料夾還沒有標籤\n到「整理標籤」把標籤放進來", "This folder has no tags yet\nAdd some in Organize tags"),
       };
     }
     return null;
@@ -142,12 +143,12 @@
 {#snippet banners()}
   {#if store.appUpdate}
     <button class="banner" onclick={() => store.installUpdate()}>
-      <Icon name="refresh" size={20} /><span>Deskdo {store.appUpdate.version} 推出了，按這裡下載並安裝</span>
+      <Icon name="refresh" size={20} /><span>{t(`Deskdo ${store.appUpdate.version} 推出了，按這裡下載並安裝`, `Deskdo ${store.appUpdate.version} is out. Tap to download and install`)}</span>
     </button>
   {/if}
   {#if store.cloudOutdated}
     <button class="banner" onclick={() => (wizard = "update")}>
-      <Icon name="sparkle" size={20} /><span>雲端有新版本，按這裡更新（需要登入 Cloudflare）</span>
+      <Icon name="sparkle" size={20} /><span>{t("雲端有新版本，按這裡更新（需要登入 Cloudflare）", "A cloud update is available. Tap to update (needs a Cloudflare sign-in)")}</span>
     </button>
   {/if}
 {/snippet}
@@ -165,12 +166,12 @@
     <main class="stage" class:inset={!!page}>
       {#if page === "settings"}
         <div class="sub-page">
-          <TopBar title="設定" lead="back" onlead={() => (page = null)} />
+          <TopBar title={t("設定", "Settings")} lead="back" onlead={() => (page = null)} />
           <div class="scroll"><Settings onsetup={(mode) => (wizard = mode)} /></div>
         </div>
       {:else if page === "folders"}
         <div class="sub-page">
-          <TopBar title="整理標籤" lead="back" onlead={() => (page = null)} />
+          <TopBar title={t("整理標籤", "Organize tags")} lead="back" onlead={() => (page = null)} />
           <div class="fill"><Folders onupdatecloud={() => (wizard = "update")} /></div>
         </div>
       {:else if page === "search"}
@@ -181,14 +182,14 @@
           listKey="search"
           todos={q ? store.allOpen.filter(matches) : []}
           done={q ? store.done.filter(matches) : null}
-          emptyText={q ? `找不到「${q}」` : "輸入標題、標籤或備註裡的字"}
+          emptyText={q ? t(`找不到「${q}」`, `Nothing matches "${q}"`) : t("輸入標題、標籤或備註裡的字", "Search titles, tags and notes")}
           {today}
         >
           {#snippet head()}
-            <input class="search" bind:this={searchBox} bind:value={query} placeholder="搜尋待辦" enterkeyhint="search" aria-label="搜尋待辦" />
+            <input class="search" bind:this={searchBox} bind:value={query} placeholder={t("搜尋待辦", "Search to-dos")} enterkeyhint="search" aria-label={t("搜尋待辦", "Search to-dos")} />
           {/snippet}
           {#snippet actions()}
-            {#if query}<button class="icon-btn" onclick={() => ((query = ""), searchBox?.focus())} aria-label="清除"><Icon name="close" size={22} /></button>{/if}
+            {#if query}<button class="icon-btn" onclick={() => ((query = ""), searchBox?.focus())} aria-label={t("清除", "Clear")}><Icon name="close" size={22} /></button>{/if}
           {/snippet}
         </ListPage>
       {:else if sub}
@@ -196,7 +197,7 @@
           title={sub.title}
           lead="back"
           onlead={() => (page = null)}
-          sub="{sub.todos.length} 項待辦"
+          sub={t(`${sub.todos.length} 項待辦`, `${sub.todos.length} to-dos`)}
           listKey={page ?? ""}
           todos={sub.todos}
           done={sub.done}
@@ -210,23 +211,23 @@
         <Home {today} top={banners} onmenu={() => (drawer = true)} onsearch={() => goPage("search")} onall={() => goTab("all")} oncountdowns={() => goTab("countdown")} />
       {:else if tab === "all"}
         <ListPage
-          title="全部"
+          title={t("全部", "All")}
           lead="menu"
           onlead={() => (drawer = true)}
           chips={allChips}
           chip={allFilter}
           onchip={(id) => ((allFilter = id as AllFilter), (showDone = false))}
-          sub={allFilter === "done" ? `最近 ${doneDays} 天完成 ${store.done.length} 項 · 更早的紀錄保存在雲端` : undefined}
+          sub={allFilter === "done" ? t(`最近 ${doneDays} 天完成 ${store.done.length} 項 · 更早的紀錄保存在雲端`, `${store.done.length} done in the last ${doneDays} days · older ones are kept in the cloud`) : undefined}
           listKey={allFilter}
           todos={allFilter === "done" ? [] : allFilter === "nodue" ? store.open.filter((t) => !t.due) : store.open}
           done={allFilter === "done" ? store.done : null}
           doneLimit={allFilter === "done" ? 300 : 50}
-          emptyText={allFilter === "done" ? `最近 ${doneDays} 天沒有完成的項目` : allFilter === "nodue" ? "每件事都排好期限了" : "沒有待辦事項\n享受一下空白吧"}
+          emptyText={allFilter === "done" ? t(`最近 ${doneDays} 天沒有完成的項目`, `Nothing completed in the last ${doneDays} days`) : allFilter === "nodue" ? t("每件事都排好期限了", "Everything has a due date") : t("沒有待辦事項\n享受一下空白吧", "No to-dos\nEnjoy the empty space")}
           {today}
-          fab={allFilter === "done" ? null : { label: "新增待辦", onclick: () => ui.add() }}
+          fab={allFilter === "done" ? null : { label: t("新增待辦", "Add a to-do"), onclick: () => ui.add() }}
         >
           {#snippet actions()}
-            <button class="icon-btn" onclick={() => goPage("search")} aria-label="搜尋"><Icon name="search" size={24} /></button>
+            <button class="icon-btn" onclick={() => goPage("search")} aria-label={t("搜尋", "Search")}><Icon name="search" size={24} /></button>
           {/snippet}
         </ListPage>
       {:else if tab === "calendar"}

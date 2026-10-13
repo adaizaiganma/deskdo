@@ -10,6 +10,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** 小工具的資料：App 最後一次交過來的清單（widget.json，放在 App 自己的資料夾） */
 object WidgetStore {
+  /** 上次讀到的介面語言是不是英文（load 時更新） */
+  @Volatile
+  var en = false
   data class Item(
     val id: String,
     val title: String,
@@ -32,6 +35,8 @@ object WidgetStore {
     val apiBase: String,
     val apiToken: String,
     val today: String,
+    /** App 的介面語言（zh／en） */
+    val lang: String,
     val configured: Boolean,
     val folders: List<Folder>,
     /** 所有還沒完成的，已經依期限排好 */
@@ -104,10 +109,12 @@ object WidgetStore {
       val tags = f.optJSONArray("tags") ?: JSONArray()
       Folder(f.optString("name"), (0 until tags.length()).map { tags.getString(it) })
     }
+    en = o.optString("lang") == "en"
     return Data(
       apiBase = o.optString("apiBase"),
       apiToken = o.optString("apiToken"),
       today = o.optString("today"),
+      lang = o.optString("lang", "zh"),
       configured = o.optBoolean("configured"),
       folders = folders,
       items = items,

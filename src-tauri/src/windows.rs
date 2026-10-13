@@ -90,7 +90,7 @@ pub async fn save_connection(
     emit_prefs(&app);
     s.wake(true);
     if !cfg.configured() {
-        return Err("請填寫 API 網址和 token".into());
+        return Err(deskdo_core::i18n::tr("請填寫 API 網址和 token", "Fill in the API URL and token").into());
     }
     let r = api::send(&s.client, &cfg, reqwest::Method::GET, "/api/todos?status=open", None, None).await;
     if let Some(e) = r.error {

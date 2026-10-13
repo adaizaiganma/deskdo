@@ -1,5 +1,6 @@
 import "./app.css";
 import { mount } from "svelte";
+import { i18n } from "@deskdo/core/i18n.svelte";
 import { store } from "@deskdo/core/store.svelte";
 import Main from "./windows/Main.svelte";
 
@@ -8,5 +9,6 @@ const insets = (window as { DeskdoInsets?: { navInset(): number } }).DeskdoInset
 const nav = insets?.navInset() ?? 0;
 if (nav) document.documentElement.style.setProperty("--nav-inset", `${nav}px`);
 
+i18n.init();
 await store.init();
 mount(Main, { target: document.getElementById("app")! });

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import type { Snippet } from "svelte";
   import Icon from "./Icon.svelte";
 
@@ -16,7 +17,7 @@
 
 <header class="top">
   {#if lead}
-    <button class="icon-btn lead" onclick={onlead} aria-label={lead === "menu" ? "打開選單" : "返回"}>
+    <button class="icon-btn lead" onclick={onlead} aria-label={lead === "menu" ? t("打開選單", "Open menu") : t("返回", "Back")}>
       <Icon name={lead === "menu" ? "menu" : "back"} size={24} />
     </button>
   {:else}

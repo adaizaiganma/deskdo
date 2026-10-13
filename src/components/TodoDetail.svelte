@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { onDestroy, untrack } from "svelte";
   import { fly } from "svelte/transition";
   import { addDays, localDate, longDate, monthDay, nextMonday, relativeDue, rowDue } from "@deskdo/core/dates";
@@ -84,10 +85,10 @@
   let duePanel = $state(false);
   const dueInfo = $derived(due ? rowDue(due, today, dueTime, store.now) : null);
   const dueChips = $derived([
-    { label: "今天", value: today },
-    { label: "明天", value: addDays(today, 1) },
-    { label: "下週一", value: nextMonday(today) },
-    { label: "無期限", value: null },
+    { label: t("今天", "Today"), value: today },
+    { label: t("明天", "Tomorrow"), value: addDays(today, 1) },
+    { label: t("下週一", "Next Mon"), value: nextMonday(today) },
+    { label: t("無期限", "No date"), value: null },
   ]);
   let dateInput = $state<HTMLInputElement>();
   function pickDate() {
@@ -135,9 +136,9 @@
 
   // ---- 優先 ----
   const priorities: { id: Todo["priority"]; label: string }[] = [
-    { id: "low", label: "低" },
-    { id: "normal", label: "一般" },
-    { id: "high", label: "高" },
+    { id: "low", get label() { return t("低", "Low"); } },
+    { id: "normal", get label() { return t("一般", "Normal"); } },
+    { id: "high", get label() { return t("高", "High"); } },
   ];
   function setPriority(p: Todo["priority"]) {
     if (p === "low" && !store.canUseLow()) return;
@@ -204,7 +205,7 @@
     linkSheet = false;
   }
 
-  const source = $derived(todo ? ({ email: "來自 Gmail", claude: "由 AI 助理新增", manual: "手動新增" }[todo.source] ?? "") : "");
+  const source = $derived(todo ? (({ email: t("來自 Gmail", "From Gmail"), claude: t("由 AI 助理新增", "Added by AI assistant"), manual: t("手動新增", "Added manually") } as Record<string, string>)[todo.source] ?? "") : "");
   const created = $derived(todo ? localDate(todo.createdAt) : null);
 
   function titleKey(e: KeyboardEvent) {
@@ -216,23 +217,23 @@
   }
 </script>
 
-<div class="detail" role="dialog" aria-modal="true" aria-label="待辦詳情" transition:fly={{ y: 28, duration: 220 }}>
+<div class="detail" role="dialog" aria-modal="true" aria-label={t("待辦詳情", "To-do details")} transition:fly={{ y: 28, duration: 220 }}>
   <header class="top">
-    <button class="icon-btn" onclick={close} aria-label="返回"><Icon name="back" size={24} /></button>
+    <button class="icon-btn" onclick={close} aria-label={t("返回", "Back")}><Icon name="back" size={24} /></button>
     <span class="grow"></span>
-    <button class="icon-btn" onclick={remove} aria-label="刪除"><Icon name="trash" size={22} /></button>
+    <button class="icon-btn" onclick={remove} aria-label={t("刪除", "Delete")}><Icon name="trash" size={22} /></button>
   </header>
 
   {#if todo}
     <div class="scroll">
       <div class="head">
-        <button class="chk" onclick={toggleDone} aria-label={todo.done ? "標記為未完成" : "標記完成"}>
+        <button class="chk" onclick={toggleDone} aria-label={todo.done ? t("標記為未完成", "Mark as not done") : t("標記完成", "Mark as done")}>
           <span class="ring" class:hi={priority === "high" && !todo.done} class:on={todo.done}>
             {#if todo.done}<Icon name="check" size={16} stroke={2.2} />{/if}
           </span>
         </button>
         <label class="title-wrap">
-          <span class="sr">標題</span>
+          <span class="sr">{t("標題", "Title")}</span>
           <textarea class="title" class:struck={todo.done} rows="1" bind:value={title} onkeydown={titleKey} onblur={commit}></textarea>
         </label>
       </div>
@@ -242,10 +243,10 @@
         <button class="row" onclick={() => (duePanel = !duePanel)} aria-expanded={duePanel}>
           <span class="ricon"><Icon name="calendar" size={22} /></span>
           <span class="rtext">
-            <span class="rmain">{due ? longDate(due) + (dueTime ? ` ${dueTime}` : "") : "沒有期限"}</span>
+            <span class="rmain">{due ? longDate(due) + (dueTime ? ` ${dueTime}` : "") : t("沒有期限", "No due date")}</span>
             {#if dueInfo && !todo.done}<span class="rsub {dueInfo.tone}">{dueInfo.count}</span>{/if}
           </span>
-          <span class="rlabel">期限</span>
+          <span class="rlabel">{t("期限", "Due")}</span>
         </button>
         {#if duePanel}
           <div class="panel">
@@ -254,7 +255,7 @@
             {/each}
             <span class="date-wrap">
               <button class="pill" class:on={!!due && !dueChips.some((c) => c.value === due)} onclick={pickDate}>
-                {due && !dueChips.some((c) => c.value === due) ? relativeDue(due, today) : "選擇日期"}
+                {due && !dueChips.some((c) => c.value === due) ? relativeDue(due, today) : t("選擇日期", "Pick a date")}
               </button>
               <input
                 bind:this={dateInput}
@@ -275,10 +276,10 @@
             <span class="ricon"><Icon name="clock" size={22} /></span>
             <span class="rtext pills">
               <span class="date-wrap">
-                <button class="pill" class:on={!dueTime} onclick={() => (dueTime = null)}>整天</button>
+                <button class="pill" class:on={!dueTime} onclick={() => (dueTime = null)}>{t("整天", "All day")}</button>
               </span>
               <span class="date-wrap">
-                <button class="pill" class:on={!!dueTime} onclick={pickTime}>{dueTime ?? "指定時間"}</button>
+                <button class="pill" class:on={!!dueTime} onclick={pickTime}>{dueTime ?? t("指定時間", "Set time")}</button>
                 <input
                   bind:this={timeInput}
                   type="time"
@@ -290,7 +291,7 @@
                 />
               </span>
             </span>
-            <span class="rlabel">時間</span>
+            <span class="rlabel">{t("時間", "Time")}</span>
           </div>
         {/if}
 
@@ -298,15 +299,15 @@
         <button class="row" onclick={() => ((tagQuery = ""), (tagSheet = true))}>
           <span class="ricon"><Icon name="hash" size={22} /></span>
           <span class="rtext">
-            <span class="rmain clip" class:muted={!tags.length}>{tags.length ? tags.map((t) => `#${t}`).join(" ") : "沒有標籤"}</span>
+            <span class="rmain clip" class:muted={!tags.length}>{tags.length ? tags.map((g) => `#${g}`).join(" ") : t("沒有標籤", "No tags")}</span>
           </span>
-          <span class="rlabel clip">{tags.length === 1 && store.folderOf.get(tags[0]) ? `標籤 · ${store.folderOf.get(tags[0])}` : "標籤"}</span>
+          <span class="rlabel clip">{tags.length === 1 && store.folderOf.get(tags[0]) ? `${t("標籤", "Tags")} · ${store.folderOf.get(tags[0])}` : t("標籤", "Tags")}</span>
         </button>
 
         <!-- 優先 -->
         <div class="row static">
           <span class="ricon"><Icon name="flag" size={22} /></span>
-          <div class="seg" role="radiogroup" aria-label="優先">
+          <div class="seg" role="radiogroup" aria-label={t("優先", "Priority")}>
             {#each priorities as p (p.id)}
               <button role="radio" aria-checked={priority === p.id} class:on={priority === p.id} class:hi={p.id === "high"} onclick={() => setPriority(p.id)}>
                 {#if priority === p.id}<Icon name="check" size={14} stroke={2} />{/if}{p.label}
@@ -321,16 +322,16 @@
           <div class="steps">
             {#if waitingFor}
               <div class="step">
-                <button class="step-link clip" onclick={() => openOther(waitingFor)}>前一步：{waitingFor.title}</button>
-                <button class="text-btn" onclick={() => store.update(id, { afterId: null })}>取消連接</button>
+                <button class="step-link clip" onclick={() => openOther(waitingFor)}>{t("前一步：", "Previous: ")}{waitingFor.title}</button>
+                <button class="text-btn" onclick={() => store.update(id, { afterId: null })}>{t("取消連接", "Unlink")}</button>
               </div>
             {/if}
             {#if next}
               <div class="step">
                 <button class="step-link clip" onclick={() => openOther(next)}>
-                  接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}
+                  {t("接著：", "Next: ")}{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}
                 </button>
-                <button class="text-btn" onclick={() => store.update(next.id, { afterId: null })}>取消連接</button>
+                <button class="text-btn" onclick={() => store.update(next.id, { afterId: null })}>{t("取消連接", "Unlink")}</button>
               </div>
             {/if}
             {#if stepInput}
@@ -340,17 +341,17 @@
                 bind:value={stepText}
                 onkeydown={stepKey}
                 onblur={() => !stepText.trim() && (stepInput = false)}
-                placeholder="下一步要做什麼？例如：印預報 @週四"
+                placeholder={t("下一步要做什麼？例如：印預報 @週四", "What comes next? e.g. Print report @thu")}
                 enterkeyhint="done"
               />
             {:else if !todo.done}
               <div class="step-actions">
-                <button class="pill" onclick={startStep}><Icon name="plus" size={14} stroke={1.8} />{next ? "插入下一步" : "新增下一步"}</button>
-                <button class="pill" onclick={openLink}><Icon name="link" size={14} />連接已有待辦</button>
+                <button class="pill" onclick={startStep}><Icon name="plus" size={14} stroke={1.8} />{next ? t("插入下一步", "Insert next step") : t("新增下一步", "Add next step")}</button>
+                <button class="pill" onclick={openLink}><Icon name="link" size={14} />{t("連接已有待辦", "Link existing to-do")}</button>
               </div>
             {/if}
             {#if !waitingFor && !next && !stepInput}
-              <span class="hint">前一項完成後，下一步才會出現在清單上</span>
+              <span class="hint">{t("前一項完成後，下一步才會出現在清單上", "The next step shows up in your list once this one is done")}</span>
             {/if}
           </div>
         </div>
@@ -358,34 +359,34 @@
         <!-- 備註 -->
         <label class="row static top-align">
           <span class="ricon"><Icon name="note" size={22} /></span>
-          <span class="sr">備註</span>
-          <textarea class="note" placeholder="加上備註" bind:value={note} onblur={commit}></textarea>
+          <span class="sr">{t("備註", "Note")}</span>
+          <textarea class="note" placeholder={t("加上備註", "Add a note")} bind:value={note} onblur={commit}></textarea>
         </label>
       </div>
 
-      <p class="meta">{source}{created ? ` · ${monthDay(created, today)} 建立` : ""}{todo.done && todo.doneAt ? ` · ${monthDay(localDate(todo.doneAt) ?? today, today)} 完成` : ""}</p>
+      <p class="meta">{source}{created ? ` · ${t(`${monthDay(created, today)} 建立`, `Created ${monthDay(created, today)}`)}` : ""}{todo.done && todo.doneAt ? ` · ${t(`${monthDay(localDate(todo.doneAt) ?? today, today)} 完成`, `Done ${monthDay(localDate(todo.doneAt) ?? today, today)}`)}` : ""}</p>
     </div>
 
     <div class="bottom">
       <!-- 存好改的內容再關掉；完成／未完成用標題左邊的圓圈 -->
       <button class="done-btn" onclick={close}>
-        <Icon name="check" size={20} stroke={2} />修改完成
+        <Icon name="check" size={20} stroke={2} />{t("修改完成", "Done editing")}
       </button>
     </div>
   {/if}
 </div>
 
 {#if tagSheet}
-  <Sheet label="選擇標籤" onclose={() => (tagSheet = false)}>
-    <h2>標籤</h2>
-    <p class="none">可以選好幾個，再點一次拿掉</p>
-    <input class="search" bind:value={tagQuery} onkeydown={tagKey} placeholder="搜尋或新增標籤" enterkeyhint="done" />
+  <Sheet label={t("選擇標籤", "Choose tags")} onclose={() => (tagSheet = false)}>
+    <h2>{t("標籤", "Tags")}</h2>
+    <p class="none">{t("可以選好幾個，再點一次拿掉", "Pick as many as you like; tap again to remove")}</p>
+    <input class="search" bind:value={tagQuery} onkeydown={tagKey} placeholder={t("搜尋或新增標籤", "Search or create a tag")} enterkeyhint="done" />
     <div class="options">
       {#if canCreateTag}
-        <button class="option" onclick={() => pickTag(tq)}><Icon name="plus" size={18} />新增標籤「{tq}」</button>
+        <button class="option" onclick={() => pickTag(tq)}><Icon name="plus" size={18} />{t(`新增標籤「${tq}」`, `Create tag "${tq}"`)}</button>
       {/if}
       {#if tags.length}
-        <button class="option muted" onclick={() => (tags = [])}><Icon name="close" size={18} />移除全部標籤</button>
+        <button class="option muted" onclick={() => (tags = [])}><Icon name="close" size={18} />{t("移除全部標籤", "Remove all tags")}</button>
       {/if}
       {#each tagOptions as t (t)}
         <button class="option" class:cur={tags.includes(t)} onclick={() => pickTag(t)}>
@@ -394,16 +395,16 @@
           {#if tags.includes(t)}<Icon name="check" size={18} stroke={2} />{/if}
         </button>
       {:else}
-        {#if !canCreateTag}<p class="none">還沒有標籤，輸入名稱就能新增</p>{/if}
+        {#if !canCreateTag}<p class="none">{t("還沒有標籤，輸入名稱就能新增", "No tags yet, type a name to create one")}</p>{/if}
       {/each}
     </div>
   </Sheet>
 {/if}
 
 {#if linkSheet}
-  <Sheet label="連接已有待辦" onclose={() => (linkSheet = false)}>
-    <h2>接在這一項後面</h2>
-    <input class="search" bind:value={linkQuery} placeholder="搜尋待辦" enterkeyhint="search" />
+  <Sheet label={t("連接已有待辦", "Link existing to-do")} onclose={() => (linkSheet = false)}>
+    <h2>{t("接在這一項後面", "Follow this one with")}</h2>
+    <input class="search" bind:value={linkQuery} placeholder={t("搜尋待辦", "Search to-dos")} enterkeyhint="search" />
     <div class="options">
       {#each candidates as c (c.id)}
         <button class="option" onclick={() => link(c)}>
@@ -412,7 +413,7 @@
           {#if c.due}<span class="folder">{relativeDue(c.due, today, c.dueTime)}</span>{/if}
         </button>
       {:else}
-        <p class="none">沒有符合的待辦</p>
+        <p class="none">{t("沒有符合的待辦", "No matching to-dos")}</p>
       {/each}
     </div>
   </Sheet>

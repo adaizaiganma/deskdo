@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import type { Snippet } from "svelte";
   import type { Todo } from "@deskdo/core/types";
   import Fab from "../components/Fab.svelte";
@@ -54,7 +55,7 @@
 <div class="page">
   <TopBar {title} {lead} {onlead} children={head} {actions} />
   {#if chips}
-    <div class="chips" role="tablist" aria-label="篩選">
+    <div class="chips" role="tablist" aria-label={t("篩選", "Filter")}>
       {#each chips as c (c.id)}
         <button class="pill" class:on={chip === c.id} role="tab" aria-selected={chip === c.id} onclick={() => onchip?.(c.id)}>
           {c.label}{#if c.count !== undefined}<span class="n">{c.count}</span>{/if}
@@ -68,7 +69,7 @@
       <TodoGroups {todos} {done} {today} {showDone} {ontoggledone} {doneLimit} {emptyText} />
     {/key}
   </div>
-  {#if fab}<Fab label={fab.label} aria="新增待辦" onclick={fab.onclick} />{/if}
+  {#if fab}<Fab label={fab.label} aria={t("新增待辦", "Add a to-do")} onclick={fab.onclick} />{/if}
 </div>
 
 <style>

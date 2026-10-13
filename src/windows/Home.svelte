@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18n, t } from "@deskdo/core/i18n.svelte";
   import type { Snippet } from "svelte";
   import { fade, scale } from "svelte/transition";
   import { countdowns, resolve } from "@deskdo/core/countdowns.svelte";
@@ -29,7 +30,7 @@
   let { today, top, onmenu, onsearch, onall, oncountdowns }: Props = $props();
 
   const quote = dailyQuote(() => today);
-  const refreshQuote = () => quote.refresh().catch(() => toast.error("換不了句子，請檢查網路"));
+  const refreshQuote = () => quote.refresh().catch(() => toast.error(t("換不了句子，請檢查網路", "Couldn't get a new quote, check your connection")));
   const tomorrow = $derived(addDays(today, 1));
   const late = $derived(store.overdueCount);
   // 今天到期、時間已經過了的算在逾期
@@ -57,94 +58,105 @@
   <TopBar lead="menu" onlead={onmenu}>
     <span></span>
     {#snippet actions()}
-      <button class="icon-btn" onclick={onsearch} aria-label="搜尋"><Icon name="search" size={24} /></button>
+      <button class="icon-btn" onclick={onsearch} aria-label={t("搜尋", "Search")}><Icon name="search" size={24} /></button>
       <SyncStatus />
     {/snippet}
   </TopBar>
 
   <div class="scroll">
     <div class="when">
-      <span class="year">{Number(today.slice(0, 4))}年 · {weekday(today)}</span>
-      <h1>{Number(today.slice(5, 7))}月{Number(today.slice(8))}日</h1>
+      {#if i18n.en}
+        <span class="year">{weekday(today)} · {Number(today.slice(0, 4))}</span>
+        <h1>{new Date(`${today}T00:00`).toLocaleString("en", { month: "long" })} {Number(today.slice(8))}</h1>
+      {:else}
+        <span class="year">{Number(today.slice(0, 4))}年 · {weekday(today)}</span>
+        <h1>{Number(today.slice(5, 7))}月{Number(today.slice(8))}日</h1>
+      {/if}
       <p class="summary">
-        {#if late}<span class="warn">逾期 <b>{late}</b> 項</span> · {/if}
-        {#if dueToday}今天到期 <b class="warn">{dueToday}</b> 項 · {/if}
-        共 <b>{store.open.length}</b> 項待辦
+        {#if i18n.en}
+          {#if late}<span class="warn"><b>{late}</b> overdue</span> · {/if}
+          {#if dueToday}<b class="warn">{dueToday}</b> due today · {/if}
+          <b>{store.open.length}</b> to-dos
+        {:else}
+          {#if late}<span class="warn">逾期 <b>{late}</b> 項</span> · {/if}
+          {#if dueToday}今天到期 <b class="warn">{dueToday}</b> 項 · {/if}
+          共 <b>{store.open.length}</b> 項待辦
+        {/if}
       </p>
     </div>
 
     {@render top?.()}
 
-    <button class="card quote" class:loading={quote.loading} onclick={refreshQuote} aria-label="每日一言：{quote.current.text}（{quote.current.source}），點一下換一句">
-      <span class="qcap"><span class="clip">每日一言 · {quote.current.source}</span><Icon name="refresh" size={14} /></span>
+    <button class="card quote" class:loading={quote.loading} onclick={refreshQuote} aria-label={t(`每日一言：${quote.current.text}（${quote.current.source}），點一下換一句`, `Daily quote: ${quote.current.text} (${quote.current.source}), tap for another`)}>
+      <span class="qcap"><span class="clip">{t("每日一言", "Daily quote")} · {quote.current.source}</span><Icon name="refresh" size={14} /></span>
       <span class="qtext">{quote.current.text}</span>
     </button>
 
     {#if pinned.length}
-      <div class="cds" aria-label="倒數日">
+      <div class="cds" aria-label={t("倒數日", "Countdowns")}>
         {#each pinned as c (c.id)}
           <button class="card cd" onclick={oncountdowns}>
             <span class="cd-title clip">{c.title}</span>
             {#if c.n === 0}
-              <span class="cd-num"><b class="now">就是今天</b></span>
+              <span class="cd-num"><b class="now">{t("就是今天", "Today")}</b></span>
             {:else}
-              <span class="cd-num"><small>{c.n > 0 ? "還有" : "已經"}</small><b class:past={c.n < 0}>{Math.abs(c.n)}</b><small>天</small></span>
+              <span class="cd-num">{#if i18n.en}<b class:past={c.n < 0}>{Math.abs(c.n)}</b><small>{Math.abs(c.n) === 1 ? "day" : "days"} {c.n > 0 ? "left" : "ago"}</small>{:else}<small>{c.n > 0 ? "還有" : "已經"}</small><b class:past={c.n < 0}>{Math.abs(c.n)}</b><small>天</small>{/if}</span>
             {/if}
-            <span class="cd-date">{monthDay(c.target, today)} {weekday(c.target)}{c.yearly ? " · 每年" : ""}</span>
+            <span class="cd-date">{monthDay(c.target, today)} {weekday(c.target)}{c.yearly ? ` · ${t("每年", "yearly")}` : ""}</span>
           </button>
         {/each}
       </div>
     {/if}
 
-    <section class="card matrix" aria-label="四象限">
+    <section class="card matrix" aria-label={t("四象限", "Priority matrix")}>
       <div class="mhead">
-        <span class="mtitle">四象限</span>
-        <span class="maxis">重要 × 緊急</span>
+        <span class="mtitle">{t("四象限", "Priority matrix")}</span>
+        <span class="maxis">{t("重要 × 緊急", "Important × Urgent")}</span>
       </div>
       <div class="mgrid">
         {#each quads as q (q.key)}
-          <button class="tile" onclick={() => (openQ = q.key)} aria-haspopup="dialog" aria-label="{q.title}，{q.items.length} 項">
+          <button class="tile" onclick={() => (openQ = q.key)} aria-haspopup="dialog" aria-label={t(`${q.title}，${q.items.length} 項`, `${q.title}, ${q.items.length} to-dos`)}>
             <span class="trow">
               <span class="tname"><span class="dot {q.key}"></span>{q.title}</span>
               <span class="tcount">{q.items.length}</span>
             </span>
-            <span class="tpeek clip">{q.items.length ? q.items.slice(0, 3).map((t) => t.title).join(" · ") : "沒有"}</span>
+            <span class="tpeek clip">{q.items.length ? q.items.slice(0, 3).map((x) => x.title).join(" · ") : t("沒有", "None")}</span>
           </button>
         {/each}
       </div>
     </section>
 
-    <TodoGroups todos={soon} {today} emptyText="今天和明天沒有到期的待辦" />
+    <TodoGroups todos={soon} {today} emptyText={t("今天和明天沒有到期的待辦", "Nothing due today or tomorrow")} />
 
     <button class="more" onclick={onall}>
-      <span>{week ? `接下來 7 天還有 ${week} 項` : `查看全部 ${store.open.length} 項待辦`}</span>
+      <span>{week ? t(`接下來 7 天還有 ${week} 項`, `${week} more in the next 7 days`) : t(`查看全部 ${store.open.length} 項待辦`, `See all ${store.open.length} to-dos`)}</span>
       <Icon name="chevron" size={20} />
     </button>
   </div>
 
-  <Fab aria="新增待辦" onclick={() => ui.add()} />
+  <Fab aria={t("新增待辦", "Add a to-do")} onclick={() => ui.add()} />
 </div>
 
 {#if shown}
   <div class="dlg-layer">
-    <button class="scrim" onclick={() => (openQ = null)} aria-label="關閉" transition:fade={{ duration: 180 }}></button>
+    <button class="scrim" onclick={() => (openQ = null)} aria-label={t("關閉", "Close")} transition:fade={{ duration: 180 }}></button>
     <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="qtitle" transition:scale={{ start: 0.92, duration: 200 }}>
       <header class="dhead">
         <div class="dtext">
           <h2 id="qtitle"><span class="dot big {shown.key}"></span>{shown.title}<span class="dcount">{shown.items.length}</span></h2>
           <span class="daxis">{shown.axis}</span>
         </div>
-        <button class="icon-btn" onclick={() => (openQ = null)} aria-label="關閉"><Icon name="close" size={22} /></button>
+        <button class="icon-btn" onclick={() => (openQ = null)} aria-label={t("關閉", "Close")}><Icon name="close" size={22} /></button>
       </header>
       <div class="dlist">
         {#each shown.items as t (t.id)}
           <TodoItem todo={t} {today} />
         {:else}
-          <p class="dnone">這一格沒有待辦</p>
+          <p class="dnone">{t("這一格沒有待辦", "Nothing in this box")}</p>
         {/each}
       </div>
       <footer class="dfoot">
-        <button class="text-btn" onclick={() => ((openQ = null), onall())}>在「全部」查看</button>
+        <button class="text-btn" onclick={() => ((openQ = null), onall())}>{t("在「全部」查看", "See in All")}</button>
       </footer>
     </div>
   </div>

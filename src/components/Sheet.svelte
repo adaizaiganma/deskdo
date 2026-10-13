@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import type { Snippet } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { closeOnBack } from "../lib/back.svelte";
@@ -10,7 +11,7 @@
 </script>
 
 <div class="layer">
-  <button class="scrim" onclick={onclose} aria-label="關閉" transition:fade={{ duration: 200 }}></button>
+  <button class="scrim" onclick={onclose} aria-label={t("關閉", "Close")} transition:fade={{ duration: 200 }}></button>
   <div class="sheet" role="dialog" aria-modal="true" aria-label={label} transition:fly={{ y: 360, duration: 260, opacity: 1 }}>
     <div class="handle" aria-hidden="true"><span></span></div>
     {@render children()}

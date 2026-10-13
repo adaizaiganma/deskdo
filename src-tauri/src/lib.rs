@@ -23,6 +23,7 @@ pub fn run() {
             snapshot_changed: mobile::update_widget,
             prefs_changed: windows::emit_prefs,
             show_main: |app: &AppHandle| windows::show_main(app, None),
+            language_changed: mobile::refresh_widget,
         })
         .invoke_handler(deskdo_core::combine(
             deskdo_core::handler(),
@@ -49,7 +50,7 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("無法啟動待辦事項")
+        .expect("failed to start Deskdo")
         .run(|_app, _event| {
             // 回到前景時馬上同步（可能剛在小工具上勾了完成）
             #[cfg(mobile)]

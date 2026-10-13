@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { store } from "@deskdo/core/store.svelte";
 
   /** 同步狀態的小標籤；點一下立即同步 */
@@ -6,17 +7,17 @@
   const label = $derived(
     s.status === "ok"
       ? s.lastSync
-        ? `已同步 ${s.lastSync}`
-        : "已同步"
+        ? t(`已同步 ${s.lastSync}`, `Synced ${s.lastSync}`)
+        : t("已同步", "Synced")
       : s.status === "syncing"
-        ? "同步中…"
+        ? t("同步中…", "Syncing…")
         : s.status === "offline"
-          ? "離線"
-          : "同步錯誤",
+          ? t("離線", "Offline")
+          : t("同步錯誤", "Sync error"),
   );
 </script>
 
-<button class="sync {s.status}" title={s.message || undefined} aria-label="{label}，點一下立即同步" onclick={() => store.refresh()}>
+<button class="sync {s.status}" title={s.message || undefined} aria-label={t(`${label}，點一下立即同步`, `${label}, tap to sync now`)} onclick={() => store.refresh()}>
   <span class="dot"></span>{label}
 </button>
 

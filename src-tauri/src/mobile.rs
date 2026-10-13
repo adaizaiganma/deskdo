@@ -41,6 +41,8 @@ struct WidgetData<'a> {
     api_base: &'a str,
     api_token: &'a str,
     today: &'a str,
+    /// 介面語言（zh／en），小工具的文字跟著換
+    lang: &'static str,
     configured: bool,
     folders: &'a [Folder],
     items: Vec<Item<'a>>,
@@ -105,6 +107,12 @@ pub fn take_open_todo(app: &AppHandle) -> Option<String> {
     call::<Open>(&widget.0, "takeOpen", ())?.id
 }
 
+/// 換了語言：用目前的清單重送一次
+pub fn refresh_widget(app: &AppHandle) {
+    let snap = store::snapshot(app);
+    update_widget(app, &snap);
+}
+
 pub fn update_widget(app: &AppHandle, snap: &Snapshot) {
     let Some(widget) = app.try_state::<Widget>() else { return };
     let cfg = store::shared(app).config();
@@ -112,6 +120,7 @@ pub fn update_widget(app: &AppHandle, snap: &Snapshot) {
         api_base: &cfg.api_base,
         api_token: &cfg.api_token,
         today: &snap.today,
+        lang: if deskdo_core::i18n::en() { "en" } else { "zh" },
         configured: cfg.configured(),
         folders: &snap.folders,
         items: widget_items(&snap.todos),

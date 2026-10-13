@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import { t } from "@deskdo/core/i18n.svelte";
   export type Tab = "home" | "all" | "calendar" | "countdown";
 </script>
 
@@ -8,14 +9,14 @@
   let { current, ongo }: { current: Tab | null; ongo: (tab: Tab) => void } = $props();
 
   const tabs: { id: Tab; label: string; icon: IconName }[] = [
-    { id: "home", label: "主頁", icon: "home" },
-    { id: "all", label: "全部", icon: "inbox" },
-    { id: "calendar", label: "日曆", icon: "calendar" },
-    { id: "countdown", label: "倒數日", icon: "hourglass" },
+    { id: "home", get label() { return t("主頁", "Home"); }, icon: "home" },
+    { id: "all", get label() { return t("全部", "All"); }, icon: "inbox" },
+    { id: "calendar", get label() { return t("日曆", "Calendar"); }, icon: "calendar" },
+    { id: "countdown", get label() { return t("倒數日", "Countdowns"); }, icon: "hourglass" },
   ];
 </script>
 
-<nav class="bar" aria-label="主要頁面">
+<nav class="bar" aria-label={t("主要頁面", "Main pages")}>
   {#each tabs as t (t.id)}
     <button class="tab" class:on={current === t.id} aria-current={current === t.id ? "page" : undefined} onclick={() => ongo(t.id)}>
       <span class="pill-ind"><Icon name={t.icon} size={24} /></span>

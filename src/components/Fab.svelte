@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import Icon from "./Icon.svelte";
 
   /** 右下角的浮動按鈕；有 label 時是加寬的（圖示加文字） */
-  let { label = "", aria = "新增", onclick }: { label?: string; aria?: string; onclick: () => void } = $props();
+  let { label = "", aria = t("新增", "Add"), onclick }: { label?: string; aria?: string; onclick: () => void } = $props();
 </script>
 
 <button class="fab" class:wide={!!label} {onclick} aria-label={label ? undefined : aria}>

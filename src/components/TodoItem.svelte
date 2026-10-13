@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { localDate, monthDay, relativeDue, rowDue } from "@deskdo/core/dates";
   import { store } from "@deskdo/core/store.svelte";
   import type { Todo } from "@deskdo/core/types";
@@ -40,7 +41,7 @@
     class="chk"
     onclick={toggle}
     disabled={sending}
-    aria-label={todo.done ? `標記「${todo.title}」為未完成` : `完成「${todo.title}」`}
+    aria-label={todo.done ? t(`標記「${todo.title}」為未完成`, `Mark "${todo.title}" as not done`) : t(`完成「${todo.title}」`, `Complete "${todo.title}"`)}
   >
     <span class="ring" class:hi={high && !checked} class:on={checked}>
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -53,17 +54,17 @@
       <span class="title" class:struck={checked}>{todo.title}</span>
       {#if hasMeta}
         <span class="meta">
-          {#if waitingFor}<span class="mi"><Icon name="link" size={13} />等「{waitingFor.title}」完成</span>{/if}
-          {#if doneOn}<span>{doneOn} 完成</span>{/if}
-          {#if high}<span class="mi warn"><Icon name="flag" size={13} stroke={1.8} />高優先</span>{/if}
-          {#if low}<span class="mi">低優先</span>{/if}
+          {#if waitingFor}<span class="mi"><Icon name="link" size={13} />{t(`等「${waitingFor.title}」完成`, `After "${waitingFor.title}"`)}</span>{/if}
+          {#if doneOn}<span>{t(`${doneOn} 完成`, `Done ${doneOn}`)}</span>{/if}
+          {#if high}<span class="mi warn"><Icon name="flag" size={13} stroke={1.8} />{t("高優先", "High")}</span>{/if}
+          {#if low}<span class="mi">{t("低優先", "Low")}</span>{/if}
           {#each todo.tags as tag (tag)}<span class="mi clip">#{tag}</span>{/each}
           {#if todo.source === "email"}<span class="mi"><Icon name="mail" size={13} />Gmail</span>{/if}
-          {#if todo.note && !todo.done}<span class="mi"><Icon name="note" size={13} />備註</span>{/if}
+          {#if todo.note && !todo.done}<span class="mi"><Icon name="note" size={13} />{t("備註", "Note")}</span>{/if}
         </span>
       {/if}
       {#if next}
-        <span class="next clip">↳ 接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}</span>
+        <span class="next clip">↳ {t("接著：", "Next: ")}{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}</span>
       {/if}
     </span>
     {#if due}

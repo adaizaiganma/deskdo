@@ -112,7 +112,7 @@ class DeskdoWidget : AppWidgetProvider() {
       } else {
         WidgetStore.setCompleting(context, id, false)
         Handler(Looper.getMainLooper()).post {
-          Toast.makeText(context, "無法連線，沒有完成", Toast.LENGTH_SHORT).show()
+          Toast.makeText(context, tr("無法連線，沒有完成", "Offline, not completed"), Toast.LENGTH_SHORT).show()
         }
       }
       refreshAll(context)
@@ -226,7 +226,7 @@ class DeskdoWidget : AppWidgetProvider() {
     fun model(context: Context, widgetId: Int, data: WidgetStore.Data?): Model {
       val today = today(data)
       if (data == null || !data.configured) {
-        return Model(today, "", 0, 0, emptyList(), emptyList(), emptyList(), "打開 Deskdo 完成設定")
+        return Model(today, "", 0, 0, emptyList(), emptyList(), emptyList(), tr("打開 Deskdo 完成設定", "Open Deskdo to finish setup"))
       }
       val all = data.items
       val ids = all.map { it.id }.toHashSet()
@@ -238,7 +238,7 @@ class DeskdoWidget : AppWidgetProvider() {
       val countOf = all.flatMap { it.tags }.groupingBy { it }.eachCount()
       val groups = data.folders.filter { it.tags.isNotEmpty() }
       val inFolders = groups.flatMap { it.tags }.toHashSet()
-      val collator = Collator.getInstance(Locale.TRADITIONAL_CHINESE)
+      val collator = Collator.getInstance(if (WidgetStore.en) Locale.ENGLISH else Locale.TRADITIONAL_CHINESE)
       val loose = all.flatMap { it.tags }.distinct().filter { it !in inFolders }.sortedWith(collator)
 
       // 篩選的資料夾或標籤已經不在了就往上一層退
@@ -248,7 +248,7 @@ class DeskdoWidget : AppWidgetProvider() {
       val tag = p.getString("$widgetId.tag", null)?.takeIf { it in pool }
 
       val chips = buildList {
-        add(Chip("all", null, "全部", open.size, on = current == null && tag == null))
+        add(Chip("all", null, tr("全部", "All"), open.size, on = current == null && tag == null))
         for (g in groups) {
           // 有好幾個標籤在同一個資料夾的待辦只算一次
           val n = all.count { t -> t.tags.any { it in g.tags } }
@@ -269,9 +269,9 @@ class DeskdoWidget : AppWidgetProvider() {
       val now = SimpleDateFormat("HH:mm", Locale.US).format(Date())
       val rows = groupRows(shown, today, now) { if (it.id in waiting) titles[it.after] else null }
       val empty = when {
-        tag != null -> "這個標籤沒有待辦"
-        current != null -> "這個資料夾沒有待辦"
-        else -> "沒有待辦事項\n享受一下空白吧"
+        tag != null -> tr("這個標籤沒有待辦", "No to-dos with this tag")
+        current != null -> tr("這個資料夾沒有待辦", "No to-dos in this folder")
+        else -> tr("沒有待辦事項\n享受一下空白吧", "No to-dos\nEnjoy the empty space")
       }
       val overdue = open.count { isOverdue(it, today, now) }
       return Model(today, now, open.size, overdue, chips, subChips, rows, empty)
@@ -292,12 +292,12 @@ class DeskdoWidget : AppWidgetProvider() {
       return keys.flatMap { key ->
         val list = buckets[key] ?: return@flatMap emptyList()
         val (label, sub, tone) = when (key) {
-          "overdue" -> Triple("逾期", "", R.color.widget_warn)
-          "today" -> Triple("今天", longDate(today), R.color.widget_accent)
-          "tomorrow" -> Triple("明天", "${weekday(tomorrow)} ${monthDay(tomorrow, today)}", R.color.widget_sub)
-          "week" -> Triple("接下來 7 天", "", R.color.widget_sub)
-          "later" -> Triple("之後", "", R.color.widget_sub)
-          else -> Triple("沒有期限", "", R.color.widget_sub)
+          "overdue" -> Triple(tr("逾期", "Overdue"), "", R.color.widget_warn)
+          "today" -> Triple(tr("今天", "Today"), longDate(today), R.color.widget_accent)
+          "tomorrow" -> Triple(tr("明天", "Tomorrow"), "${weekday(tomorrow)} ${monthDay(tomorrow, today)}", R.color.widget_sub)
+          "week" -> Triple(tr("接下來 7 天", "Next 7 days"), "", R.color.widget_sub)
+          "later" -> Triple(tr("之後", "Later"), "", R.color.widget_sub)
+          else -> Triple(tr("沒有期限", "No due date"), "", R.color.widget_sub)
         }
         listOf(Row.Header(key, label, sub, tone, list.size)) + list.map { Row.Item(it, waitingFor(it)) }
       }
@@ -308,10 +308,12 @@ class DeskdoWidget : AppWidgetProvider() {
       val m = model(context, widgetId, data)
       val views = RemoteViews(context.packageName, R.layout.widget)
       views.setOnClickPendingIntent(R.id.header, openAppIntent(context))
-      views.setTextViewText(R.id.sub, if (data?.configured == true) "${longDate(m.today)} · ${m.openCount} 項待辦" else longDate(m.today))
+      views.setTextViewText(R.id.app_title, tr("待辦事項", "Deskdo"))
+      val count = tr("${m.openCount} 項待辦", "${m.openCount} to-dos")
+      views.setTextViewText(R.id.sub, if (data?.configured == true) "${longDate(m.today)} · $count" else longDate(m.today))
       if (m.overdue > 0) {
         views.setViewVisibility(R.id.overdue, View.VISIBLE)
-        views.setTextViewText(R.id.overdue, " · ${m.overdue} 逾期")
+        views.setTextViewText(R.id.overdue, tr(" · ${m.overdue} 逾期", " · ${m.overdue} overdue"))
       } else {
         views.setViewVisibility(R.id.overdue, View.GONE)
       }
@@ -451,12 +453,13 @@ class DeskdoWidget : AppWidgetProvider() {
         v.setViewVisibility(id, if (show) View.VISIBLE else View.GONE)
         if (show && text != null) v.setTextViewText(id, text)
       }
-      meta(R.id.waiting, waitingFor != null, "等「$waitingFor」完成")
-      meta(R.id.high, high)
-      meta(R.id.low, low)
+      v.setContentDescription(R.id.check, tr("完成", "Complete"))
+      meta(R.id.waiting, waitingFor != null, tr("等「$waitingFor」完成", "After \"$waitingFor\""))
+      meta(R.id.high, high, tr("高優先", "High"))
+      meta(R.id.low, low, tr("低優先", "Low"))
       meta(R.id.tag, item.tags.isNotEmpty(), item.tags.joinToString(" ") { "#$it" })
       meta(R.id.mail, item.mail)
-      meta(R.id.note, item.note)
+      meta(R.id.note, item.note, tr("備註", "Note"))
       val hasMeta = waitingFor != null || high || low || item.tags.isNotEmpty() || item.mail || item.note
       v.setViewVisibility(R.id.meta, if (hasMeta) View.VISIBLE else View.GONE)
 
@@ -484,6 +487,13 @@ class DeskdoWidget : AppWidgetProvider() {
     // ── 日期，和 App 的 dates.ts 一樣 ──
 
     private const val WEEKDAYS = "日一二三四五六"
+    private val WEEKDAYS_EN = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+    private val MONTHS_EN = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    /** 依 App 的介面語言選一個 */
+    private fun tr(zh: String, en: String) = if (WidgetStore.en) en else zh
+
+    private fun plural(n: Int, one: String) = "$n ${if (n == 1) one else one + "s"}"
 
     private fun utc() = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
 
@@ -508,7 +518,8 @@ class DeskdoWidget : AppWidgetProvider() {
 
     private fun weekday(iso: String): String {
       val c = cal(iso) ?: return ""
-      return "週" + WEEKDAYS[c.get(Calendar.DAY_OF_WEEK) - 1]
+      val d = c.get(Calendar.DAY_OF_WEEK) - 1
+      return if (WidgetStore.en) WEEKDAYS_EN[d] else "週" + WEEKDAYS[d]
     }
 
     private fun monthDay(iso: String, today: String): String {
@@ -519,6 +530,7 @@ class DeskdoWidget : AppWidgetProvider() {
 
     private fun longDate(iso: String): String {
       val c = cal(iso) ?: return iso
+      if (WidgetStore.en) return "${weekday(iso)}, ${MONTHS_EN[c.get(Calendar.MONTH)]} ${c.get(Calendar.DAY_OF_MONTH)}"
       return "${c.get(Calendar.MONTH) + 1}月${c.get(Calendar.DAY_OF_MONTH)}日 ${weekday(iso)}"
     }
 
@@ -546,11 +558,11 @@ class DeskdoWidget : AppWidgetProvider() {
       val at = if (time != null) " $time" else ""
       val date = (if (n in 0..7) "${weekday(due)} ${monthDay(due, today)}" else monthDay(due, today)) + at
       return when {
-        n < 0 -> Triple("逾期 ${-n} 天", date, R.color.widget_warn)
-        n == 0 && time == null -> Triple("今天到期", "", R.color.widget_warn)
-        n == 0 && time != null && time < now -> Triple("已逾期", "今天$at", R.color.widget_warn)
-        n == 0 -> Triple("今天$at", "", R.color.widget_warn)
-        else -> Triple("還有 $n 天", date, if (n <= 3) R.color.widget_accent else R.color.widget_sub)
+        n < 0 -> Triple(tr("逾期 ${-n} 天", "${plural(-n, "day")} overdue"), date, R.color.widget_warn)
+        n == 0 && time == null -> Triple(tr("今天到期", "Due today"), "", R.color.widget_warn)
+        n == 0 && time != null && time < now -> Triple(tr("已逾期", "Overdue"), tr("今天", "Today") + at, R.color.widget_warn)
+        n == 0 -> Triple(tr("今天", "Today") + at, "", R.color.widget_warn)
+        else -> Triple(tr("還有 $n 天", "${plural(n, "day")} left"), date, if (n <= 3) R.color.widget_accent else R.color.widget_sub)
       }
     }
   }

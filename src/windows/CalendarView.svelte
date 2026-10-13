@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { addMonths, dayDistance, longDate, monthGrid } from "@deskdo/core/dates";
+  import { t } from "@deskdo/core/i18n.svelte";
+  import { addMonths, dayDistance, longDate, monthGrid, monthTitle, weekdayHeads } from "@deskdo/core/dates";
   import { store } from "@deskdo/core/store.svelte";
   import type { Todo } from "@deskdo/core/types";
   import Fab from "../components/Fab.svelte";
@@ -17,7 +18,7 @@
   let showDone = $state(false);
 
   const days = $derived(monthGrid(month));
-  const monthLabel = $derived(`${Number(month.slice(0, 4))}年${Number(month.slice(5))}月`);
+  const monthLabel = $derived(monthTitle(month));
 
   const PRIORITY_RANK = { high: 0, normal: 1, low: 2 } as const;
   /** 每一天到期的未完成待辦（有時間的照時間，再來高優先先） */
@@ -76,15 +77,15 @@
 <div class="page">
   <TopBar title={monthLabel} lead="menu" onlead={onmenu}>
     {#snippet actions()}
-      <button class="icon-btn" onclick={() => (month = addMonths(month, -1))} aria-label="上個月"><Icon name="chevronLeft" size={24} /></button>
-      <button class="icon-btn" onclick={() => (month = addMonths(month, 1))} aria-label="下個月"><Icon name="chevron" size={24} /></button>
-      <button class="today" onclick={goToday} disabled={month === today.slice(0, 7) && selected === today}>今天</button>
+      <button class="icon-btn" onclick={() => (month = addMonths(month, -1))} aria-label={t("上個月", "Previous month")}><Icon name="chevronLeft" size={24} /></button>
+      <button class="icon-btn" onclick={() => (month = addMonths(month, 1))} aria-label={t("下個月", "Next month")}><Icon name="chevron" size={24} /></button>
+      <button class="today" onclick={goToday} disabled={month === today.slice(0, 7) && selected === today}>{t("今天", "Today")}</button>
     {/snippet}
   </TopBar>
 
   <div class="scroll">
     <div class="week" aria-hidden="true">
-      {#each "一二三四五六日" as w (w)}<span>{w}</span>{/each}
+      {#each weekdayHeads() as w (w)}<span>{w}</span>{/each}
     </div>
     <div class="grid" role="group" aria-label={monthLabel} ontouchstart={touchStart} ontouchend={touchEnd}>
       {#each days as day (day)}
@@ -95,7 +96,7 @@
           class:sel={day === selected}
           class:today={day === today}
           onclick={() => select(day)}
-          aria-label="{longDate(day)}，{items.length} 項待辦"
+          aria-label={t(`${longDate(day)}，${items.length} 項待辦`, `${longDate(day)}, ${items.length} to-dos`)}
           aria-pressed={day === selected}
         >
           <span class="num">{Number(day.slice(8))}</span>
@@ -108,7 +109,7 @@
 
     <div class="day-head">
       <h2>{longDate(selected)}</h2>
-      <span>{dayDistance(selected, today)}{dayTodos.length ? ` · ${dayTodos.length} 項` : ""}</span>
+      <span>{dayDistance(selected, today)}{dayTodos.length ? ` · ${t(`${dayTodos.length} 項`, `${dayTodos.length} to-dos`)}` : ""}</span>
     </div>
     {#key selected}
       <TodoGroups
@@ -118,12 +119,12 @@
         flat
         {showDone}
         ontoggledone={() => (showDone = !showDone)}
-        emptyText="這天沒有待辦"
+        emptyText={t("這天沒有待辦", "Nothing due this day")}
       />
     {/key}
   </div>
 
-  <Fab aria="在這天新增待辦" onclick={() => ui.add({ due: selected })} />
+  <Fab aria={t("在這天新增待辦", "Add a to-do on this day")} onclick={() => ui.add({ due: selected })} />
 </div>
 
 <style>

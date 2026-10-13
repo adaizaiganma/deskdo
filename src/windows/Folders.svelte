@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t as tr } from "@deskdo/core/i18n.svelte";
   import { onDestroy } from "svelte";
   import { Dish, folderRadius, type FolderView, type Layout, type TagView } from "@deskdo/core/bubbles";
   import { store } from "@deskdo/core/store.svelte";
@@ -141,7 +142,7 @@
 
   function save(next: Folder[]) {
     if (locked) {
-      toast.error("要先更新雲端才能用資料夾");
+      toast.error(tr("要先更新雲端才能用資料夾", "Update the cloud first to use folders"));
       return false;
     }
     store.setFolders(next);
@@ -162,7 +163,7 @@
     const current = store.folderOf.get(tag) ?? null;
     if (target === current) return;
     if (locked) {
-      toast.error("要先更新雲端才能用資料夾");
+      toast.error(tr("要先更新雲端才能用資料夾", "Update the cloud first to use folders"));
       return;
     }
     dish.moveTag(tag, target);
@@ -171,8 +172,9 @@
   }
 
   function uniqueFolderName() {
-    let name = "新資料夾";
-    for (let n = 2; folders.some((f) => f.name === name); n++) name = `新資料夾 ${n}`;
+    const base = tr("新資料夾", "New folder");
+    let name = base;
+    for (let n = 2; folders.some((f) => f.name === name); n++) name = `${base} ${n}`;
     return name;
   }
 
@@ -189,7 +191,7 @@
     if (exists) {
       // 已經有這個標籤：放到指定的資料夾就好
       if (at.folder && store.folderOf.get(tag) !== at.folder) drop(tag, at.folder);
-      else toast.show(`已經有 #${tag} 了`);
+      else toast.show(tr(`已經有 #${tag} 了`, `#${tag} already exists`));
       return;
     }
     dish.placeAt(`t:${tag}`, at.wx, at.wy);
@@ -201,7 +203,7 @@
     const name = input.value.trim();
     renaming = null;
     if (!name || name === old) return;
-    if (folders.some((f) => f.name === name)) return toast.error(`已經有「${name}」資料夾了`);
+    if (folders.some((f) => f.name === name)) return toast.error(tr(`已經有「${name}」資料夾了`, `There's already a folder named "${name}"`));
     dish.rename(old, name);
     save(folders.map((f) => (f.name === old ? { ...f, name } : f)));
   }
@@ -213,7 +215,7 @@
     // 沒有待辦用的標籤留下來當未分類的泡泡
     const orphans = before.find((f) => f.name === name)?.tags.filter((t) => !used.has(t)) ?? [];
     if (orphans.length) setExtras([...extras, ...orphans]);
-    toast.show(`已刪除「${name}」，裡面的標籤回到未分類`, {
+    toast.show(tr(`已刪除「${name}」，裡面的標籤回到未分類`, `Deleted "${name}"; its tags are unsorted again`), {
       undo: () => {
         // 復原時泡泡回到原來的位置
         if (b) dish.placeAt(`f:${name}`, b.x, b.y);
@@ -350,13 +352,13 @@
 
 <div class="page">
   <header>
-    <p>把小泡泡（標籤）拖進大泡泡（資料夾），拖出來就移出。長按可以新增資料夾或標籤，也可以改名、刪除。</p>
+    <p>{tr("把小泡泡（標籤）拖進大泡泡（資料夾），拖出來就移出。長按可以新增資料夾或標籤，也可以改名、刪除。", "Drag small bubbles (tags) into big bubbles (folders); drag them out to remove. Long-press to add, rename or delete folders and tags.")}</p>
   </header>
 
   {#if locked}
     <div class="callout">
-      <span>資料夾存在你的雲端上，要先更新雲端才能整理。</span>
-      <button class="primary" onclick={onupdatecloud}>更新雲端</button>
+      <span>{tr("資料夾存在你的雲端上，要先更新雲端才能整理。", "Folders are stored in your cloud. Update the cloud first to organize tags.")}</span>
+      <button class="primary" onclick={onupdatecloud}>{tr("更新雲端", "Update cloud")}</button>
     </div>
   {/if}
 
@@ -372,7 +374,7 @@
     onpointercancel={onCancel}
     oncontextmenu={onContext}
     role="application"
-    aria-label="標籤資料夾"
+    aria-label={tr("標籤資料夾", "Tag folders")}
   >
     {#if w && h}
       <svg width={w} height={h} viewBox="0 0 {W} {H}" aria-hidden="true">
@@ -412,7 +414,7 @@
 
         {#each view.folders as f (f.id)}
           {#if !folderSize(f.id)}
-            <text class="empty-hint" x={f.x} y={f.y + 4} style="--h:{f.hue}">拖標籤進來</text>
+            <text class="empty-hint" x={f.x} y={f.y + 4} style="--h:{f.hue}">{tr("拖標籤進來", "Drop tags here")}</text>
           {/if}
         {/each}
 
@@ -428,7 +430,7 @@
             transform="translate({t.x} {t.y})"
             style="--h:{hue ?? 220}; --rh:{ring.hue}; --rmix:{Math.round(ring.mix * 100)}%"
           >
-            <title>#{t.id}{n ? `：${n} 項待辦` : "：目前沒有待辦"}</title>
+            <title>#{t.id}{n ? tr(`：${n} 項待辦`, `: ${n} to-dos`) : tr("：目前沒有待辦", ": no to-dos right now")}</title>
             <circle r={t.r} />
             <text y={n ? -1 : 4}>{labelOf(t.id)}</text>
             {#if n}<text class="n" y={13}>{n}</text>{/if}
@@ -449,7 +451,7 @@
             <input
               value={f.id}
               maxlength="40"
-              aria-label="資料夾名稱"
+              aria-label={tr("資料夾名稱", "Folder name")}
               use:focusSelect
               onblur={(e) => rename(f.id, e.currentTarget)}
               onkeydown={(e) => {
@@ -468,8 +470,8 @@
 
       {#if !view.folders.length && !view.tags.length}
         <div class="blank">
-          還沒有標籤<br />
-          <span>按右鍵新增資料夾或標籤，或在新增待辦時用 #標籤</span>
+          {tr("還沒有標籤", "No tags yet")}<br />
+          <span>{tr("按右鍵新增資料夾或標籤，或在新增待辦時用 #標籤", "Add a folder or tag from the menu, or use #tag when adding a to-do")}</span>
         </div>
       {/if}
 
@@ -486,9 +488,9 @@
           }}
         >
           <input
-            placeholder={at.folder ? `放進「${at.folder}」的標籤` : "新標籤名稱"}
+            placeholder={at.folder ? tr(`放進「${at.folder}」的標籤`, `Tag in "${at.folder}"`) : tr("新標籤名稱", "New tag name")}
             maxlength="40"
-            aria-label="新標籤名稱"
+            aria-label={tr("新標籤名稱", "New tag name")}
             use:focusSelect
             onblur={() => (adding = null)}
           />
@@ -499,15 +501,15 @@
         {@const m = menu}
         {#if m.kind === "empty"}
           <div class="menu" style={clampMenu(m, 2)} role="menu">
-            <button role="menuitem" onclick={() => act(() => createFolder(m.wx, m.wy))}>新增資料夾（大泡泡）</button>
-            <button role="menuitem" onclick={() => startAdding(null)}>新增標籤（小泡泡）</button>
+            <button role="menuitem" onclick={() => act(() => createFolder(m.wx, m.wy))}>{tr("新增資料夾（大泡泡）", "New folder (big bubble)")}</button>
+            <button role="menuitem" onclick={() => startAdding(null)}>{tr("新增標籤（小泡泡）", "New tag (small bubble)")}</button>
           </div>
         {:else if m.kind === "folder"}
           <div class="menu" style={clampMenu(m, 4)} role="menu">
             <div class="mhead clip">{m.id}</div>
-            <button role="menuitem" onclick={() => startAdding(m.id)}>在這裡新增標籤</button>
-            <button role="menuitem" onclick={() => act(() => (renaming = m.id))}>重新命名</button>
-            <button role="menuitem" class="danger" onclick={() => act(() => remove(m.id))}>刪除資料夾</button>
+            <button role="menuitem" onclick={() => startAdding(m.id)}>{tr("在這裡新增標籤", "Add a tag here")}</button>
+            <button role="menuitem" onclick={() => act(() => (renaming = m.id))}>{tr("重新命名", "Rename")}</button>
+            <button role="menuitem" class="danger" onclick={() => act(() => remove(m.id))}>{tr("刪除資料夾", "Delete folder")}</button>
           </div>
         {:else}
           {@const cur = tagFolder(m.id)}
@@ -515,15 +517,15 @@
             <div class="mhead clip">#{m.id}</div>
             {#each folders as f (f.name)}
               <button role="menuitem" disabled={cur === f.name} onclick={() => act(() => drop(m.id, f.name))}>
-                <span class="clip">放進「{f.name}」</span>{#if cur === f.name}<span class="check">✓</span>{/if}
+                <span class="clip">{tr(`放進「${f.name}」`, `Move to "${f.name}"`)}</span>{#if cur === f.name}<span class="check">✓</span>{/if}
               </button>
             {/each}
             {#if cur}
-              <button role="menuitem" onclick={() => act(() => drop(m.id, null))}>移出資料夾</button>
+              <button role="menuitem" onclick={() => act(() => drop(m.id, null))}>{tr("移出資料夾", "Take out of folder")}</button>
             {:else if extraLoose.includes(m.id)}
-              <button role="menuitem" class="danger" onclick={() => act(() => setExtras(extras.filter((t) => t !== m.id)))}>移除這個標籤</button>
+              <button role="menuitem" class="danger" onclick={() => act(() => setExtras(extras.filter((t) => t !== m.id)))}>{tr("移除這個標籤", "Remove this tag")}</button>
             {:else if !folders.length}
-              <p class="mnote">先按右鍵新增一個資料夾</p>
+              <p class="mnote">{tr("先按右鍵新增一個資料夾", "Long-press to add a folder first")}</p>
             {/if}
           </div>
         {/if}

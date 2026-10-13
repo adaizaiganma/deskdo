@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18n, ordinal, plural, t } from "@deskdo/core/i18n.svelte";
   import { countdowns, resolve, type Countdown } from "@deskdo/core/countdowns.svelte";
   import { addDays, dayDistance, diffDays, fullDate, spanText } from "@deskdo/core/dates";
   import { store } from "@deskdo/core/store.svelte";
@@ -51,7 +52,7 @@
     form = null;
     if (!old) return;
     countdowns.remove(old.id);
-    toast.show(`已刪除「${old.title}」`, { undo: () => countdowns.restore(old, index) });
+    toast.show(t(`已刪除「${old.title}」`, `Deleted "${old.title}"`), { undo: () => countdowns.restore(old, index) });
   }
 
   function formKey(e: KeyboardEvent) {
@@ -71,46 +72,54 @@
 
   function weeks(n: number): string {
     const a = Math.abs(n);
-    return a >= 7 ? `${Math.floor(a / 7)} 週${a % 7 ? ` ${a % 7} 天` : ""}` : "";
+    if (a < 7) return "";
+    const w = Math.floor(a / 7);
+    if (i18n.en) return [plural(w, "week"), a % 7 && plural(a % 7, "day")].filter(Boolean).join(" ");
+    return `${w} 週${a % 7 ? ` ${a % 7} 天` : ""}`;
   }
 </script>
 
 <div class="page">
-  <TopBar title="倒數日" lead="menu" onlead={onmenu} />
+  <TopBar title={t("倒數日", "Countdowns")} lead="menu" onlead={onmenu} />
 
   <div class="scroll">
     {#if nearest}
       <button class="hero" onclick={() => openEdit(nearest)}>
         <span class="htext">
-          <span class="hlabel">最近的一個</span>
+          <span class="hlabel">{t("最近的一個", "Next up")}</span>
           <span class="htitle clip">{nearest.title}</span>
           <span class="hdate">{fullDate(nearest.target)}</span>
         </span>
         {#if nearest.n === 0}
-          <b class="hnow">就是今天</b>
+          <b class="hnow">{t("就是今天", "Today")}</b>
         {:else}
-          <span class="hnum"><b>{nearest.n}</b>天</span>
+          <span class="hnum"><b>{nearest.n}</b>{t("天", nearest.n === 1 ? " day" : " days")}</span>
         {/if}
       </button>
     {/if}
 
     {#if items.length}
-      <h2 class="section">全部 · {items.length}</h2>
+      <h2 class="section">{t("全部", "All")} · {items.length}</h2>
       <div class="cards">
         {#each items as c (c.id)}
           {@const onHome = c.pinned !== false}
           <div class="card" class:past={c.n < 0}>
-            <button class="cbody" onclick={() => openEdit(c)} aria-label="編輯「{c.title}」">
+            <button class="cbody" onclick={() => openEdit(c)} aria-label={t(`編輯「${c.title}」`, `Edit "${c.title}"`)}>
               <span class="ctext">
                 <span class="ctitle clip">{c.title}</span>
-                <span class="csub">{fullDate(c.target)}{c.yearly ? ` · 每年${c.nth > 0 ? ` · ${c.nth} 週年` : ""}` : ""}</span>
+                <span class="csub">{fullDate(c.target)}{c.yearly ? ` · ${t("每年", "Yearly")}${c.nth > 0 ? ` · ${t(`${c.nth} 週年`, `${ordinal(c.nth)} anniversary`)}` : ""}` : ""}</span>
               </span>
               <span class="cnum">
                 {#if c.n === 0}
-                  <b class="now">今天</b>
+                  <b class="now">{t("今天", "Today")}</b>
                 {:else}
-                  <small>{c.n > 0 ? "還有" : "已經過了"}</small>
-                  <span><b>{Math.abs(c.n)}</b>天</span>
+                  {#if i18n.en}
+                    <span><b>{Math.abs(c.n)}</b> {Math.abs(c.n) === 1 ? "day" : "days"}</span>
+                    <small>{c.n > 0 ? "left" : "ago"}</small>
+                  {:else}
+                    <small>{c.n > 0 ? "還有" : "已經過了"}</small>
+                    <span><b>{Math.abs(c.n)}</b>天</span>
+                  {/if}
                 {/if}
               </span>
             </button>
@@ -118,7 +127,7 @@
               class="pin"
               class:on={onHome}
               aria-pressed={onHome}
-              aria-label={onHome ? `從主頁拿掉「${c.title}」` : `把「${c.title}」顯示在主頁`}
+              aria-label={onHome ? t(`從主頁拿掉「${c.title}」`, `Remove "${c.title}" from home`) : t(`把「${c.title}」顯示在主頁`, `Show "${c.title}" on home`)}
               onclick={() => countdowns.setPinned(c.id, !onHome)}
             >
               <Icon name="pin" size={22} fill={onHome} />
@@ -126,81 +135,81 @@
           </div>
         {/each}
       </div>
-      <p class="note"><Icon name="pin" size={16} />釘選的倒數日會顯示在主頁 · 只存在這台裝置</p>
+      <p class="note"><Icon name="pin" size={16} />{t("釘選的倒數日會顯示在主頁 · 只存在這台裝置", "Pinned countdowns show on home · stored on this device only")}</p>
     {:else}
-      <p class="empty">還沒有倒數日。按右下角的「新增倒數」，例如考試、生日、紀念日。</p>
+      <p class="empty">{t("還沒有倒數日。按右下角的「新增倒數」，例如考試、生日、紀念日。", "No countdowns yet. Tap New countdown at the bottom right, for an exam, a birthday or an anniversary.")}</p>
     {/if}
 
     <section class="calc">
       <div class="calc-head">
-        <h2>日期計算</h2>
+        <h2>{t("日期計算", "Date calculator")}</h2>
         <div class="seg" role="tablist">
-          <button role="tab" aria-selected={mode === "diff"} class:on={mode === "diff"} onclick={() => (mode = "diff")}>相差幾天</button>
-          <button role="tab" aria-selected={mode === "add"} class:on={mode === "add"} onclick={() => (mode = "add")}>加減天數</button>
+          <button role="tab" aria-selected={mode === "diff"} class:on={mode === "diff"} onclick={() => (mode = "diff")}>{t("相差幾天", "Days between")}</button>
+          <button role="tab" aria-selected={mode === "add"} class:on={mode === "add"} onclick={() => (mode = "add")}>{t("加減天數", "Add or subtract")}</button>
         </div>
       </div>
 
       {#if mode === "diff"}
         <div class="row">
-          <label class="pair"><span>從</span><input class="input" type="date" bind:value={from} /></label>
-          <label class="pair"><span>到</span><input class="input" type="date" bind:value={to} /></label>
+          <label class="pair"><span>{t("從", "From")}</span><input class="input" type="date" bind:value={from} /></label>
+          <label class="pair"><span>{t("到", "To")}</span><input class="input" type="date" bind:value={to} /></label>
         </div>
         {#if diff !== null}
           <div class="result">
-            <span class="big"><small>相差</small><b>{Math.abs(diff)}</b><small>天</small></span>
-            <span class="rsub">{[weeks(diff), spanText(from, to)].filter(Boolean).join(" · ") || (diff === 0 ? "同一天" : "")}</span>
-            <button class="text-btn" onclick={() => openNew(to)}><Icon name="plus" size={16} stroke={1.8} />存成倒數日</button>
+            <span class="big">{#if i18n.en}<b>{Math.abs(diff)}</b><small>{Math.abs(diff) === 1 ? "day" : "days"} apart</small>{:else}<small>相差</small><b>{Math.abs(diff)}</b><small>天</small>{/if}</span>
+            <span class="rsub">{[weeks(diff), spanText(from, to)].filter(Boolean).join(" · ") || (diff === 0 ? t("同一天", "Same day") : "")}</span>
+            <button class="text-btn" onclick={() => openNew(to)}><Icon name="plus" size={16} stroke={1.8} />{t("存成倒數日", "Save as countdown")}</button>
           </div>
         {/if}
       {:else}
         <div class="row">
-          <input class="input" type="date" bind:value={base} aria-label="日期" />
+          <input class="input" type="date" bind:value={base} aria-label={t("日期", "Date")} />
           <div class="seg small">
-            <button class:on={sign === 1} onclick={() => (sign = 1)} aria-label="往後">＋</button>
-            <button class:on={sign === -1} onclick={() => (sign = -1)} aria-label="往前">－</button>
+            <button class:on={sign === 1} onclick={() => (sign = 1)} aria-label={t("往後", "Later")}>＋</button>
+            <button class:on={sign === -1} onclick={() => (sign = -1)} aria-label={t("往前", "Earlier")}>－</button>
           </div>
-          <input class="input num" type="number" min="0" inputmode="numeric" bind:value={amount} aria-label="天數" />
-          <span class="unit">天</span>
+          <input class="input num" type="number" min="0" inputmode="numeric" bind:value={amount} aria-label={t("天數", "Days")} />
+          <span class="unit">{t("天", "days")}</span>
         </div>
         {#if added}
           <div class="result">
             <span class="big"><b class="date-big">{fullDate(added)}</b></span>
-            <span class="rsub">{added === today ? "就是今天" : dayDistance(added, today)}</span>
-            <button class="text-btn" onclick={() => openNew(added)}><Icon name="plus" size={16} stroke={1.8} />存成倒數日</button>
+            <span class="rsub">{added === today ? t("就是今天", "Today") : dayDistance(added, today)}</span>
+            <button class="text-btn" onclick={() => openNew(added)}><Icon name="plus" size={16} stroke={1.8} />{t("存成倒數日", "Save as countdown")}</button>
           </div>
         {/if}
       {/if}
     </section>
   </div>
 
-  <Fab label="新增倒數" onclick={() => openNew()} />
+  <Fab label={t("新增倒數", "New countdown")} onclick={() => openNew()} />
 </div>
 
 {#if form}
-  <Sheet label={form.id ? "編輯倒數日" : "新增倒數日"} onclose={() => (form = null)}>
-    <h2>{form.id ? "編輯倒數日" : "新增倒數日"}</h2>
+  <Sheet label={form.id ? t("編輯倒數日", "Edit countdown") : t("新增倒數日", "New countdown")} onclose={() => (form = null)}>
+    <h2>{form.id ? t("編輯倒數日", "Edit countdown") : t("新增倒數日", "New countdown")}</h2>
     <label class="field">
-      <span class="flabel">名稱</span>
+      <span class="flabel">{t("名稱", "Name")}</span>
       <!-- svelte-ignore a11y_autofocus -->
-      <input bind:value={form.title} onkeydown={formKey} placeholder="例如：期末考、生日" enterkeyhint="done" autofocus={!form.id} />
+      <input bind:value={form.title} onkeydown={formKey} placeholder={t("例如：期末考、生日", "e.g. Finals, Birthday")} enterkeyhint="done" autofocus={!form.id} />
     </label>
     <label class="field">
-      <span class="flabel">日期</span>
+      <span class="flabel">{t("日期", "Date")}</span>
       <input type="date" bind:value={form.date} />
     </label>
     <label class="switch-row">
-      <span><span class="sw-title">每年重複</span><span class="sw-sub">生日、紀念日：倒數到下一次的這一天</span></span>
+      <span><span class="sw-title">{t("每年重複", "Repeat yearly")}</span><span class="sw-sub">{t("生日、紀念日：倒數到下一次的這一天", "Birthdays and anniversaries: counts down to the next one")}</span></span>
       <input type="checkbox" role="switch" class="switch" bind:checked={form.yearly} />
     </label>
     <label class="switch-row">
-      <span class="sw-title">顯示在主頁</span>
+      <span class="sw-title">{t("顯示在主頁", "Show on home")}</span>
       <input type="checkbox" role="switch" class="switch" bind:checked={form.pinned} />
     </label>
     <div class="actions">
-      {#if form.id}<button class="text-btn danger" onclick={remove}><Icon name="trash" size={18} />刪除</button>{/if}
+      {#if form.id}<button class="text-btn danger" onclick={remove}><Icon name="trash" size={18} />{t("刪除", "Delete")}</button>{/if}
       <span class="grow"></span>
-      <button class="text-btn" onclick={() => (form = null)}>取消</button>
-      <button class="primary" onclick={save} disabled={!form.title.trim() || !form.date}>{form.id ? "儲存" : "新增"}</button>
+      <button class="text-btn" onclick={() => (form = null)}>{t("取消", "Cancel")}</button>
+      <button class="primary" onclick={save} disabled={!form.title.trim() || !form.date}>{form.id ? t("儲存", "Save") : t("新增", "Add")}</button>
     </div>
   </Sheet>
 {/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18n, t } from "@deskdo/core/i18n.svelte";
   import { onMount } from "svelte";
   import { relativeDue } from "@deskdo/core/dates";
   import { parseSteps } from "@deskdo/core/quickadd";
@@ -35,15 +36,16 @@
         .filter((t) => t !== q && t.toLowerCase().startsWith(q.toLowerCase()))
         .slice(0, 8)
         .map((t) => `#${t}`);
-    return ["今天", "明天", "後天", "週五", "下週一"].filter((w) => w !== q && w.startsWith(q)).map((w) => `@${w}`);
+    const words = i18n.en ? ["today", "tomorrow", "mon", "fri", "nextmon"] : ["今天", "明天", "後天", "週五", "下週一"];
+    return words.filter((w) => w !== q && w.startsWith(q.toLowerCase())).map((w) => `@${w}`);
   });
 
   const tokens = [
-    { sym: "#", label: "標籤", insert: "#" },
-    { sym: "@", label: "期限", insert: "@" },
-    { sym: "!", label: "高優先", insert: "! " },
-    { sym: "~", label: "低優先", insert: "~ " },
-    { sym: ">", label: "下一步", insert: "> " },
+    { sym: "#", get label() { return t("標籤", "tag"); }, insert: "#" },
+    { sym: "@", get label() { return t("期限", "due"); }, insert: "@" },
+    { sym: "!", get label() { return t("高優先", "high"); }, insert: "! " },
+    { sym: "~", get label() { return t("低優先", "low"); }, insert: "~ " },
+    { sym: ">", get label() { return t("下一步", "next step"); }, insert: "> " },
   ];
 
   onMount(() => input?.focus());
@@ -89,15 +91,15 @@
   }
 </script>
 
-<Sheet label="新增待辦" {onclose}>
-  <h2>新增待辦</h2>
+<Sheet label={t("新增待辦", "Add a to-do")} {onclose}>
+  <h2>{t("新增待辦", "Add a to-do")}</h2>
   <label class="field">
-    <span class="flabel">待辦內容</span>
+    <span class="flabel">{t("待辦內容", "To-do")}</span>
     <input
       bind:this={input}
       bind:value={text}
       onkeydown={onKey}
-      placeholder="例如：期中考 #電子學 @10/22 10:10 !"
+      placeholder={t("例如：期中考 #電子學 @10/22 10:10 !", "e.g. Midterm #physics @10/22 10:10 !")}
       enterkeyhint="send"
       autocomplete="off"
     />
@@ -105,14 +107,14 @@
 
   <div class="chips" aria-live="polite">
     {#if steps && steps.length > 1}
-      <span class="chip strong clip">{steps.length} 個步驟：{steps.map((s) => s.title).join(" → ")}</span>
+      <span class="chip strong clip">{t(`${steps.length} 個步驟：`, `${steps.length} steps: `)}{steps.map((s) => s.title).join(" → ")}</span>
     {:else if parsed}
       <span class="chip strong clip">{parsed.title}</span>
     {/if}
     {#if due}<span class="chip accent"><Icon name="calendar" size={16} />{relativeDue(due, store.today, parsed?.dueTime ?? null)}</span>{/if}
     {#each tags as tag (tag)}<span class="chip clip">#{tag}</span>{/each}
-    {#if parsed?.priority === "high"}<span class="chip warn"><Icon name="flag" size={14} stroke={1.8} />高優先</span>{/if}
-    {#if parsed?.priority === "low"}<span class="chip">低優先</span>{/if}
+    {#if parsed?.priority === "high"}<span class="chip warn"><Icon name="flag" size={14} stroke={1.8} />{t("高優先", "High priority")}</span>{/if}
+    {#if parsed?.priority === "low"}<span class="chip">{t("低優先", "Low priority")}</span>{/if}
   </div>
 
   {#if suggestions.length}
@@ -130,8 +132,8 @@
   </div>
 
   <div class="actions">
-    <button class="text-btn" onclick={onclose}>取消</button>
-    <button class="primary" onclick={submit} disabled={!steps}>新增</button>
+    <button class="text-btn" onclick={onclose}>{t("取消", "Cancel")}</button>
+    <button class="primary" onclick={submit} disabled={!steps}>{t("新增", "Add")}</button>
   </div>
 </Sheet>
 

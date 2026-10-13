@@ -1,3 +1,4 @@
+import { t } from "@deskdo/core/i18n.svelte";
 import { compareDue, diffDays } from "@deskdo/core/dates";
 import type { Todo } from "@deskdo/core/types";
 
@@ -26,9 +27,9 @@ export function quadrants(todos: Todo[], today: string): Quadrant[] {
   const important = (t: Todo) => t.priority === "high";
   const urgent = (t: Todo) => isUrgent(t, today);
   return [
-    { key: "do", title: "馬上做", axis: "重要・緊急", items: sorted.filter((t) => important(t) && urgent(t)) },
-    { key: "plan", title: "排時間做", axis: "重要・不緊急", items: sorted.filter((t) => important(t) && !urgent(t)) },
-    { key: "quick", title: "盡快處理", axis: "不重要・緊急", items: sorted.filter((t) => !important(t) && urgent(t)) },
-    { key: "later", title: "有空再做", axis: "不重要・不緊急", items: sorted.filter((t) => !important(t) && !urgent(t)) },
+    { key: "do", title: t("馬上做", "Do now"), axis: t("重要・緊急", "Important · Urgent"), items: sorted.filter((t) => important(t) && urgent(t)) },
+    { key: "plan", title: t("排時間做", "Schedule"), axis: t("重要・不緊急", "Important · Not urgent"), items: sorted.filter((t) => important(t) && !urgent(t)) },
+    { key: "quick", title: t("盡快處理", "Get it done"), axis: t("不重要・緊急", "Not important · Urgent"), items: sorted.filter((t) => !important(t) && urgent(t)) },
+    { key: "later", title: t("有空再做", "Someday"), axis: t("不重要・不緊急", "Not important · Not urgent"), items: sorted.filter((t) => !important(t) && !urgent(t)) },
   ];
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { flip } from "svelte/animate";
   import { fly, slide } from "svelte/transition";
   import { groupTodos } from "@deskdo/core/dates";
@@ -21,7 +22,7 @@
     /** 不顯示分組標題（例如日曆上的某一天） */
     flat?: boolean;
   }
-  let { todos, done = null, today, showDone, ontoggledone, doneLimit = 50, emptyText = "沒有待辦事項", flat = false }: Props = $props();
+  let { todos, done = null, today, showDone, ontoggledone, doneLimit = 50, emptyText = t("沒有待辦事項", "No to-dos"), flat = false }: Props = $props();
 
   const groups = $derived(groupTodos(todos, today, null, store.now));
   const doneShown = $derived(done ? done.slice(0, doneLimit) : []);
@@ -54,7 +55,7 @@
     {#if ontoggledone}
       <button class="done-toggle" onclick={ontoggledone} aria-expanded={doneOpen}>
         <span class="chev" class:down={doneOpen}><Icon name="chevron" size={14} stroke={1.8} /></span>
-        已完成 {done.length}
+        {t("已完成", "Done")} {done.length}
       </button>
     {/if}
     {#if doneOpen}
@@ -65,7 +66,7 @@
           </div>
         {/each}
         {#if done.length > doneShown.length}
-          <p class="more">還有 {done.length - doneShown.length} 項較早完成的項目</p>
+          <p class="more">{t(`還有 ${done.length - doneShown.length} 項較早完成的項目`, `${done.length - doneShown.length} more completed earlier`)}</p>
         {/if}
       </div>
     {/if}

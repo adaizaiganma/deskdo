@@ -3,6 +3,7 @@
 //! 只有正式版會自動檢查。
 
 use crate::config;
+use deskdo_core::{i18n::tr, trf};
 use serde::Serialize;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -70,11 +71,11 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
         .header("Accept", "application/vnd.github+json")
         .send()
         .await
-        .map_err(|e| format!("無法檢查更新：{e}"))?;
+        .map_err(|e| trf!("無法檢查更新：{e}", "Can't check for updates: {e}"))?;
     if !res.status().is_success() {
-        return Err(format!("無法檢查更新（HTTP {}）", res.status().as_u16()));
+        return Err(trf!("無法檢查更新（HTTP {}）", "Can't check for updates (HTTP {})", res.status().as_u16()));
     }
-    let release: serde_json::Value = res.json().await.map_err(|e| format!("無法檢查更新：{e}"))?;
+    let release: serde_json::Value = res.json().await.map_err(|e| trf!("無法檢查更新：{e}", "Can't check for updates: {e}"))?;
     let tag = release["tag_name"].as_str().unwrap_or_default();
     let current = app.package_info().version.to_string();
     if version_tuple(tag) <= version_tuple(&current) {
@@ -104,7 +105,7 @@ pub async fn get_update(app: AppHandle) -> Option<UpdateInfo> {
 #[tauri::command]
 pub async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
     if !enabled() {
-        return Err("開發版和測試版不會自動更新".into());
+        return Err(tr("開發版和測試版不會自動更新", "Dev and beta builds don't update automatically").into());
     }
     check(&app).await
 }
@@ -114,9 +115,9 @@ pub async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> 
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
     let url = app.state::<UpdateState>().ready.lock().await.as_ref().map(|u| u.url.clone());
     let Some(url) = url else {
-        return Err("沒有可安裝的更新".into());
+        return Err(tr("沒有可安裝的更新", "There's no update to install").into());
     };
-    app.opener().open_url(url, None::<&str>).map_err(|e| format!("無法開啟下載網址：{e}"))
+    app.opener().open_url(url, None::<&str>).map_err(|e| trf!("無法開啟下載網址：{e}", "Can't open the download link: {e}"))
 }
 
 #[cfg(test)]

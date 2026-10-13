@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { fade, fly } from "svelte/transition";
   import { store } from "@deskdo/core/store.svelte";
   import { closeOnBack } from "../lib/back.svelte";
@@ -47,16 +48,16 @@
 
 {#if open}
   <div class="layer">
-    <button class="scrim" onclick={onclose} aria-label="關閉選單" transition:fade={{ duration: 200 }}></button>
-    <nav class="drawer" aria-label="標籤" transition:fly={{ x: -320, duration: 240, opacity: 1 }}>
+    <button class="scrim" onclick={onclose} aria-label={t("關閉選單", "Close menu")} transition:fade={{ duration: 200 }}></button>
+    <nav class="drawer" aria-label={t("標籤", "Tags")} transition:fly={{ x: -320, duration: 240, opacity: 1 }}>
       <div class="brand">
         <span class="name">Deskdo{#if store.prefs?.beta}<span class="beta">Beta</span>{/if}</span>
         <SyncStatus />
       </div>
 
       <div class="section">
-        <span>標籤</span>
-        <button class="text-btn" class:on={current === "folders"} onclick={() => ongo("folders")}>整理</button>
+        <span>{t("標籤", "Tags")}</span>
+        <button class="text-btn" class:on={current === "folders"} onclick={() => ongo("folders")}>{t("整理", "Organize")}</button>
       </div>
 
       <div class="list">
@@ -68,7 +69,7 @@
               <span class="label clip">{f.name}</span>
               {#if f.count}<span class="count">{f.count}</span>{/if}
             </button>
-            <button class="caret" class:shut onclick={() => toggleFolder(f.name)} aria-label={shut ? `展開 ${f.name}` : `收合 ${f.name}`} aria-expanded={!shut}>
+            <button class="caret" class:shut onclick={() => toggleFolder(f.name)} aria-label={shut ? t(`展開 ${f.name}`, `Expand ${f.name}`) : t(`收合 ${f.name}`, `Collapse ${f.name}`)} aria-expanded={!shut}>
               <Icon name="chevronDown" size={20} />
             </button>
           </div>
@@ -90,15 +91,15 @@
           </button>
         {/each}
         {#if !folders.length && !loose.length}
-          <p class="empty">還沒有標籤。新增待辦時輸入 #標籤，就會出現在這裡。</p>
+          <p class="empty">{t("還沒有標籤。新增待辦時輸入 #標籤，就會出現在這裡。", "No tags yet. Type #tag when adding a to-do and it shows up here.")}</p>
         {/if}
       </div>
 
       <div class="foot">
         <button class="item" class:on={current === "settings"} onclick={() => ongo("settings")}>
           <Icon name="settings" size={22} />
-          <span class="label">設定</span>
-          {#if store.appUpdate}<span class="dot" aria-label="有新版本"></span>{/if}
+          <span class="label">{t("設定", "Settings")}</span>
+          {#if store.appUpdate}<span class="dot" aria-label={t("有新版本", "Update available")}></span>{/if}
           <span class="count">{store.prefs?.appVersion ?? ""}</span>
         </button>
       </div>
