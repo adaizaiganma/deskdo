@@ -1,12 +1,8 @@
 <script lang="ts">
   import { invoke } from "@deskdo/core/backend";
   import { t } from "@deskdo/core/i18n.svelte";
+  import { deviceName, iOS, standalone } from "./device";
 
-  const ua = navigator.userAgent;
-  /** iPadOS 的 Safari 自稱是 Mac，用觸控點數分辨 */
-  const iPad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-  const iOS = /iPhone|iPod/.test(ua) || iPad;
-  const standalone = matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
   /**
    * iPhone、iPad 加到主畫面的網頁和 Safari 不共用 cookie：在 Safari 配對的，從主畫面打開還是沒配對。
    * 所以先教使用者加到主畫面，從那裡打開再配對；也可以選擇直接在 Safari 用。
@@ -19,12 +15,6 @@
   let error = $state("");
   const valid = $derived(/^\d{6}$/.test(code.replace(/\s/g, "")));
 
-  function deviceName(): string {
-    const kind = /iPhone|iPod/.test(ua) ? "iPhone" : iPad ? "iPad" : /Android/.test(ua) ? "Android" : /Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "";
-    if (!kind) return t("網頁版", "Web");
-    return t(`${kind}（網頁版）`, `${kind} (web)`);
-  }
-
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     if (!valid || busy) return;
@@ -32,7 +22,7 @@
     error = "";
     try {
       // 成功後 configured 變成 true，App.svelte 會換成待辦清單
-      await invoke("web_pair", { code: code.replace(/\s/g, ""), name: deviceName() });
+      await invoke("web_pair", { code: code.replace(/\s/g, ""), name: deviceName(t) });
     } catch (err) {
       error = String(err);
     } finally {

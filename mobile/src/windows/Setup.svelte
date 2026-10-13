@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from "@deskdo/core/i18n.svelte";
   import { invoke, listen } from "@deskdo/core/backend";
-  import { openLink as openUrl } from "../lib/open";
+  import { openLink as openUrl } from "@deskdo/core/open";
   import { onMount, untrack } from "svelte";
   import { fade } from "svelte/transition";
   import Icon from "../components/Icon.svelte";

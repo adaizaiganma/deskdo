@@ -1,7 +1,7 @@
 <script lang="ts">
   import { LANG_OPTIONS, i18n, t } from "@deskdo/core/i18n.svelte";
   import { invoke } from "@deskdo/core/backend";
-  import { openLink as openUrl } from "../lib/open";
+  import { openLink as openUrl } from "@deskdo/core/open";
   import { onDestroy, onMount } from "svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";
   import { localDate, monthDay } from "@deskdo/core/dates";

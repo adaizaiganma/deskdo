@@ -1,3 +1,5 @@
+// 字型放在這裡而不是 app.css：網頁版也用 app.css，但不帶字型檔（Worker 放不下）
+import "@fontsource-variable/noto-sans-tc";
 import "./app.css";
 import { mount } from "svelte";
 import { disableContextMenu } from "./lib/contextmenu";

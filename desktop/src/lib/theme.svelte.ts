@@ -1,11 +1,12 @@
 /**
  * 深色、淺色或跟隨系統。
  * - 網頁：在 <html> 加上 data-theme="dark" / "light"，CSS 依這個切換（跟隨系統時看 prefers-color-scheme）。
- * - 視窗：Tauri 的 setTheme 讓標題列、Mica 背景也跟著變。
+ * - 視窗：Tauri 的 setTheme 讓標題列、Mica 背景也跟著變（網頁版沒有視窗，只改 <html>）。
  * 設定存在 localStorage（主視窗和桌面小工具共用）；一個視窗改了，另一個從 storage 事件收到。
  */
 import { t } from "@deskdo/core/i18n.svelte";
 import { setTheme } from "@tauri-apps/api/app";
+import { isTauri } from "@tauri-apps/api/core";
 
 export type ThemePref = "system" | "light" | "dark";
 
@@ -66,6 +67,7 @@ class Theme {
   #apply() {
     // 強制深色、淺色時 WebView 的 prefers-color-scheme 可能也跟著變；改回跟隨系統後會再收到 change，那時再畫一次
     this.#paint();
+    if (!isTauri()) return;
     setTheme(this.pref === "system" ? null : this.pref).catch((e) => console.warn("無法切換視窗的深色、淺色", e));
   }
 }

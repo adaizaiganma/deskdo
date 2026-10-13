@@ -1,7 +1,6 @@
 <script lang="ts">
   import { t } from "@deskdo/core/i18n.svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
+  import { invoke, listen } from "@deskdo/core/backend";
   import { onMount, tick } from "svelte";
   import Calendar from "../components/Calendar.svelte";
 
@@ -46,7 +45,9 @@
   let searchOpen = $state(false);
   const showSearch = $derived(searchOpen || !!query);
 
-  const needsSetup = $derived(!!store.prefs && !store.prefs.configured);
+  /** 網頁版（寬螢幕）：沒有標題列、設定精靈，雲端由電腦版更新 */
+  const web = !!store.prefs?.web;
+  const needsSetup = $derived(!!store.prefs && !store.prefs.configured && !web);
   $effect(() => {
     if (needsSetup && !wizard) wizard = "new";
   });
@@ -224,9 +225,10 @@
 
   onMount(() => {
     invoke<boolean>("get_effects").then((ok) => document.documentElement.classList.toggle("no-effects", !ok));
+    if (web) return;
     // 還沒設定時直接打開主視窗顯示設定精靈
     if (store.prefs && !store.prefs.configured) invoke("open_main", { view: null });
-    const off = listen<View>("navigate", (e) => go(e.payload));
+    const off = listen<View>("navigate", go);
     return () => {
       off.then((f) => f());
     };
@@ -248,8 +250,8 @@
   {/if}
 {/snippet}
 
-<div class="app">
-  <TitleBar />
+<div class="app" class:web>
+  {#if !web}<TitleBar />{/if}
   {#if wizard}
     <div class="body solo">
       <Setup
@@ -409,6 +411,10 @@
     flex: 1;
     min-height: 0;
     display: flex;
+  }
+  /* 網頁版沒有標題列：上面留一點空，右邊的內容區才看得出圓角 */
+  .web .body {
+    padding-top: 10px;
   }
 
   aside {

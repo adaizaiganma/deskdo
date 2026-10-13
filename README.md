@@ -18,7 +18,7 @@ Deskdo（Windows）──REST────┘
 | `desktop/` | Deskdo 電腦版（Tauri 2 + Svelte 5）：桌面小工具、主視窗、系統匣 |
 | `core/` | 電腦版和 Android 版共用的核心：`core/src`（前端的 `@deskdo/core`：同步、資料格式、日期、快速新增的解析、倒數日；`backend.ts` 決定資料從 Rust 來還是網頁版的 `web/backend.ts`）、`core/rust`（Rust crate `deskdo-core`：同步、設定檔、設定精靈、OAuth） |
 | `mobile/` | 手機版介面（`@deskdo/mobile`）：Android 版和網頁版共用 |
-| `web/` | 網頁版（給 iPhone、iPad 等沒有 App 的裝置）：建置後由 `worker/scripts/embed-web.mjs` 嵌進 Worker，在使用者自己雲端的 `/app` 提供，用電腦版產生的配對碼登入 |
+| `web/` | 網頁版（給 iPhone、iPad 等沒有 App 的裝置）：建置後由 `worker/scripts/embed-web.mjs` 嵌進 Worker，在使用者自己雲端的 `/app` 提供，用電腦版產生的配對碼登入。窄螢幕用 `mobile/` 的手機版介面，寬螢幕（電腦、平板）用 `desktop/` 的電腦版主視窗（`web/src/layout.ts`） |
 | `site/` | 宣傳頁（純靜態，用 Workers static assets 部署） |
 
 ---
@@ -122,6 +122,7 @@ $env:DESKDO_CF_CLIENT_ID = "<client id>"
 - **Worker 要向下相容**：新版 App 可能連到還沒更新的雲端（例如 `/api/info` 不存在時視為版本 1）。
 - App 版本號在 `desktop/package.json`、`desktop/src-tauri/Cargo.toml`、`desktop/src-tauri/tauri.conf.json` 三處。
 - **改了 `core/` 或 `mobile/`**：Android 版透過 git submodule（`upstream/`）使用這個 repo，要在 deskdo-android 更新 submodule 才會用到。改的時候注意兩邊都還能編譯。
+- **電腦版主視窗也在網頁版裡**：`desktop/src/windows/Main.svelte` 和它用到的元件要能在瀏覽器執行：透過 `@deskdo/core/backend` 呼叫指令（網頁版不支援的指令會失敗），視窗相關的（標題列、桌面小工具、開機啟動）看 `store.prefs.web` 隱藏，右鍵選單在 iPad 上是長按（`web/src/longpress.ts`），只靠滑鼠移上去才出現的按鈕在觸控螢幕要一直顯示（`@media (hover: none)`）。
 - **網頁版會嵌進 Worker**：`desktop` 的 `npm run build:worker` 會先建置 `web/` 再打包 Worker（`worker` 的 `npm run bundle` 找不到 `web/dist` 時會失敗）。網頁版不帶字型檔（Worker 壓縮後要在 3 MB 以內），用系統內建的字型。
 
 ---

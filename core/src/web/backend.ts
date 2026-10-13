@@ -205,6 +205,9 @@ export class WebBackend implements Backend {
         return this.prefs();
       case "get_update":
         return null;
+      // 電腦版介面：瀏覽器沒有毛玻璃，用實心背景
+      case "get_effects":
+        return false;
       case "refresh_now":
         return this.wake(true);
       case "add_todo":

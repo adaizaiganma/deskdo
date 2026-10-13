@@ -7,3 +7,8 @@
   box-sizing: border-box;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
 }
+
+/* 電腦版介面在 iPad 上：長按是右鍵選單（longpress.ts），不要跳出系統的放大鏡、選取選單 */
+:root[data-layout="wide"] body {
+  -webkit-touch-callout: none;
+}
