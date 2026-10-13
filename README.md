@@ -11,10 +11,6 @@
     <a href="https://github.com/adaizaiganma/deskdo/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/adaizaiganma/deskdo?color=2563eb"></a>
     <a href="LICENSE"><img alt="license" src="https://img.shields.io/github/license/adaizaiganma/deskdo"></a>
 </div>
-<div>
-    <img alt="stars" src="https://img.shields.io/github/stars/adaizaiganma/deskdo?style=social">
-    <img alt="downloads" src="https://img.shields.io/github/downloads/adaizaiganma/deskdo/total?style=social">
-</div>
 <br>
 
 Deskdo 的意思是 Desk + To-do
