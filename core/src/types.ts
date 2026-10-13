@@ -56,6 +56,8 @@ export interface Prefs {
   /** 測試版（Deskdo Beta，和正式版分開安裝） */
   beta: boolean;
   appVersion: string;
+  /** 網頁版（web/backend.ts）：沒有設定精靈、App 更新、小工具，雲端由電腦版更新 */
+  web?: boolean;
 }
 
 /** 已經下載好、等使用者按「更新」的新版 App */

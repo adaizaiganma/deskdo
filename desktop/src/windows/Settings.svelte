@@ -1,6 +1,6 @@
 <script lang="ts">
   import { LANG_OPTIONS, i18n, t } from "@deskdo/core/i18n.svelte";
-  import { invoke } from "@tauri-apps/api/core";
+  import { invoke } from "@deskdo/core/backend";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";

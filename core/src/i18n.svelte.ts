@@ -1,11 +1,11 @@
 /**
  * 介面語言：中文、英文或跟隨系統。
  * 設定存在 localStorage（同一台裝置的視窗共用，一個視窗改了，其他視窗從 storage 事件收到）；
- * 也告訴 Rust 端（系統匣、錯誤訊息、手機主畫面小工具）。
+ * 也告訴後端（Rust 端的系統匣、錯誤訊息、手機主畫面小工具；網頁版不需要）。
  *
  * 文字直接寫在用到的地方：t("待辦", "To-dos")。t() 讀的是 $state，在畫面和 $derived 裡切換語言會自動更新。
  */
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./backend";
 
 export type LangPref = "system" | "zh" | "en";
 export type Lang = "zh" | "en";
