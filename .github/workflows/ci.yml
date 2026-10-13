@@ -16,13 +16,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: desktop/src-tauri
+          workspaces: |
+            desktop/src-tauri
+            android/src-tauri
 
-      # core、mobile、desktop、web 是同一個 npm workspace（根目錄的 package.json）
+      # core、mobile、desktop、web、android 是同一個 npm workspace（根目錄的 package.json）
       - name: Install
         run: npm ci
 
-      - name: Core (shared with Android)
+      - name: Core (shared by desktop, Android and the web version)
         working-directory: core
         run: npm test
 
@@ -56,3 +58,12 @@ jobs:
       - name: Desktop and core (Rust)
         working-directory: desktop/src-tauri
         run: cargo test -p deskdo -p deskdo-core
+
+      - name: Android (frontend)
+        working-directory: android
+        run: npx svelte-check --tsconfig ./tsconfig.json
+
+      # 在電腦上檢查 Android 的 Rust（Android 專用的呼叫用 cfg(mobile) 隔開）；真的打包 APK 在 release.yml
+      - name: Android (Rust)
+        working-directory: android/src-tauri
+        run: cargo test

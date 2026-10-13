@@ -1,4 +1,5 @@
 //! App 更新：Android 沒有 Tauri 的自動更新，改成查 GitHub 最新 Release 有沒有比較新的 APK，
+//! 和電腦版是同一個 Release（1.0.0 以前在 adaizaiganma/deskdo-android，舊版 App 還是查那裡），
 //! 使用者按「更新」時用瀏覽器下載，系統會接著問要不要安裝（簽章相同才能覆蓋安裝）。
 //! 只有正式版會自動檢查。
 
@@ -10,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 
-const LATEST_RELEASE: &str = "https://api.github.com/repos/adaizaiganma/deskdo-android/releases/latest";
+const LATEST_RELEASE: &str = "https://api.github.com/repos/adaizaiganma/deskdo/releases/latest";
 /// 啟動後等一下再檢查，避免和第一次同步搶網路
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(20);
 const CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);

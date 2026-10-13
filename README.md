@@ -1,8 +1,8 @@
 # Deskdo
 
-貼在 Windows 桌面上的毛玻璃待辦清單。Android 版（含主畫面小工具）在另一個 repo：[adaizaiganma/deskdo-android](https://github.com/adaizaiganma/deskdo-android)。可以單獨使用，也可以透過 MCP 自訂連接器讓 Claude、ChatGPT 等 AI 助理讀寫。
+貼在 Windows 桌面上的毛玻璃待辦清單，也有 Android 版（含主畫面小工具，`android/`）和給 iPhone、iPad 的網頁版。可以單獨使用，也可以透過 MCP 自訂連接器讓 Claude、ChatGPT 等 AI 助理讀寫。
 
-**一般使用者**：到宣傳頁（`site/`，網址見 [發布](#4-發布)）或 [GitHub Releases](../../releases/latest) 下載安裝檔 `Deskdo_*_x64-setup.exe`（Android 版到 [deskdo-android 的 Releases](https://github.com/adaizaiganma/deskdo-android/releases/latest) 下載 APK）。第一次開啟時，設定精靈會帶你登入 Cloudflare，自動在你自己的帳號建立雲端。使用說明在宣傳頁的 `/guide`。
+**一般使用者**：到宣傳頁（`site/`，網址見 [發布](#4-發布)）或 [GitHub Releases](../../releases/latest) 下載安裝檔：電腦版 `Deskdo_*_x64-setup.exe`，Android 版 `Deskdo_*_arm64.apk`。第一次開啟時，設定精靈會帶你登入 Cloudflare，自動在你自己的帳號建立雲端。使用說明在宣傳頁的 `/guide`。
 
 ```
                          使用者自己的 Cloudflare 帳號
@@ -16,6 +16,7 @@ Deskdo（Windows）──REST────┘
 |---|---|
 | `worker/` | Cloudflare Worker（TypeScript）：`/mcp/<密鑰>` 給 AI 助理（任何支援遠端 MCP 的工具）、`/api/*` 給 App 和網頁版、`/app` 是網頁版 |
 | `desktop/` | Deskdo 電腦版（Tauri 2 + Svelte 5）：桌面小工具、主視窗、系統匣 |
+| `android/` | Deskdo Android 版（Tauri 2）：介面用 `mobile/`，主畫面小工具是 Kotlin（`android/src-tauri/gen/android`）。說明在 [`android/README.md`](android/README.md)。1.0.0 以前在另一個 repo（adaizaiganma/deskdo-android），歷史紀錄已經併進來 |
 | `core/` | 電腦版和 Android 版共用的核心：`core/src`（前端的 `@deskdo/core`：同步、資料格式、日期、快速新增的解析、倒數日；`backend.ts` 決定資料從 Rust 來還是網頁版的 `web/backend.ts`）、`core/rust`（Rust crate `deskdo-core`：同步、設定檔、設定精靈、OAuth） |
 | `mobile/` | 手機版介面（`@deskdo/mobile`）：Android 版和網頁版共用 |
 | `web/` | 網頁版（給 iPhone、iPad 等沒有 App 的裝置）：建置後由 `worker/scripts/embed-web.mjs` 嵌進 Worker，在使用者自己雲端的 `/app` 提供，用電腦版產生的配對碼登入。窄螢幕用 `mobile/` 的手機版介面，寬螢幕（電腦、平板）用 `desktop/` 的電腦版主視窗（`web/src/layout.ts`） |
@@ -120,8 +121,9 @@ $env:DESKDO_CF_CLIENT_ID = "<client id>"
 - **改了 Worker 的行為或新增 migration**：`worker/src/version.ts` 的 `WORKER_VERSION` +1。已安裝的 App 會依這個數字提示使用者更新雲端。
 - **migration 只能新增**，不要修改已發布的檔案：App 和 wrangler 都靠檔名判斷有沒有套用過。
 - **Worker 要向下相容**：新版 App 可能連到還沒更新的雲端（例如 `/api/info` 不存在時視為版本 1）。
-- App 版本號在 `desktop/package.json`、`desktop/src-tauri/Cargo.toml`、`desktop/src-tauri/tauri.conf.json` 三處。
-- **改了 `core/` 或 `mobile/`**：Android 版透過 git submodule（`upstream/`）使用這個 repo，要在 deskdo-android 更新 submodule 才會用到。改的時候注意兩邊都還能編譯。
+- **電腦版和 Android 同一個版本號**，一起發布。版本號在 `desktop/package.json`、`desktop/src-tauri/Cargo.toml`、`desktop/src-tauri/tauri.conf.json`、`android/package.json`、`android/src-tauri/Cargo.toml`、`android/src-tauri/tauri.conf.json`，加上 `package-lock.json` 和兩個 `Cargo.lock`（`npm install`、`cargo check` 會更新）。`release.yml` 會檢查兩邊的版本號和標籤一致。
+- **改了 `core/` 或 `mobile/`**：電腦版、Android、網頁版都會用到，注意都還能編譯（CI 都會檢查）。
+- **網頁版也嵌在 Worker 裡**：改了 `web/`（或它用到的 `mobile/`、`desktop/` 介面）也要把 `WORKER_VERSION` +1，使用者更新雲端後才會拿到新的網頁版。
 - **電腦版主視窗也在網頁版裡**：`desktop/src/windows/Main.svelte` 和它用到的元件要能在瀏覽器執行：透過 `@deskdo/core/backend` 呼叫指令（網頁版不支援的指令會失敗），視窗相關的（標題列、桌面小工具、開機啟動）看 `store.prefs.web` 隱藏，右鍵選單在 iPad 上是長按（`web/src/longpress.ts`），只靠滑鼠移上去才出現的按鈕在觸控螢幕要一直顯示（`@media (hover: none)`）。
 - **網頁版會嵌進 Worker**：`desktop` 的 `npm run build:worker` 會先建置 `web/` 再打包 Worker（`worker` 的 `npm run bundle` 找不到 `web/dist` 時會失敗）。網頁版不帶字型檔（Worker 壓縮後要在 3 MB 以內），用系統內建的字型。
 
@@ -146,11 +148,11 @@ Cloudflare 後台 → 管理帳戶 → OAuth clients → 建立：
 ### 安裝檔
 
 ```powershell
-git tag v0.6.0
-git push origin v0.6.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-`.github/workflows/release.yml` 會在 Windows 上建置安裝檔，放進 GitHub Release 草稿，確認後按發布。需要先在 repo 的 Actions 設定 variable `DESKDO_CF_CLIENT_ID` 和兩個自動更新的簽章 secret（見下一節）。
+`.github/workflows/release.yml` 會建置 Windows 安裝檔和 Android APK，放進同一個 GitHub Release 草稿，確認後按發布。需要先在 repo 的 Actions 設定 variable `DESKDO_CF_CLIENT_ID`、電腦版自動更新的兩個簽章 secret（見「自動更新」）和 Android 的簽名金鑰 secret（見 [`android/README.md`](android/README.md)）。APK 的簽名憑證不是原本那一把時，流程會失敗，不會發布。
 
 本機建置：`cd desktop; $env:DESKDO_CF_CLIENT_ID = "<client id>"; npx tauri build`，輸出在 `desktop\src-tauri\target\release\bundle\nsis\`。因為會一起產生自動更新檔，本機建置也需要簽章私鑰：
 
@@ -161,10 +163,6 @@ $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = Get-Content ~\.tauri\deskdo-updater.ke
 
 安裝檔沒有程式碼簽章，使用者會看到 SmartScreen 警告（宣傳頁的常見問題有說明）。
 
-### Android
-
-在另一個 repo：[adaizaiganma/deskdo-android](https://github.com/adaizaiganma/deskdo-android)，有自己的版本號和 Release。
-
 ### 自動更新
 
 **發布 Release 就等於推送更新。** 已安裝的正式版會讀 `https://github.com/adaizaiganma/deskdo/releases/latest/download/latest.json`（由 tauri-action 產生），在背景下載新版，使用者按「重新啟動並更新」（主視窗提示、小工具 `⋯` 選單、系統匣選單或設定頁）就會安裝並重新開啟。草稿和 pre-release 不會被當成最新版。
@@ -172,6 +170,8 @@ $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = Get-Content ~\.tauri\deskdo-updater.ke
 - App 啟動 20 秒後檢查一次，之後每 6 小時一次；設定頁也可以手動「檢查更新」。開發版和測試版（Deskdo Beta）不自動更新。
 - 更新檔用作者的私鑰簽章，App 用 `tauri.conf.json` 裡的公鑰驗證，簽章不符就不安裝。
 - 私鑰：`~\.tauri\deskdo-updater.key`，密碼在 `deskdo-updater.key.password`。同樣的內容存在 repo 的 Actions secrets `TAURI_SIGNING_PRIVATE_KEY`、`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。**請備份到密碼管理器**：私鑰遺失後，已安裝的 App 就收不到更新，只能請使用者手動重裝。
+- **Android**：App 查這個 repo 的 `releases/latest` 有沒有比較新的 `.apk`（`android/src-tauri/src/updater.rs`），有的話在主畫面提示，按了用瀏覽器下載，系統會接著問要不要安裝。APK 的簽名一定要和已安裝的一樣，系統才肯覆蓋安裝。
+- **1.0.0 以前的 Android App** 查的是 adaizaiganma/deskdo-android 的 `releases/latest`。那個 repo 要保留，1.0.0 的 APK 在那邊也發布一份，舊版 App 更新到 1.0.0 之後就會改查這裡。
 - 雲端 Worker 不會跟著自動更新：新版 App 內建較新的 Worker 時，主視窗會出現「雲端有新版本」，使用者登入 Cloudflare 後更新。
 
 ### 宣傳頁

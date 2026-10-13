@@ -1,20 +1,14 @@
 {
   "name": "deskdo-android",
   "private": true,
-  "version": "0.10.1",
+  "version": "1.0.0",
   "type": "module",
-  "workspaces": [
-    "upstream/core",
-    "upstream/mobile",
-    "upstream/desktop",
-    "upstream/web"
-  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:worker": "npm --prefix upstream/web run build && npm --prefix upstream/worker run bundle",
-    "check": "svelte-check --tsconfig ./tsconfig.json && npm --prefix upstream/mobile run check",
-    "test": "npm --prefix upstream/core test && npm --prefix upstream/mobile test",
+    "build:worker": "npm --prefix ../web run build && npm --prefix ../worker run bundle",
+    "check": "svelte-check --tsconfig ./tsconfig.json && npm --prefix ../mobile run check",
+    "test": "npm --prefix ../core test && npm --prefix ../mobile test",
     "tauri": "tauri"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-// 介面在 upstream/mobile（@deskdo/mobile，和網頁版共用）；字型只有 App 帶，網頁版用系統內建的
+// 介面在 mobile/（@deskdo/mobile，和網頁版共用）；字型只有 App 帶，網頁版用系統內建的
 import "@fontsource-variable/noto-sans-tc";
 import "@deskdo/mobile/app.css";
 import { mount } from "svelte";

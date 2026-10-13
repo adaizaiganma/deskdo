@@ -1,5 +1,5 @@
 //! Deskdo Android 版：全螢幕的主畫面，以及手機主畫面上的小工具（Kotlin，見 gen/android）。
-//! 同步、設定檔、設定精靈在共用的 deskdo-core（upstream/core/rust），和電腦版共用。
+//! 同步、設定檔、設定精靈在共用的 deskdo-core（core/rust），和電腦版共用。
 
 mod mobile;
 mod updater;

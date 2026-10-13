@@ -5,6 +5,7 @@
     "core",
     "mobile",
     "desktop",
-    "web"
+    "web",
+    "android"
   ]
 }
