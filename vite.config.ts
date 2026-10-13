@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
@@ -14,5 +13,4 @@ export default defineConfig({
     target: "chrome120",
     rollupOptions: { input: { main: page("main") } },
   },
-  test: { include: ["src/**/*.test.ts"] },
 });
