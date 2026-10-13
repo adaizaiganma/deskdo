@@ -41,12 +41,15 @@
   let search = $state<HTMLInputElement>();
   /** 電腦版：側邊欄收合成只剩圖示（每台電腦各自記住） */
   let narrow = $state(readFlag("main.sidebarCollapsed"));
+  /** 網頁版：側邊欄平常只剩圖示，按 ☰ 展開蓋在內容上，選好頁面就收回去 */
+  let expanded = $state(false);
   /** 電腦版的搜尋框平常收起來，按 Ctrl+F 才打開 */
   let searchOpen = $state(false);
   const showSearch = $derived(searchOpen || !!query);
 
   /** 網頁版（寬螢幕）：沒有標題列、設定精靈，雲端由電腦版更新 */
   const web = !!store.prefs?.web;
+  const collapsed = $derived(web ? !expanded : narrow);
   const needsSetup = $derived(!!store.prefs && !store.prefs.configured && !web);
   $effect(() => {
     if (needsSetup && !wizard) wizard = "new";
@@ -99,6 +102,10 @@
   }
 
   function toggleSidebar() {
+    if (web) {
+      expanded = !expanded;
+      return;
+    }
     narrow = !narrow;
     try {
       localStorage.setItem("main.sidebarCollapsed", narrow ? "1" : "0");
@@ -106,7 +113,7 @@
   }
 
   async function openSearch() {
-    if (narrow) toggleSidebar();
+    if (collapsed) toggleSidebar();
     searchOpen = true;
     await tick();
     search?.focus();
@@ -126,7 +133,7 @@
   }
 
   /** 標籤欄收合的資料夾（每台電腦各自記住） */
-  let collapsed = $state<string[]>(readCollapsed());
+  let shutFolders = $state<string[]>(readCollapsed());
   function readCollapsed(): string[] {
     try {
       return JSON.parse(localStorage.getItem("main.collapsedFolders") ?? "[]");
@@ -136,9 +143,9 @@
   }
 
   function toggleFolder(name: string) {
-    collapsed = collapsed.includes(name) ? collapsed.filter((n) => n !== name) : [...collapsed, name];
+    shutFolders = shutFolders.includes(name) ? shutFolders.filter((n) => n !== name) : [...shutFolders, name];
     try {
-      localStorage.setItem("main.collapsedFolders", JSON.stringify(collapsed));
+      localStorage.setItem("main.collapsedFolders", JSON.stringify(shutFolders));
     } catch {}
   }
 
@@ -209,10 +216,13 @@
     if (v !== view) allFilter = "open";
     view = v;
     showDone = false;
+    expanded = false;
   }
 
   function onKey(e: KeyboardEvent) {
-    if (e.ctrlKey && e.key.toLowerCase() === "n") {
+    if (e.key === "Escape" && expanded) {
+      expanded = false;
+    } else if (e.ctrlKey && e.key.toLowerCase() === "n") {
       e.preventDefault();
       if (view === "settings" || view === "folders" || view === "countdown") go("home");
       else if (doneOnly) allFilter = "open";
@@ -262,13 +272,18 @@
     </div>
   {:else}
   <div class="body">
-    <aside class:narrow>
+    {#if expanded}
+      <!-- 網頁版展開的側邊欄蓋在內容上：點旁邊收回去；原本的位置留著，內容才不會跳 -->
+      <div class="rail"></div>
+      <button class="scrim" onclick={() => (expanded = false)} aria-label={t("收合側欄", "Collapse sidebar")} tabindex="-1"></button>
+    {/if}
+    <aside class:narrow={collapsed} class:over={expanded}>
       <div class="side-top">
-        <button class="icon-btn" onclick={toggleSidebar} aria-label={narrow ? t("展開側欄", "Expand sidebar") : t("收合側欄", "Collapse sidebar")} title={narrow ? t("展開側欄", "Expand sidebar") : t("收合側欄（Ctrl+F 搜尋）", "Collapse sidebar (Ctrl+F to search)")} aria-expanded={!narrow}>
+        <button class="icon-btn" onclick={toggleSidebar} aria-label={collapsed ? t("展開側欄", "Expand sidebar") : t("收合側欄", "Collapse sidebar")} title={collapsed ? t("展開側欄", "Expand sidebar") : t("收合側欄（Ctrl+F 搜尋）", "Collapse sidebar (Ctrl+F to search)")} aria-expanded={!collapsed}>
           <Icon name="menu" size={18} />
         </button>
       </div>
-      {#if showSearch && !narrow}
+      {#if showSearch && !collapsed}
         <label class="search">
           <Icon name="search" size={14} />
           <input
@@ -283,7 +298,7 @@
 
       <nav>
         {#each nav as n (n.id)}
-          <button class="nav" class:on={view === n.id || (n.id === "all" && view === "folders")} onclick={() => go(n.id)} title={narrow ? n.label : undefined}>
+          <button class="nav" class:on={view === n.id || (n.id === "all" && view === "folders")} onclick={() => go(n.id)} title={collapsed ? n.label : undefined}>
             <span class="nicon" class:accent={n.id === "home"}><Icon name={n.icon} /></span>
             <span class="nlabel">{n.label}</span>
             {#if n.count()}<span class="ncount" class:warn={n.id === "home" && store.overdueCount}>{n.count()}</span>{/if}
@@ -291,12 +306,24 @@
         {/each}
       </nav>
 
-      <div class="side-foot">
-        <SyncStatus compact={narrow} />
-        <button class="icon-btn" class:on={view === "settings"} onclick={() => go("settings")} aria-label={t("設定", "Settings")} title={t("設定", "Settings")}>
-          <Icon name="settings" />
-        </button>
-      </div>
+      {#if web}
+        <!-- 網頁版和手機版一樣：設定是最下面的一列 -->
+        <div class="side-foot rows">
+          <SyncStatus compact={collapsed} />
+          <button class="nav" class:on={view === "settings"} onclick={() => go("settings")} title={collapsed ? t("設定", "Settings") : undefined}>
+            <span class="nicon"><Icon name="settings" /></span>
+            <span class="nlabel">{t("設定", "Settings")}</span>
+            <span class="ncount">{store.prefs?.appVersion ?? ""}</span>
+          </button>
+        </div>
+      {:else}
+        <div class="side-foot">
+          <SyncStatus compact={narrow} />
+          <button class="icon-btn" class:on={view === "settings"} onclick={() => go("settings")} aria-label={t("設定", "Settings")} title={t("設定", "Settings")}>
+            <Icon name="settings" />
+          </button>
+        </div>
+      {/if}
     </aside>
 
     <main>
@@ -323,7 +350,7 @@
                 {#if open.length}<span class="ncount">{open.length}</span>{/if}
               </button>
               {#each groups as g (g.name)}
-                {@const shut = collapsed.includes(g.name)}
+                {@const shut = shutFolders.includes(g.name)}
                 <div class="folder-row">
                   <button class="caret" class:shut onclick={() => toggleFolder(g.name)} aria-label={shut ? t("展開", "Expand") : t("收合", "Collapse")} aria-expanded={!shut}>
                     <Icon name="chevron" size={12} />
@@ -411,6 +438,7 @@
     flex: 1;
     min-height: 0;
     display: flex;
+    position: relative;
   }
   /* 網頁版沒有標題列：上面留一點空，右邊的內容區才看得出圓角 */
   .web .body {
@@ -468,6 +496,39 @@
   aside.narrow .side-foot {
     flex-direction: column;
     gap: 6px;
+  }
+  /* 網頁版：展開的側邊欄蓋在內容上 */
+  aside.over {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    padding-top: 14px;
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+  }
+  .rail {
+    width: 60px;
+    flex: none;
+  }
+  .scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 29;
+    background: var(--scrim, rgba(0, 0, 0, 0.25));
+  }
+  .side-foot.rows {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .side-foot.rows :global(.sync) {
+    align-self: flex-start;
+  }
+  aside.narrow .side-foot.rows :global(.sync) {
+    align-self: center;
   }
   .search {
     /* 側邊欄變矮時不要被壓扁 */

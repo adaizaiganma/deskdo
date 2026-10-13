@@ -6,6 +6,7 @@
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";
   import { localDate, monthDay } from "@deskdo/core/dates";
   import { THEME_OPTIONS, theme } from "../lib/theme.svelte";
+  import { copyText } from "@deskdo/core/clipboard";
   import { countdown, PairingFlow } from "@deskdo/core/pairing.svelte";
   import { qrPath } from "@deskdo/core/qr";
   import { store } from "@deskdo/core/store.svelte";
@@ -98,10 +99,18 @@
   }
 
   async function copyConnector() {
-    if (!connector) return;
-    await navigator.clipboard.writeText(connector.url);
+    if (!connector || !(await copyText(connector.url))) return;
     copied = true;
     setTimeout(() => (copied = false), 2000);
+  }
+
+  let urlCopied = $state(false);
+
+  /** 網頁版的網址：不方便掃 QR code 時（例如要傳給自己）用 */
+  async function copyPairUrl() {
+    if (!pairing.pairing || !(await copyText(pairing.pairing.url))) return;
+    urlCopied = true;
+    setTimeout(() => (urlCopied = false), 2000);
   }
 
   async function loadDevices() {
@@ -239,6 +248,7 @@
           </div>
         </div>
         <div class="btns">
+          <button class="ghost" onclick={copyPairUrl}>{urlCopied ? t("已複製", "Copied") : t("複製網址", "Copy URL")}</button>
           <button class="ghost" onclick={() => pairing.start()}>{expired ? t("重新產生", "New code") : t("換一組", "New code")}</button>
         </div>
       {:else}
