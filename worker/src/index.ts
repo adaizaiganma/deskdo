@@ -2,6 +2,7 @@ import { handleApi } from "./api";
 import { mcpSecretValid } from "./auth";
 import { json, notFound } from "./http";
 import { handleMcp } from "./mcp";
+import { handleWeb } from "./web";
 import type { Env } from "./todos";
 
 export default {
@@ -12,6 +13,10 @@ export default {
     try {
       if (path.startsWith("/api/")) {
         return await handleApi(req, env, url);
+      }
+
+      if (path === "/app" || path.startsWith("/app/")) {
+        return await handleWeb(req, env, url);
       }
 
       // /mcp/<MCP_SECRET>：密鑰錯誤時回 404，不透露端點存在

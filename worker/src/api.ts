@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { authorize, rotateMcpSecret, storedMcpSecret, type Caller } from "./auth";
+import { authorize, rotateMcpSecret, storedMcpSecret, tokenCookie, type Caller } from "./auth";
 import { foldersSchema, getFolders, setFolders } from "./folders";
 import { json, notFound } from "./http";
+import { newPairing } from "./pairing";
 import {
   addDays,
   addSchema,
@@ -50,7 +51,8 @@ function methodNotAllowed(allow: string): Response {
 }
 
 /**
- * REST API（給桌面 App 用），全部需要 Bearer token
+ * REST API（給 App 和網頁版用），全部需要驗證：
+ * App 用 Bearer token；網頁版用 cookie，而且要帶 X-Deskdo-Web: 1（見 auth.ts）
  *   GET    /api/todos              支援 If-None-Match，資料沒變時回 304；?doneDays=N 只回傳最近 N 天完成的項目
  *   POST   /api/todos
  *   PATCH  /api/todos/:id
@@ -62,19 +64,24 @@ function methodNotAllowed(allow: string): Response {
  *   POST   /api/connector/rotate   更換連接器網址（舊的立即失效）
  *   GET    /api/devices            已連線的電腦
  *   DELETE /api/devices/:id        撤銷某台電腦的 token
+ *   POST   /api/pairing            產生網頁版用的配對碼（見 pairing.ts）
  */
 export async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
+  const caller = await authorize(req, env);
+  if (!caller) return json({ error: "unauthorized" }, 401);
+  let resp: Response;
   try {
-    return await route(req, env, url);
+    resp = await route(req, env, url, caller);
   } catch (e) {
     if (e instanceof ChainError) return json({ error: e.message }, 400);
     throw e;
   }
+  // 網頁版：每次更新 lastSeenAt 時順便延長 cookie，常用就不會過期
+  if (caller.cookieToken) resp.headers.append("Set-Cookie", tokenCookie(caller.cookieToken));
+  return resp;
 }
 
-async function route(req: Request, env: Env, url: URL): Promise<Response> {
-  const caller = await authorize(req, env);
-  if (!caller) return json({ error: "unauthorized" }, 401);
+async function route(req: Request, env: Env, url: URL, caller: Caller): Promise<Response> {
 
   const parts = url.pathname.split("/").filter(Boolean); // ["api", resource, id?]
   if (parts.length > 3) return notFound();
@@ -90,6 +97,9 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
       return handleConnector(req, env, url, parts[2]);
     case "devices":
       return handleDevices(req, env, caller, parts[2]);
+    case "pairing":
+      if (parts.length > 2) return notFound();
+      return req.method === "POST" ? json(await newPairing(env), 201) : methodNotAllowed("POST");
     default:
       return notFound();
   }
