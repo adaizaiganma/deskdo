@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { toast } from "@deskdo/core/toast.svelte";
   import { BG_OPTIONS, FIT_OPTIONS, FONT_SCALES, homeStyle } from "../lib/homeStyle.svelte";
   import Popover from "./Popover.svelte";
@@ -19,7 +20,7 @@
       await homeStyle.setImage(file);
     } catch (err) {
       console.warn(err);
-      toast.error("這個檔案沒辦法當背景圖片");
+      toast.error(t("這個檔案沒辦法當背景圖片", "This file can't be used as a background image"));
     } finally {
       busy = false;
     }
@@ -80,17 +81,17 @@
   }
 </script>
 
-<Popover {x} {y} title="自訂主頁" {onclose}>
+<Popover {x} {y} title={t("自訂主頁", "Customize home")} {onclose}>
   <div class="opt">
-    <div class="opt-name">背景圖片</div>
+    <div class="opt-name">{t("背景圖片", "Background image")}</div>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
       class="thumb"
       class:movable
       class:has-image={!!homeStyle.image}
       role={movable ? "slider" : undefined}
-      aria-label={movable ? "背景圖片位置" : undefined}
-      aria-valuetext={movable ? `水平 ${Math.round(homeStyle.x)}%，垂直 ${Math.round(homeStyle.y)}%` : undefined}
+      aria-label={movable ? t("背景圖片位置", "Background image position") : undefined}
+      aria-valuetext={movable ? t(`水平 ${Math.round(homeStyle.x)}%，垂直 ${Math.round(homeStyle.y)}%`, `Horizontal ${Math.round(homeStyle.x)}%, vertical ${Math.round(homeStyle.y)}%`) : undefined}
       tabindex={movable ? 0 : undefined}
       bind:clientWidth={tw}
       bind:clientHeight={th}
@@ -106,39 +107,39 @@
       onpointercancel={() => (drag = null)}
       onkeydown={key}
     >
-      {#if !homeStyle.image}<span>沒有</span>{/if}
+      {#if !homeStyle.image}<span>{t("沒有", "None")}</span>{/if}
     </div>
     <div class="bg-row">
       <div class="bg-btns">
-        <button class="btn" onclick={() => picker?.click()} disabled={busy}>{busy ? "處理中…" : homeStyle.image ? "換一張…" : "選擇圖片…"}</button>
+        <button class="btn" onclick={() => picker?.click()} disabled={busy}>{busy ? t("處理中…", "Working…") : homeStyle.image ? t("換一張…", "Change…") : t("選擇圖片…", "Choose image…")}</button>
         {#if homeStyle.image}
-          <button class="btn" onclick={() => homeStyle.clearImage()}>移除</button>
+          <button class="btn" onclick={() => homeStyle.clearImage()}>{t("移除", "Remove")}</button>
         {/if}
       </div>
       <input bind:this={picker} type="file" accept="image/*" hidden onchange={pick} />
     </div>
     {#if homeStyle.image}
-      <div class="seg fit" role="radiogroup" aria-label="背景圖片擺放">
+      <div class="seg fit" role="radiogroup" aria-label={t("背景圖片擺放", "Image fit")}>
         {#each FIT_OPTIONS as o (o.id)}
           <button role="radio" aria-checked={homeStyle.fit === o.id} class:on={homeStyle.fit === o.id} onclick={() => homeStyle.set({ fit: o.id })}>{o.label}</button>
         {/each}
       </div>
       <label class="dim">
-        <span>淡化</span>
+        <span>{t("淡化", "Fade")}</span>
         <input type="range" min="0" max="80" value={Math.round(homeStyle.dim * 100)} oninput={(e) => homeStyle.set({ dim: Number(e.currentTarget.value) / 100 })} />
         <span class="pct">{Math.round(homeStyle.dim * 100)}%</span>
       </label>
       {#if movable}
         <div class="hint">
-          拖曳預覽圖調整位置{#if homeStyle.x !== 50 || homeStyle.y !== 50}・<button class="link" onclick={() => homeStyle.set({ x: 50, y: 50 })}>回到正中間</button>{/if}
+          {t("拖曳預覽圖調整位置", "Drag the preview to reposition")}{#if homeStyle.x !== 50 || homeStyle.y !== 50}・<button class="link" onclick={() => homeStyle.set({ x: 50, y: 50 })}>{t("回到正中間", "Re-center")}</button>{/if}
         </div>
       {/if}
     {/if}
   </div>
 
   <div class="opt">
-    <div class="opt-name">組件背景</div>
-    <div class="seg" role="radiogroup" aria-label="組件背景">
+    <div class="opt-name">{t("組件背景", "Widget background")}</div>
+    <div class="seg" role="radiogroup" aria-label={t("組件背景", "Widget background")}>
       {#each BG_OPTIONS as o (o.id)}
         <button role="radio" aria-checked={homeStyle.bg === o.id} class:on={homeStyle.bg === o.id} onclick={() => homeStyle.set({ bg: o.id })}>{o.label}</button>
       {/each}
@@ -146,8 +147,8 @@
   </div>
 
   <div class="opt">
-    <div class="opt-name">待辦清單背景</div>
-    <div class="seg" role="radiogroup" aria-label="待辦清單背景">
+    <div class="opt-name">{t("待辦清單背景", "To-do list background")}</div>
+    <div class="seg" role="radiogroup" aria-label={t("待辦清單背景", "To-do list background")}>
       {#each BG_OPTIONS as o (o.id)}
         <button role="radio" aria-checked={homeStyle.panel === o.id} class:on={homeStyle.panel === o.id} onclick={() => homeStyle.set({ panel: o.id })}>{o.label}</button>
       {/each}
@@ -155,18 +156,18 @@
   </div>
 
   <div class="opt">
-    <div class="opt-name">組件字體大小</div>
-    <div class="seg" role="radiogroup" aria-label="組件字體大小">
+    <div class="opt-name">{t("組件字體大小", "Widget font size")}</div>
+    <div class="seg" role="radiogroup" aria-label={t("組件字體大小", "Widget font size")}>
       {#each FONT_SCALES as o (o.id)}
         <button role="radio" aria-checked={homeStyle.fs === o.id} class:on={homeStyle.fs === o.id} onclick={() => homeStyle.set({ fs: o.id })}>{o.label}</button>
       {/each}
     </div>
     {#if homeStyle.customized}
       <div class="hint">
-        有 {homeStyle.customized} 個組件用自己的設定・<button class="link" onclick={() => homeStyle.resetWidgets()}>全部改回跟著主頁</button>
+        {t(`有 ${homeStyle.customized} 個組件用自己的設定・`, `${homeStyle.customized} widgets use their own settings · `)}<button class="link" onclick={() => homeStyle.resetWidgets()}>{t("全部改回跟著主頁", "Reset all to home")}</button>
       </div>
     {:else}
-      <div class="hint">在組件上按右鍵 →「組件設定」可以個別調整</div>
+      <div class="hint">{t("在組件上按右鍵 →「組件設定」可以個別調整", "Right-click a widget → Widget settings to adjust it on its own")}</div>
     {/if}
   </div>
 </Popover>

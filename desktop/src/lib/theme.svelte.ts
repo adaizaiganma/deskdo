@@ -4,14 +4,15 @@
  * - 視窗：Tauri 的 setTheme 讓標題列、Mica 背景也跟著變。
  * 設定存在 localStorage（主視窗和桌面小工具共用）；一個視窗改了，另一個從 storage 事件收到。
  */
+import { t } from "@deskdo/core/i18n.svelte";
 import { setTheme } from "@tauri-apps/api/app";
 
 export type ThemePref = "system" | "light" | "dark";
 
 export const THEME_OPTIONS: { id: ThemePref; label: string }[] = [
-  { id: "system", label: "跟隨系統" },
-  { id: "light", label: "淺色" },
-  { id: "dark", label: "深色" },
+  { id: "system", get label() { return t("跟隨系統", "System"); } },
+  { id: "light", get label() { return t("淺色", "Light"); } },
+  { id: "dark", get label() { return t("深色", "Dark"); } },
 ];
 
 const KEY = "app.theme";

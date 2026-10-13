@@ -1,6 +1,7 @@
 //! 系統匣圖示：圓角方塊加勾號，右下角顯示「今天到期＋逾期」的件數，有逾期時變紅。
 
-use crate::{config::APP_TITLE, store::Snapshot, windows};
+use crate::{config::app_title, store::Snapshot, windows};
+use deskdo_core::{i18n::tr, trf};
 use std::sync::{Mutex, OnceLock};
 use tauri::{
     image::Image,
@@ -14,21 +15,31 @@ const TRAY_ID: &str = "main";
 const SIZE: u32 = 32;
 
 pub struct TrayItems {
+    open: MenuItem<Wry>,
+    sync: MenuItem<Wry>,
+    settings: MenuItem<Wry>,
+    quit: MenuItem<Wry>,
     pub widget: CheckMenuItem<Wry>,
     pub autostart: CheckMenuItem<Wry>,
     /// 「檢查更新」；下載好新版後變成「重新啟動以更新到 x.y.z」
     pub update: MenuItem<Wry>,
     badge: Mutex<Option<(u32, bool)>>,
+    /// 上次的快照，換語言時重寫提示文字
+    last: Mutex<Option<Snapshot>>,
+}
+
+fn open_label() -> String {
+    trf!("開啟{}", "Open {}", app_title())
 }
 
 pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "開啟待辦事項", true, None::<&str>)?;
-    let widget = CheckMenuItem::with_id(app, "widget", "桌面小工具", true, show_widget, None::<&str>)?;
-    let sync = MenuItem::with_id(app, "sync", "立即同步", true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", "設定…", true, None::<&str>)?;
-    let auto = CheckMenuItem::with_id(app, "autostart", "開機時啟動", true, autostart, None::<&str>)?;
-    let update = MenuItem::with_id(app, "update", "檢查更新", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "結束", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", open_label(), true, None::<&str>)?;
+    let widget = CheckMenuItem::with_id(app, "widget", tr("桌面小工具", "Desktop widget"), true, show_widget, None::<&str>)?;
+    let sync = MenuItem::with_id(app, "sync", tr("立即同步", "Sync now"), true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", tr("設定…", "Settings…"), true, None::<&str>)?;
+    let auto = CheckMenuItem::with_id(app, "autostart", tr("開機時啟動", "Start with Windows"), true, autostart, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", tr("檢查更新", "Check for updates"), true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", tr("結束", "Quit"), true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
         &[
@@ -47,7 +58,7 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(render(None))
-        .tooltip(APP_TITLE)
+        .tooltip(app_title())
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, e| match e.id().as_ref() {
@@ -77,13 +88,59 @@ pub fn create(app: &AppHandle, show_widget: bool, autostart: bool) -> tauri::Res
     if cfg!(debug_assertions) || crate::config::BETA {
         let _ = menu.remove(&update);
     }
-    app.manage(TrayItems { widget, autostart: auto, update, badge: Mutex::new(None) });
+    app.manage(TrayItems {
+        open,
+        sync,
+        settings,
+        quit,
+        widget,
+        autostart: auto,
+        update,
+        badge: Mutex::new(None),
+        last: Mutex::new(None),
+    });
     Ok(())
+}
+
+/// 換了語言：選單、提示文字、視窗標題重寫一次
+pub fn relabel(app: &AppHandle) {
+    let Some(items) = app.try_state::<TrayItems>() else { return };
+    let _ = items.open.set_text(open_label());
+    let _ = items.widget.set_text(tr("桌面小工具", "Desktop widget"));
+    let _ = items.sync.set_text(tr("立即同步", "Sync now"));
+    let _ = items.settings.set_text(tr("設定…", "Settings…"));
+    let _ = items.autostart.set_text(tr("開機時啟動", "Start with Windows"));
+    let _ = items.quit.set_text(tr("結束", "Quit"));
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let ready = crate::updater::get_update(handle.clone()).await;
+        if let Some(items) = handle.try_state::<TrayItems>() {
+            let _ = items.update.set_text(match ready {
+                Some(u) => crate::updater::restart_label(&u.version),
+                None => tr("檢查更新", "Check for updates").to_string(),
+            });
+        }
+    });
+    let last = items.last.lock().unwrap().clone();
+    match last {
+        Some(snap) => update(app, &snap),
+        None => {
+            if let Some(tray) = app.tray_by_id(TRAY_ID) {
+                let _ = tray.set_tooltip(Some(app_title()));
+            }
+        }
+    }
+    for label in ["main", "widget"] {
+        if let Some(w) = app.get_webview_window(label) {
+            let _ = w.set_title(app_title());
+        }
+    }
 }
 
 pub fn update(app: &AppHandle, snap: &Snapshot) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else { return };
     let Some(items) = app.try_state::<TrayItems>() else { return };
+    *items.last.lock().unwrap() = Some(snap.clone());
     let today = snap.today.as_str();
     // 前一步還沒完成的步驟還不能做，不算進去
     let open_ids: std::collections::HashSet<&str> = snap.todos.iter().filter(|t| !t.done).map(|t| t.id.as_str()).collect();
@@ -102,16 +159,16 @@ pub fn update(app: &AppHandle, snap: &Snapshot) {
         let _ = tray.set_icon(Some(render(badge)));
     }
 
-    let mut tip = format!("{APP_TITLE}：{} 項未完成", open.len());
+    let mut tip = trf!("{}：{} 項未完成", "{}: {} open", app_title(), open.len());
     if due_today > 0 {
-        tip += &format!("\n今天到期 {due_today} 項");
+        tip += &trf!("\n今天到期 {due_today} 項", "\n{due_today} due today");
     }
     if overdue > 0 {
-        tip += &format!("\n逾期 {overdue} 項");
+        tip += &trf!("\n逾期 {overdue} 項", "\n{overdue} overdue");
     }
     match snap.status {
-        "offline" => tip += "\n（離線）",
-        "error" => tip += &format!("\n（{}）", snap.message),
+        "offline" => tip += tr("\n（離線）", "\n(offline)"),
+        "error" => tip += &trf!("\n（{}）", "\n({})", snap.message),
         _ => {}
     }
     let _ = tray.set_tooltip(Some(tip));

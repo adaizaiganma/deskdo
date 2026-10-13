@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { relativeDue } from "@deskdo/core/dates";
   import { parseSteps } from "@deskdo/core/quickadd";
   import { store } from "@deskdo/core/store.svelte";
@@ -54,21 +55,21 @@
 <div class="quick">
   <label class="box">
     <span class="plus"><Icon name="plus" size={16} stroke={1.8} /></span>
-    <input bind:this={input} bind:value={text} onkeydown={onKey} placeholder="新增待辦，按 Enter 送出" aria-label="新增待辦" enterkeyhint="send" />
+    <input bind:this={input} bind:value={text} onkeydown={onKey} placeholder={t("新增待辦，按 Enter 送出", "Add a to-do, press Enter")} aria-label={t("新增待辦", "Add a to-do")} enterkeyhint="send" />
   </label>
   <div class="meta">
-    <span class="hint" title="例如：交報告 #電路學 @週五 !">
-      <span><b>#</b>標籤</span>
-      <span title="@今天 @明天 @週五 @下週三 @10/15，加上 15:00 指定時間"><b>@</b>期限</span>
-      <span><b>!</b>高優先</span>
-      <span><b>~</b>低優先</span>
-      <span title="例如：做預報 &gt; 印預報"><b>&gt;</b>下一步</span>
+    <span class="hint" title={t("例如：交報告 #電路學 @週五 !", "e.g. Report #physics @fri !")}>
+      <span><b>#</b>{t("標籤", "tag")}</span>
+      <span title={t("@今天 @明天 @週五 @下週三 @10/15，加上 15:00 指定時間", "@today @tomorrow @fri @nextwed @10/15, add 15:00 for a time")}><b>@</b>{t("期限", "due")}</span>
+      <span><b>!</b>{t("高優先", "high")}</span>
+      <span><b>~</b>{t("低優先", "low")}</span>
+      <span title={t("例如：做預報 > 印預報", "e.g. Write report > Print report")}><b>&gt;</b>{t("下一步", "next step")}</span>
     </span>
     {#if due}<span class="chip"><Icon name="calendar" size={11} stroke={1.7} />{relativeDue(due, store.today, parsed?.dueTime ?? null)}</span>{/if}
     {#each tags as tag (tag)}<span class="chip" title="#{tag}"><span class="clip">#{tag}</span></span>{/each}
-    {#if parsed?.priority === "high"}<span class="chip warn">高優先</span>{/if}
-    {#if parsed?.priority === "low"}<span class="chip low">低優先</span>{/if}
-    {#if steps && steps.length > 1}<span class="chip"><span class="clip">{steps.length} 個步驟：{steps.map((s) => s.title).join(" → ")}</span></span>{/if}
+    {#if parsed?.priority === "high"}<span class="chip warn">{t("高優先", "High priority")}</span>{/if}
+    {#if parsed?.priority === "low"}<span class="chip low">{t("低優先", "Low priority")}</span>{/if}
+    {#if steps && steps.length > 1}<span class="chip"><span class="clip">{t(`${steps.length} 個步驟：`, `${steps.length} steps: `)}{steps.map((s) => s.title).join(" → ")}</span></span>{/if}
   </div>
 </div>
 

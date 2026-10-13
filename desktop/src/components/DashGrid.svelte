@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import type { Snippet } from "svelte";
   import { bottomOf, clampBox, GAP, settle, homeLayout, span, spec, STEP, type Box, type WidgetId } from "../lib/homeLayout.svelte";
   import { homeStyle } from "../lib/homeStyle.svelte";
@@ -113,7 +114,7 @@
       style:height="{r.height}px"
       tabindex={editing ? 0 : undefined}
       role={editing ? "group" : undefined}
-      aria-label={editing ? `${spec(b.id).label}：拖曳移動，方向鍵移動，Shift 加方向鍵調整大小` : undefined}
+      aria-label={editing ? t(`${spec(b.id).label}：拖曳移動，方向鍵移動，Shift 加方向鍵調整大小`, `${spec(b.id).label}: drag or use arrow keys to move, Shift + arrows to resize`) : undefined}
       onpointerdown={(e) => start(e, b, "move")}
       onkeydown={(e) => key(e, b)}
     >
@@ -121,11 +122,11 @@
       <div class="content bg-{look.bg}" style:--fs={look.fs}>{@render content(b.id)}</div>
       {#if editing}
         <span class="name">{spec(b.id).label}</span>
-        <button class="remove" onpointerdown={(e) => e.stopPropagation()} onclick={() => homeLayout.remove(b.id)} aria-label="拿掉「{spec(b.id).label}」" title="拿掉">
+        <button class="remove" onpointerdown={(e) => e.stopPropagation()} onclick={() => homeLayout.remove(b.id)} aria-label={t(`拿掉「${spec(b.id).label}」`, `Remove "${spec(b.id).label}"`)} title={t("拿掉", "Remove")}>
           <Icon name="close" size={12} stroke={2} />
         </button>
         <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <span class="resize" onpointerdown={(e) => start(e, b, "resize")} title="拖曳調整大小"></span>
+        <span class="resize" onpointerdown={(e) => start(e, b, "resize")} title={t("拖曳調整大小", "Drag to resize")}></span>
       {/if}
     </div>
   {/each}

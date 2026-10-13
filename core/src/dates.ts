@@ -1,6 +1,9 @@
+import { i18n, plural, t } from "./i18n.svelte";
 import type { Todo } from "./types";
 
 const WEEKDAYS = "日一二三四五六";
+const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function parse(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
@@ -43,7 +46,13 @@ export function diffDays(a: string, b: string): number {
 }
 
 export function weekday(iso: string): string {
-  return "週" + WEEKDAYS[parse(iso).getUTCDay()];
+  const d = parse(iso).getUTCDay();
+  return i18n.en ? WEEKDAYS_EN[d] : "週" + WEEKDAYS[d];
+}
+
+/** 月曆表頭：從週一開始的七天（一 二 … 日／Mon Tue … Sun） */
+export function weekdayHeads(): string[] {
+  return i18n.en ? [...WEEKDAYS_EN.slice(1), WEEKDAYS_EN[0]] : [..."一二三四五六日"];
 }
 
 /** 0 = 週一 … 6 = 週日 */
@@ -59,7 +68,15 @@ export function monthDay(iso: string, today: string): string {
 
 export function longDate(iso: string): string {
   const d = parse(iso);
+  if (i18n.en) return `${weekday(iso)}, ${MONTHS_EN[d.getUTCMonth()]} ${d.getUTCDate()}`;
   return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日 ${weekday(iso)}`;
+}
+
+/** 月曆標題：2026年10月／October 2026 */
+export function monthTitle(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  if (i18n.en) return `${new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en", { month: "long", timeZone: "UTC" })} ${y}`;
+  return `${y}年${m}月`;
 }
 
 export function nextMonday(today: string): string {
@@ -70,10 +87,10 @@ export function nextMonday(today: string): string {
 export function relativeDue(due: string, today: string, time: string | null = null): string {
   const at = time ? ` ${time}` : "";
   const n = diffDays(today, due);
-  if (n === 0) return `今天${at}`;
-  if (n === 1) return `明天${at}`;
-  if (n === 2) return `後天${at}`;
-  if (n < 0) return `${monthDay(due, today)}${at}（已過）`;
+  if (n === 0) return `${t("今天", "Today")}${at}`;
+  if (n === 1) return `${t("明天", "Tomorrow")}${at}`;
+  if (n === 2 && !i18n.en) return `後天${at}`;
+  if (n < 0) return `${monthDay(due, today)}${at}${t("（已過）", " (past)")}`;
   return `${weekday(due)} ${monthDay(due, today)}${at}`;
 }
 
@@ -94,13 +111,14 @@ export function rowDue(due: string, today: string, time: string | null = null, n
   const at = time ? ` ${time}` : "";
   const n = diffDays(today, due);
   const date = (n >= 0 && n <= 7 ? `${weekday(due)} ${monthDay(due, today)}` : monthDay(due, today)) + at;
-  if (n < 0) return { count: `逾期 ${-n} 天`, date, tone: "warn" };
+  const today_ = t("今天", "Today");
+  if (n < 0) return { count: t(`逾期 ${-n} 天`, `${plural(-n, "day")} overdue`), date, tone: "warn" };
   if (n === 0) {
-    if (!time) return { count: "今天到期", date: "", tone: "warn" };
-    if (now && time < now) return { count: "已逾期", date: `今天${at}`, tone: "warn" };
-    return { count: `今天${at}`, date: "", tone: "warn" };
+    if (!time) return { count: t("今天到期", "Due today"), date: "", tone: "warn" };
+    if (now && time < now) return { count: t("已逾期", "Overdue"), date: `${today_}${at}`, tone: "warn" };
+    return { count: `${today_}${at}`, date: "", tone: "warn" };
   }
-  return { count: `還有 ${n} 天`, date, tone: n <= 3 ? "soon" : "" };
+  return { count: t(`還有 ${n} 天`, `${plural(n, "day")} left`), date, tone: n <= 3 ? "soon" : "" };
 }
 
 export type GroupKey = "overdue" | "today" | "tomorrow" | "week" | "later" | "none";
@@ -142,12 +160,12 @@ export function compareDue(a: Todo, b: Todo): number {
 export function groupTodos(todos: Todo[], today: string, pinned?: { id: string; key: GroupKey } | null, now = ""): Group[] {
   const tomorrow = addDays(today, 1);
   const defs: Omit<Group, "items">[] = [
-    { key: "overdue", label: "逾期", sub: "", tone: "warn" },
-    { key: "today", label: "今天", sub: longDate(today), tone: "accent" },
-    { key: "tomorrow", label: "明天", sub: `${weekday(tomorrow)} ${monthDay(tomorrow, today)}`, tone: "" },
-    { key: "week", label: "接下來 7 天", sub: "", tone: "" },
-    { key: "later", label: "之後", sub: "", tone: "" },
-    { key: "none", label: "沒有期限", sub: "", tone: "" },
+    { key: "overdue", label: t("逾期", "Overdue"), sub: "", tone: "warn" },
+    { key: "today", label: t("今天", "Today"), sub: longDate(today), tone: "accent" },
+    { key: "tomorrow", label: t("明天", "Tomorrow"), sub: `${weekday(tomorrow)} ${monthDay(tomorrow, today)}`, tone: "" },
+    { key: "week", label: t("接下來 7 天", "Next 7 days"), sub: "", tone: "" },
+    { key: "later", label: t("之後", "Later"), sub: "", tone: "" },
+    { key: "none", label: t("沒有期限", "No due date"), sub: "", tone: "" },
   ];
   const buckets = new Map<GroupKey, Todo[]>(defs.map((d) => [d.key, []]));
   for (const t of todos) buckets.get(pinned?.id === t.id ? pinned.key : groupOf(t.due, today, t.dueTime, now))!.push(t);
@@ -182,15 +200,17 @@ export function monthGrid(month: string): string[] {
 /** 日曆選到的那一天：今天／明天／昨天／3 天後／3 天前 */
 export function dayDistance(day: string, today: string): string {
   const n = diffDays(today, day);
-  if (n === 0) return "今天";
-  if (n === 1) return "明天";
-  if (n === -1) return "昨天";
+  if (n === 0) return t("今天", "Today");
+  if (n === 1) return t("明天", "Tomorrow");
+  if (n === -1) return t("昨天", "Yesterday");
+  if (i18n.en) return n > 0 ? `in ${plural(n, "day")}` : `${plural(-n, "day")} ago`;
   return n > 0 ? `${n} 天後` : `${-n} 天前`;
 }
 
 /** 2026年10月11日 週日 */
 export function fullDate(iso: string): string {
   const d = parse(iso);
+  if (i18n.en) return `${weekday(iso)}, ${MONTHS_EN[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
   return `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日 ${weekday(iso)}`;
 }
 
@@ -225,5 +245,6 @@ export function spanParts(a: string, b: string): { years: number; months: number
 export function spanText(a: string, b: string): string {
   const { years, months, days } = spanParts(a, b);
   if (!years && !months) return "";
+  if (i18n.en) return [years && plural(years, "year"), months && plural(months, "month"), days && plural(days, "day")].filter(Boolean).join(" ");
   return [years && `${years} 年`, months && `${months} 個月`, days && `${days} 天`].filter(Boolean).join(" ");
 }

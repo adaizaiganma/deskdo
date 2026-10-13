@@ -13,7 +13,14 @@ const LEGACY_DIR: &str = "TodoWidget";
 pub const BETA: bool = cfg!(deskdo_beta);
 
 /// 視窗標題、系統匣顯示的名稱
-pub const APP_TITLE: &str = if BETA { "待辦事項（測試版）" } else { "待辦事項" };
+pub fn app_title() -> &'static str {
+    match (BETA, crate::i18n::en()) {
+        (true, true) => "Deskdo (Beta)",
+        (true, false) => "待辦事項（測試版）",
+        (false, true) => "Deskdo",
+        (false, false) => "待辦事項",
+    }
+}
 
 static DIR: OnceLock<PathBuf> = OnceLock::new();
 

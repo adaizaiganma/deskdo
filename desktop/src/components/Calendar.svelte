@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { addMonths, dayDistance, longDate, monthGrid } from "@deskdo/core/dates";
+  import { t } from "@deskdo/core/i18n.svelte";
+  import { addMonths, dayDistance, longDate, monthGrid, monthTitle, weekdayHeads } from "@deskdo/core/dates";
   import { store } from "@deskdo/core/store.svelte";
   import type { Todo } from "@deskdo/core/types";
   import Icon from "./Icon.svelte";
@@ -27,7 +28,7 @@
   }
 
   const days = $derived(monthGrid(month));
-  const monthLabel = $derived(`${Number(month.slice(0, 4))}年${Number(month.slice(5))}月`);
+  const monthLabel = $derived(monthTitle(month));
 
   const PRIORITY_RANK = { high: 0, normal: 1, low: 2 } as const;
   /** 每一天到期的待辦：未完成的在前（有時間的照時間、再來高優先先），已完成的在後 */
@@ -138,15 +139,15 @@
 <div class="cal" class:dragging={drag?.moved}>
   <div class="bar">
     <h2>{monthLabel}</h2>
-    <button class="icon-btn" onclick={() => shift(-1)} aria-label="上個月" title="上個月">
+    <button class="icon-btn" onclick={() => shift(-1)} aria-label={t("上個月", "Previous month")} title={t("上個月", "Previous month")}>
       <span class="flip"><Icon name="chevron" size={14} /></span>
     </button>
-    <button class="icon-btn" onclick={() => shift(1)} aria-label="下個月" title="下個月"><Icon name="chevron" size={14} /></button>
-    <button class="today-btn" onclick={goToday} disabled={month === today.slice(0, 7) && selected === today}>今天</button>
+    <button class="icon-btn" onclick={() => shift(1)} aria-label={t("下個月", "Next month")} title={t("下個月", "Next month")}><Icon name="chevron" size={14} /></button>
+    <button class="today-btn" onclick={goToday} disabled={month === today.slice(0, 7) && selected === today}>{t("今天", "Today")}</button>
   </div>
 
   <div class="week" aria-hidden="true">
-    {#each "一二三四五六日" as w, i (w)}<span class:weekend={i >= 5}>{w}</span>{/each}
+    {#each weekdayHeads() as w, i (w)}<span class:weekend={i >= 5}>{w}</span>{/each}
   </div>
 
   <div class="grid" ontouchstart={touchStart} ontouchend={touchEnd} role="group" aria-label={monthLabel}>
@@ -178,7 +179,7 @@
             </button>
           {/each}
           {#if items.length > SHOWN}
-            <span class="more">還有 {items.length - SHOWN} 項</span>
+            <span class="more">{t(`還有 ${items.length - SHOWN} 項`, `${items.length - SHOWN} more`)}</span>
           {/if}
       </div>
     {/each}
@@ -197,7 +198,7 @@
       flat
       showDone={showDone || searching}
       ontoggledone={() => (showDone = !showDone)}
-      emptyText={searching ? "這天沒有符合的待辦" : "這天沒有待辦"}
+      emptyText={searching ? t("這天沒有符合的待辦", "No matching to-dos on this day") : t("這天沒有待辦", "Nothing due this day")}
     />
   {/key}
 </div>

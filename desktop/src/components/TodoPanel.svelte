@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { untrack } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { store } from "@deskdo/core/store.svelte";
@@ -118,9 +119,9 @@
 </script>
 
 {#if groups.length || loose.length}
-  <nav class="chips" aria-label="依資料夾或標籤篩選" use:wheelToHorizontal>
+  <nav class="chips" aria-label={t("依資料夾或標籤篩選", "Filter by folder or tag")} use:wheelToHorizontal>
     <button class="chip" class:on={!folder && !filter} onclick={() => ((folder = null), (filter = null))}>
-      全部<span class="n">{store.open.length}</span>
+      {t("全部", "All")}<span class="n">{store.open.length}</span>
     </button>
     {#each groups as g (g.name)}
       <button class="chip" class:on={folder === g.name && !filter} class:open={folder === g.name} onclick={() => pickFolder(g.name)}>
@@ -134,7 +135,7 @@
     {/each}
   </nav>
   {#if current}
-    <nav class="chips sub-chips" aria-label="「{current.name}」裡的標籤" use:wheelToHorizontal transition:slide={{ duration: 140 }}>
+    <nav class="chips sub-chips" aria-label={t(`「${current.name}」裡的標籤`, `Tags in "${current.name}"`)} use:wheelToHorizontal transition:slide={{ duration: 140 }}>
       {#each current.tags as f (f.tag)}
         <button class="chip" class:idle={!f.count} class:on={filter === f.tag} onclick={() => pickTag(f.tag)}>
           <span class="clip" title="#{f.tag}">#{f.tag}</span><span class="n">{f.count}</span>
@@ -147,7 +148,7 @@
 <div class="scroll-wrap">
   <div class="scroll">
     {#if store.snap.todos.length === 0 && store.snap.status === "syncing"}
-      <div class="loading" in:fade>載入中…</div>
+      <div class="loading" in:fade>{t("載入中…", "Loading…")}</div>
     {:else}
       <TodoList
         {todos}
@@ -156,12 +157,12 @@
         {showDone}
         ontoggledone={toggleDone}
         emptyText={store.prefs && !store.prefs.configured
-          ? "還沒完成設定\n請在主視窗完成設定精靈"
+          ? t("還沒完成設定\n請在主視窗完成設定精靈", "Not set up yet\nFinish the setup wizard in the main window")
           : filter
-            ? "這個標籤沒有待辦"
+            ? t("這個標籤沒有待辦", "No to-dos with this tag")
             : folder
-              ? "這個資料夾沒有待辦"
-              : "沒有待辦事項\n享受一下空白吧"}
+              ? t("這個資料夾沒有待辦", "No to-dos in this folder")
+              : t("沒有待辦事項\n享受一下空白吧", "No to-dos\nEnjoy the empty space")}
       />
     {/if}
   </div>

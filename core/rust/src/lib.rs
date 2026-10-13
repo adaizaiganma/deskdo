@@ -4,12 +4,14 @@
 //! - `config`：設定檔
 //! - `setup`、`oauth`、`cloudflare`：設定精靈（在使用者自己的 Cloudflare 帳號部署 Worker + D1）
 //! - `api`：呼叫雲端 Worker 的 REST API
+//! - `i18n`：介面語言（中文／英文），前端告訴這邊用哪一種
 //!
 //! 介面相關的事（系統匣、桌面或主畫面小工具、主視窗）由 App 透過 [`Hooks`] 提供。
 
 pub mod api;
 pub mod cloudflare;
 pub mod config;
+pub mod i18n;
 pub mod oauth;
 pub mod setup;
 pub mod store;
@@ -24,6 +26,8 @@ pub struct Hooks {
     pub prefs_changed: fn(&AppHandle),
     /// 把主視窗叫到前面（Cloudflare 登入完成時）
     pub show_main: fn(&AppHandle),
+    /// 介面語言換了（系統匣的文字、主畫面小工具）
+    pub language_changed: fn(&AppHandle),
 }
 
 pub(crate) fn snapshot_changed(app: &AppHandle, snap: &store::Snapshot) {
@@ -35,6 +39,12 @@ pub(crate) fn snapshot_changed(app: &AppHandle, snap: &store::Snapshot) {
 pub(crate) fn prefs_changed(app: &AppHandle) {
     if let Some(h) = app.try_state::<Hooks>() {
         (h.prefs_changed)(app);
+    }
+}
+
+pub(crate) fn language_changed(app: &AppHandle) {
+    if let Some(h) = app.try_state::<Hooks>() {
+        (h.language_changed)(app);
     }
 }
 
@@ -62,6 +72,7 @@ pub const COMMANDS: &[&str] = &[
     "rotate_connector",
     "list_devices",
     "revoke_device",
+    "set_language",
 ];
 
 pub fn handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + 'static {
@@ -82,6 +93,7 @@ pub fn handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + 'static {
         setup::rotate_connector,
         setup::list_devices,
         setup::revoke_device,
+        i18n::set_language,
     ]
 }
 
@@ -101,6 +113,7 @@ pub fn combine<R: Runtime>(
 
 /// 在 App 的 setup 裡呼叫（手機版要先 `config::init_dir`）：建立共用狀態
 pub fn init(app: &AppHandle) {
+    i18n::load();
     app.manage(std::sync::Arc::new(store::Shared::new()));
     app.manage(setup::SetupState::default());
 }

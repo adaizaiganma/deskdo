@@ -5,6 +5,7 @@ use crate::{
     store::{self, shared},
 };
 use crate::tray::TrayItems;
+use deskdo_core::{i18n::tr, trf};
 use serde::Serialize;
 use std::sync::atomic::Ordering;
 use std::{
@@ -17,7 +18,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 pub fn create_widget(app: &AppHandle) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, "widget", WebviewUrl::App("widget.html".into()))
-        .title(crate::config::APP_TITLE)
+        .title(crate::config::app_title())
         .decorations(false)
         .transparent(true)
         .shadow(true)
@@ -53,7 +54,7 @@ pub fn create_widget(app: &AppHandle) -> tauri::Result<()> {
 
 pub fn create_main(app: &AppHandle) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("main.html".into()))
-        .title(crate::config::APP_TITLE)
+        .title(crate::config::app_title())
         .decorations(false)
         .transparent(true)
         .shadow(true)
@@ -280,7 +281,7 @@ pub async fn save_connection(
     emit_prefs(&app);
     s.wake(true);
     if !cfg.configured() {
-        return Err("請填寫 API 網址和 token".into());
+        return Err(tr("請填寫 API 網址和 token", "Fill in the API URL and token").into());
     }
     let r = api::send(&s.client, &cfg, reqwest::Method::GET, "/api/todos?status=open", None, None).await;
     if let Some(e) = r.error {
@@ -329,7 +330,7 @@ pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
         let _ = items.autostart.set_checked(now);
     }
     emit_prefs(&app);
-    r.map_err(|e| format!("無法修改開機啟動設定：{e}"))
+    r.map_err(|e| trf!("無法修改開機啟動設定：{e}", "Couldn't change the start-up setting: {e}"))
 }
 
 /// 桌面小工具載入完成；依設定決定要不要顯示（避免先閃一個空白視窗）

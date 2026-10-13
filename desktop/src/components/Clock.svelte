@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { onMount } from "svelte";
 
   import type { ClockStyle } from "@deskdo/core/homePrefs.svelte";
@@ -31,12 +32,12 @@
 </script>
 
 {#if mode === "digital"}
-  <div class="digital" role="timer" aria-label="現在時間 {label}">
+  <div class="digital" role="timer" aria-label="{t('現在時間', 'Current time')} {label}">
     <span class="hm">{hm}</span><span class="sec">{sec}</span>
   </div>
 {:else}
   <div class="analog">
-    <svg class="clock" width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="現在時間 {label}">
+    <svg class="clock" width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="{t('現在時間', 'Current time')} {label}">
       <circle class="face" cx="50" cy="50" r="47" />
       {#each Array(12) as _, i (i)}
         <line class="tick" class:major={i % 3 === 0} x1="50" y1={i % 3 === 0 ? 9 : 10} x2="50" y2={i % 3 === 0 ? 16 : 14} transform="rotate({i * 30} 50 50)" />

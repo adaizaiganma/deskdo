@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { untrack } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { addDays, localDate, monthDay, nextMonday, relativeDue, rowDue } from "@deskdo/core/dates";
@@ -38,7 +39,7 @@
   const draftHigh = $derived(draftPriority === "high");
   const draftLow = $derived(draftPriority === "low");
   const checked = $derived(todo.done || checking);
-  const source = $derived({ email: "來自 Gmail", claude: "由 AI 助理新增", manual: "手動新增" }[todo.source] ?? "");
+  const source = $derived(({ email: t("來自 Gmail", "From Gmail"), claude: t("由 AI 助理新增", "Added by AI assistant"), manual: t("手動新增", "Added manually") } as Record<string, string>)[todo.source] ?? "");
   const created = $derived(localDate(todo.createdAt));
   const next = $derived(todo.done ? undefined : store.nextOf.get(todo.id));
   /** 前一步還沒完成（平常不會顯示，搜尋時才看得到） */
@@ -60,10 +61,10 @@
   });
 
   const dueChips = $derived([
-    { label: "今天", value: today },
-    { label: "明天", value: addDays(today, 1) },
-    { label: "下週一", value: nextMonday(today) },
-    { label: "無期限", value: null },
+    { label: t("今天", "Today"), value: today },
+    { label: t("明天", "Tomorrow"), value: addDays(today, 1) },
+    { label: t("下週一", "Next Mon"), value: nextMonday(today) },
+    { label: t("無期限", "No date"), value: null },
   ]);
 
   // 打開編輯時載入草稿；收合時把標題、備註、期限、標籤、優先一起存回去
@@ -267,7 +268,7 @@
       class:on={checked}
       onclick={toggle}
       disabled={sending}
-      aria-label={todo.done ? `標記「${todo.title}」為未完成` : `完成「${todo.title}」`}
+      aria-label={todo.done ? t(`標記「${todo.title}」為未完成`, `Mark "${todo.title}" as not done`) : t(`完成「${todo.title}」`, `Complete "${todo.title}"`)}
     >
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path class="ck" d="M2.5 6.3l2.3 2.3L9.6 3.6" />
@@ -281,7 +282,7 @@
         bind:value={draftTitle}
         onkeydown={titleKey}
         onblur={commit}
-        aria-label="標題"
+        aria-label={t("標題", "Title")}
       />
     {:else}
       <!-- 左鍵、右鍵都會展開編輯 -->
@@ -298,20 +299,20 @@
         {#if high || low || todo.tags.length || todo.source === "email" || todo.note || todo.done || waitingFor}
           <span class="meta">
             {#if waitingFor}
-              <span class="mi faint"><Icon name="link" size={12} stroke={1.5} />等「{waitingFor.title}」完成</span>
+              <span class="mi faint"><Icon name="link" size={12} stroke={1.5} />{t(`等「${waitingFor.title}」完成`, `After "${waitingFor.title}"`)}</span>
             {/if}
             {#if todo.done && todo.doneAt}
-              <span>{monthDay(localDate(todo.doneAt) ?? today, today)} 完成</span>
+              <span>{t(`${monthDay(localDate(todo.doneAt) ?? today, today)} 完成`, `Done ${monthDay(localDate(todo.doneAt) ?? today, today)}`)}</span>
             {/if}
             {#if high && !todo.done}
-              <span class="mi warn"><Icon name="flag" size={11} stroke={1.8} />高優先</span>
+              <span class="mi warn"><Icon name="flag" size={11} stroke={1.8} />{t("高優先", "High")}</span>
             {/if}
             {#if low && !todo.done}
-              <span class="mi faint">低優先</span>
+              <span class="mi faint">{t("低優先", "Low")}</span>
             {/if}
             {#each todo.tags as tag (tag)}<span class="mi tagname" title="#{tag}"><span class="clip">#{tag}</span></span>{/each}
             {#if todo.source === "email"}<span class="mi"><Icon name="mail" size={12} stroke={1.5} />Gmail</span>{/if}
-            {#if todo.note && !todo.done}<span class="mi" title={todo.note}><Icon name="note" size={12} stroke={1.5} />備註</span>{/if}
+            {#if todo.note && !todo.done}<span class="mi" title={todo.note}><Icon name="note" size={12} stroke={1.5} />{t("備註", "Note")}</span>{/if}
           </span>
         {/if}
       </button>
@@ -325,8 +326,8 @@
     {/if}
   </div>
   {#if next && !editing}
-    <button class="next" onclick={() => onedit(next.id)} title="編輯下一步">
-      ↳ 接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}
+    <button class="next" onclick={() => onedit(next.id)} title={t("編輯下一步", "Edit next step")}>
+      ↳ {t("接著：", "Next: ")}{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}
     </button>
   {/if}
 
@@ -347,10 +348,10 @@
             class:empty={!draftDue}
             value={draftDue ?? ""}
             onchange={(e) => (draftDue = e.currentTarget.value || null)}
-            aria-label="選擇日期"
+            aria-label={t("選擇日期", "Pick a date")}
           />
           {#if !draftDue}
-            <button class="pill pick-date" onclick={pickDate} tabindex="-1">選擇日期</button>
+            <button class="pill pick-date" onclick={pickDate} tabindex="-1">{t("選擇日期", "Pick a date")}</button>
           {/if}
         </span>
       </div>
@@ -358,7 +359,7 @@
         <!-- 有期限才能設時間；沒設時間就是一整天 -->
         <div class="field">
           <span class="ficon"><Icon name="upcoming" size={14} stroke={1.5} /></span>
-          <button class="pill" class:on={!draftTime} onclick={() => setTime("")}>整天</button>
+          <button class="pill" class:on={!draftTime} onclick={() => setTime("")}>{t("整天", "All day")}</button>
           <span class="date-wrap">
             <input
               bind:this={timeInput}
@@ -368,10 +369,10 @@
               class:empty={!draftTime}
               value={draftTime ?? ""}
               onchange={(e) => setTime(e.currentTarget.value)}
-              aria-label="期限的時間"
+              aria-label={t("期限的時間", "Due time")}
             />
             {#if !draftTime}
-              <button class="pill pick-date" onclick={pickTime} tabindex="-1">指定時間</button>
+              <button class="pill pick-date" onclick={pickTime} tabindex="-1">{t("指定時間", "Set time")}</button>
             {/if}
           </span>
         </div>
@@ -381,10 +382,10 @@
         {#each draftTags as tag (tag)}
           <span class="pill on tag-on" title="#{tag}">
             <span class="clip">#{tag}</span>
-            <button onclick={() => removeTag(tag)} aria-label="移除標籤 {tag}"><Icon name="close" size={10} stroke={2} /></button>
+            <button onclick={() => removeTag(tag)} aria-label={t(`移除標籤 ${tag}`, `Remove tag ${tag}`)}><Icon name="close" size={10} stroke={2} /></button>
           </span>
         {/each}
-        <button class="pill" class:on={panel === "tag"} onclick={openTags}>{draftTags.length ? "加標籤" : "選擇標籤"}</button>
+        <button class="pill" class:on={panel === "tag"} onclick={openTags}>{draftTags.length ? t("加標籤", "Add tag") : t("選擇標籤", "Choose tag")}</button>
       </div>
       {#if panel === "tag"}
         <div class="step-box" transition:slide={{ duration: 150 }}>
@@ -393,13 +394,13 @@
             bind:this={panelInput}
             bind:value={query}
             onkeydown={tagKey}
-            placeholder="搜尋或新增標籤"
-            aria-label="搜尋或新增標籤"
+            placeholder={t("搜尋或新增標籤", "Search or create a tag")}
+            aria-label={t("搜尋或新增標籤", "Search or create a tag")}
           />
           <div class="cands">
             {#if canCreateTag}
               <button class="cand" onclick={() => pickTag(tagQuery)}>
-                <span class="ctitle"><Icon name="plus" size={11} stroke={1.8} /> 新增標籤「{tagQuery}」</span>
+                <span class="ctitle"><Icon name="plus" size={11} stroke={1.8} /> {t(`新增標籤「${tagQuery}」`, `Create tag "${tagQuery}"`)}</span>
               </button>
             {/if}
             {#each tagOptions as tag (tag)}
@@ -409,31 +410,31 @@
                 {#if draftTags.includes(tag)}<span class="ctag check">✓</span>{/if}
               </button>
             {:else}
-              {#if !canCreateTag}<span class="none">還沒有標籤，輸入名稱就能新增</span>{/if}
+              {#if !canCreateTag}<span class="none">{t("還沒有標籤，輸入名稱就能新增", "No tags yet, type a name to create one")}</span>{/if}
             {/each}
           </div>
         </div>
       {/if}
       <div class="field">
         <span class="ficon"><Icon name="flag" size={14} stroke={1.5} /></span>
-        <button class="pill" class:warn-on={draftHigh} onclick={() => setPriority(draftHigh ? "normal" : "high")}>! 高優先</button>
-        <button class="pill" class:on={draftLow} onclick={() => setPriority(draftLow ? "normal" : "low")}>~ 低優先</button>
+        <button class="pill" class:warn-on={draftHigh} onclick={() => setPriority(draftHigh ? "normal" : "high")}>! {t("高優先", "High priority")}</button>
+        <button class="pill" class:on={draftLow} onclick={() => setPriority(draftLow ? "normal" : "low")}>~ {t("低優先", "Low priority")}</button>
       </div>
       <div class="field steps">
         <span class="ficon"><Icon name="link" size={14} stroke={1.5} /></span>
         {#if waitingFor}
-          <button class="step-info" onclick={() => onedit(waitingFor.id)} title="編輯前一步">前一步：{waitingFor.title}</button>
-          <button class="tbtn" onclick={() => patch({ afterId: null })}>取消連接</button>
+          <button class="step-info" onclick={() => onedit(waitingFor.id)} title={t("編輯前一步", "Edit previous step")}>{t("前一步：", "Previous: ")}{waitingFor.title}</button>
+          <button class="tbtn" onclick={() => patch({ afterId: null })}>{t("取消連接", "Unlink")}</button>
         {/if}
         {#if next}
-          <button class="step-info" onclick={() => onedit(next.id)} title="編輯下一步">接著：{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}</button>
-          <button class="tbtn" onclick={() => store.update(next.id, { afterId: null })}>取消連接</button>
+          <button class="step-info" onclick={() => onedit(next.id)} title={t("編輯下一步", "Edit next step")}>{t("接著：", "Next: ")}{next.title}{next.due ? ` · ${relativeDue(next.due, today, next.dueTime)}` : ""}</button>
+          <button class="tbtn" onclick={() => store.update(next.id, { afterId: null })}>{t("取消連接", "Unlink")}</button>
         {/if}
         <button class="pill" class:on={panel === "new"} onclick={() => startStep("new")}>
-          <Icon name="plus" size={12} stroke={1.8} />{next ? "插入下一步" : "新增下一步"}
+          <Icon name="plus" size={12} stroke={1.8} />{next ? t("插入下一步", "Insert next step") : t("新增下一步", "Add next step")}
         </button>
         <button class="pill" class:on={panel === "link"} onclick={() => startStep("link")}>
-          <Icon name="link" size={12} stroke={1.6} />連接已有待辦
+          <Icon name="link" size={12} stroke={1.6} />{t("連接已有待辦", "Link existing to-do")}
         </button>
       </div>
       {#if panel === "new" || panel === "link"}
@@ -443,8 +444,8 @@
             bind:this={panelInput}
             bind:value={query}
             onkeydown={stepKey}
-            placeholder={panel === "new" ? "下一步要做什麼？例如：印預報 @週四" : "搜尋要接在後面的待辦"}
-            aria-label={panel === "new" ? "下一步" : "搜尋待辦"}
+            placeholder={panel === "new" ? t("下一步要做什麼？例如：印預報 @週四", "What comes next? e.g. Print report @thu") : t("搜尋要接在後面的待辦", "Search for a to-do to follow this one")}
+            aria-label={panel === "new" ? t("下一步", "Next step") : t("搜尋待辦", "Search to-dos")}
           />
           {#if panel === "link"}
             <div class="cands">
@@ -455,17 +456,17 @@
                   {#if c.due}<span class="ctag">{relativeDue(c.due, today, c.dueTime)}</span>{/if}
                 </button>
               {:else}
-                <span class="none">沒有符合的待辦</span>
+                <span class="none">{t("沒有符合的待辦", "No matching to-dos")}</span>
               {/each}
             </div>
           {/if}
         </div>
       {/if}
-      <textarea class="note" placeholder="備註…" bind:value={draftNote} onblur={commit} aria-label="備註"></textarea>
+      <textarea class="note" placeholder={t("備註…", "Note…")} bind:value={draftNote} onblur={commit} aria-label={t("備註", "Note")}></textarea>
       <div class="foot">
-        <span>{source}{created ? ` · ${monthDay(created, today)} 建立` : ""}</span>
+        <span>{source}{created ? ` · ${t(`${monthDay(created, today)} 建立`, `Created ${monthDay(created, today)}`)}` : ""}</span>
         <span class="grow"></span>
-        <button class="tbtn danger" onclick={() => store.remove(todo)}><Icon name="trash" size={13} stroke={1.5} />刪除</button>
+        <button class="tbtn danger" onclick={() => store.remove(todo)}><Icon name="trash" size={13} stroke={1.5} />{t("刪除", "Delete")}</button>
       </div>
     </div>
   {/if}

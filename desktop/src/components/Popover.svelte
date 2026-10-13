@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import type { Snippet } from "svelte";
   import Icon from "./Icon.svelte";
 
@@ -47,7 +48,7 @@
 <div class="pop" role="dialog" aria-label={title} bind:this={node} use:place>
   <header>
     <span class="title">{title}</span>
-    <button class="x" onclick={onclose} aria-label="關閉"><Icon name="close" size={12} /></button>
+    <button class="x" onclick={onclose} aria-label={t("關閉", "Close")}><Icon name="close" size={12} /></button>
   </header>
   {@render children()}
 </div>

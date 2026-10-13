@@ -2,6 +2,7 @@
 //! 兩個視窗共用這一份資料；每次變動都會送出 "state" 事件。
 
 use crate::{
+    i18n::tr,
     api::{self, ApiResult},
     config::{self, Cache, Config},
 };
@@ -275,7 +276,7 @@ async fn refresh(app: &AppHandle) {
         let mut g = s.inner.lock().unwrap();
         if !cfg.configured() {
             g.status = "error";
-            g.message = "尚未設定 API".into();
+            g.message = tr("尚未設定 API", "The API isn't set up yet").into();
             drop(g);
             emit(app);
             return;
@@ -344,7 +345,7 @@ async fn refresh(app: &AppHandle) {
 // ---- 修改（先更新畫面，失敗再復原） ----
 
 fn failure(r: &ApiResult) -> Option<String> {
-    r.error.as_ref().map(|e| if r.offline() { "離線中，修改未儲存".to_string() } else { e.clone() })
+    r.error.as_ref().map(|e| if r.offline() { tr("離線中，修改未儲存", "Offline, the change wasn't saved").to_string() } else { e.clone() })
 }
 
 /// 修改請求完成後呼叫。成功時套用伺服器回傳的資料，失敗時復原並回傳錯誤訊息。
@@ -400,7 +401,7 @@ pub fn refresh_now(app: AppHandle) {
 
 #[tauri::command]
 pub async fn add_todo(app: AppHandle, mut fields: Map<String, Value>) -> Result<Todo, String> {
-    let title = str_field(&fields, "title").ok_or("標題不能是空的")?;
+    let title = str_field(&fields, "title").ok_or(tr("標題不能是空的", "The title can't be empty"))?;
     pair_tags(&mut fields);
     let s = shared(&app);
     let cfg = s.config();
@@ -436,7 +437,7 @@ pub async fn add_todo(app: AppHandle, mut fields: Map<String, Value>) -> Result<
     let created: Option<Todo> = r.data.clone().and_then(|v| serde_json::from_value(v).ok());
     let fail = match (&created, failure(&r)) {
         (_, Some(msg)) => Some((r.offline(), msg)),
-        (None, None) => Some((false, "伺服器回應格式錯誤".to_string())),
+        (None, None) => Some((false, tr("伺服器回應格式錯誤", "Unexpected server response").to_string())),
         _ => None,
     };
     let id2 = tmp_id.clone();
@@ -472,7 +473,7 @@ pub async fn update_todo(app: AppHandle, id: String, patch: Map<String, Value>) 
     let cfg = s.config();
     let old = {
         let mut g = s.inner.lock().unwrap();
-        let t = g.todos.iter_mut().find(|t| t.id == id).ok_or("找不到這筆待辦")?;
+        let t = g.todos.iter_mut().find(|t| t.id == id).ok_or(tr("找不到這筆待辦", "Can't find this to-do"))?;
         let old = t.clone();
         let mut v = serde_json::to_value(&*t).map_err(|e| e.to_string())?;
         for (k, val) in &patch {

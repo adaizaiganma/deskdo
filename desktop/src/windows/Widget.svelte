@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { tick } from "svelte";
   import { scale } from "svelte/transition";
@@ -42,29 +43,29 @@
   <header data-tauri-drag-region>
     <div class="heading" data-tauri-drag-region>
       <div class="title" data-tauri-drag-region>
-        待辦事項{#if store.prefs?.beta}<span class="beta" data-tauri-drag-region>測試版</span>{/if}
+        {t("待辦事項", "Deskdo")}{#if store.prefs?.beta}<span class="beta" data-tauri-drag-region>{t("測試版", "Beta")}</span>{/if}
       </div>
       <div class="sub" data-tauri-drag-region>
-        {longDate(store.today)} · {store.open.length} 項待辦{#if store.overdueCount}<span class="warn"> · {store.overdueCount} 逾期</span>{/if}
+        {longDate(store.today)} · {t(`${store.open.length} 項待辦`, `${store.open.length} to-dos`)}{#if store.overdueCount}<span class="warn"> · {t(`${store.overdueCount} 逾期`, `${store.overdueCount} overdue`)}</span>{/if}
       </div>
     </div>
     <SyncStatus compact />
     <div class="menu-wrap">
-      <button class="icon-btn" onclick={() => (menuOpen = !menuOpen)} aria-label="更多選項" aria-expanded={menuOpen}>
+      <button class="icon-btn" onclick={() => (menuOpen = !menuOpen)} aria-label={t("更多選項", "More options")} aria-expanded={menuOpen}>
         <Icon name="more" />
       </button>
       {#if menuOpen}
         <div class="menu" role="menu" transition:scale={{ start: 0.95, duration: 120 }}>
-          <button role="menuitem" onclick={() => menu(() => invoke("open_main", { view: null }))}><Icon name="open" />開啟主視窗</button>
-          <button role="menuitem" onclick={() => menu(() => store.refresh())}><Icon name="refresh" />立即同步</button>
+          <button role="menuitem" onclick={() => menu(() => invoke("open_main", { view: null }))}><Icon name="open" />{t("開啟主視窗", "Open main window")}</button>
+          <button role="menuitem" onclick={() => menu(() => store.refresh())}><Icon name="refresh" />{t("立即同步", "Sync now")}</button>
           {#if store.appUpdate}
             <button role="menuitem" class="accent" onclick={() => menu(() => store.installUpdate())}>
-              <Icon name="sparkle" />更新到 {store.appUpdate.version}
+              <Icon name="sparkle" />{t("更新到", "Update to")} {store.appUpdate.version}
             </button>
           {/if}
-          <button role="menuitem" onclick={() => menu(() => invoke("open_main", { view: "settings" }))}><Icon name="settings" />設定…</button>
+          <button role="menuitem" onclick={() => menu(() => invoke("open_main", { view: "settings" }))}><Icon name="settings" />{t("設定…", "Settings…")}</button>
           <hr />
-          <button role="menuitem" onclick={() => menu(() => invoke("set_widget_visible", { visible: false }))}><Icon name="close" />隱藏桌面小工具</button>
+          <button role="menuitem" onclick={() => menu(() => invoke("set_widget_visible", { visible: false }))}><Icon name="close" />{t("隱藏桌面小工具", "Hide desktop widget")}</button>
         </div>
       {/if}
     </div>

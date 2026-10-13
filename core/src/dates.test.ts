@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { addMonths, dayDistance, monthGrid, nextYearly, spanParts, spanText } from "./dates";
+import { addMonths, dayDistance, fullDate, longDate, monthGrid, monthTitle, nextYearly, rowDue, spanParts, spanText } from "./dates";
+import { i18n } from "./i18n.svelte";
 import { QUOTES, quoteOf } from "./quotes";
 
 describe("addMonths", () => {
@@ -76,5 +77,23 @@ describe("quoteOf", () => {
     expect(quoteOf("2026-10-11")).toBe(quoteOf("2026-10-11"));
     const i = QUOTES.indexOf(quoteOf("2026-10-11"));
     expect(QUOTES.indexOf(quoteOf("2026-10-12"))).toBe((i + 1) % QUOTES.length);
+  });
+});
+
+describe("english", () => {
+  test("labels", () => {
+    i18n.pref = "en";
+    try {
+      expect(dayDistance("2026-10-15", "2026-10-11")).toBe("in 4 days");
+      expect(dayDistance("2026-10-10", "2026-10-11")).toBe("Yesterday");
+      expect(spanText("2026-10-11", "2027-12-12")).toBe("1 year 2 months 1 day");
+      expect(longDate("2026-10-16")).toBe("Fri, Oct 16");
+      expect(fullDate("2026-10-11")).toBe("Sun, Oct 11, 2026");
+      expect(monthTitle("2026-10")).toBe("October 2026");
+      expect(rowDue("2026-10-09", "2026-10-11").count).toBe("2 days overdue");
+      expect(rowDue("2026-10-12", "2026-10-11").count).toBe("1 day left");
+    } finally {
+      i18n.pref = "zh";
+    }
   });
 });

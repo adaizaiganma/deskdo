@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18n, t } from "@deskdo/core/i18n.svelte";
   import type { Snippet } from "svelte";
   import Clock from "../components/Clock.svelte";
   import CountdownCard from "../components/CountdownCard.svelte";
@@ -75,12 +76,15 @@
   }
 
   const quote = dailyQuote(() => today);
-  const refreshQuote = () => quote.refresh().catch(() => toast.error("換不了句子，請檢查網路"));
+  const refreshQuote = () => quote.refresh().catch(() => toast.error(t("換不了句子，請檢查網路", "Couldn't get a new quote, check your connection")));
   const late = $derived(store.overdueCount);
   const dueToday = $derived(store.open.filter((t) => t.due === today && !store.overdue(t)).length);
   const summary = $derived(
-    [late && `${late} 項逾期`, dueToday && `今天到期 ${dueToday} 項`, `共 ${store.open.length} 項待辦`].filter(Boolean).join("・"),
+    i18n.en
+      ? [late && `${late} overdue`, dueToday && `${dueToday} due today`, `${store.open.length} to-dos`].filter(Boolean).join(" · ")
+      : [late && `${late} 項逾期`, dueToday && `今天到期 ${dueToday} 項`, `共 ${store.open.length} 項待辦`].filter(Boolean).join("・"),
   );
+  const monthName = $derived(new Date(`${today}T00:00`).toLocaleString("en", { month: "long" }));
 
   // ---- 右邊待辦的寬度：拖曳中間的分隔線調整，每台電腦各自記住 ----
   const WIDTH_KEY = "home.panelWidth";
@@ -149,15 +153,20 @@
 {#snippet widget(id: WidgetId)}
   {#if id === "date"}
     <div class="when">
-      <span class="year">{Number(today.slice(0, 4))}年・{weekday(today)}</span>
-      <h1>{Number(today.slice(5, 7))}月{Number(today.slice(8))}日</h1>
+      {#if i18n.en}
+        <span class="year">{weekday(today)} · {Number(today.slice(0, 4))}</span>
+        <h1>{monthName} {Number(today.slice(8))}</h1>
+      {:else}
+        <span class="year">{Number(today.slice(0, 4))}年・{weekday(today)}</span>
+        <h1>{Number(today.slice(5, 7))}月{Number(today.slice(8))}日</h1>
+      {/if}
       <span class="summary" class:warn={late > 0} title={summary}>{summary}</span>
     </div>
   {:else if id === "clock"}
     <div class="clock-box"><Clock size={120} mode={homePrefs.clock} /></div>
   {:else if id === "quote"}
-    <button class="quote" class:loading={quote.loading} onclick={refreshQuote} title="換一句">
-      <span class="qcap"><span class="qlabel">每日一言</span>{quote.current.source}<Icon name="refresh" size={12} /></span>
+    <button class="quote" class:loading={quote.loading} onclick={refreshQuote} title={t("換一句", "Another quote")}>
+      <span class="qcap"><span class="qlabel">{t("每日一言", "Daily quote")}</span>{quote.current.source}<Icon name="refresh" size={12} /></span>
       <span class="qtext">{quote.current.text}</span>
     </button>
   {:else if id === "matrix"}
@@ -180,8 +189,8 @@
       <!-- 浮在下面，不佔版面 -->
       <div class="edit-dock">
         <div class="edit-bar">
-          <span>拖曳移動・拖右下角調整大小・按右鍵加回組件</span>
-          <button class="done" onclick={() => (editing = false)}>完成</button>
+          <span>{t("拖曳移動・拖右下角調整大小・按右鍵加回組件", "Drag to move · drag the corner to resize · right-click to add widgets")}</span>
+          <button class="done" onclick={() => (editing = false)}>{t("完成", "Done")}</button>
         </div>
       </div>
     {/if}
@@ -193,20 +202,20 @@
     class="resizer"
     role="separator"
     aria-orientation="vertical"
-    aria-label="調整待辦清單的寬度"
+    aria-label={t("調整待辦清單的寬度", "Resize the to-do list")}
     aria-valuenow={Math.round(width)}
     tabindex="0"
     onpointerdown={startResize}
     ondblclick={() => ((width = DEFAULT_WIDTH), saveWidth())}
     onkeydown={resizeKey}
-    title="拖曳調整寬度，按兩下還原"
+    title={t("拖曳調整寬度，按兩下還原", "Drag to resize, double-click to reset")}
   ></div>
 
   <section class="panel bg-{homeStyle.panel}" bind:this={panelEl} style:--w="{width}px">
     <!-- 標題按右鍵也可以打開主頁的選單（自訂主頁裡有待辦清單的背景） -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <header oncontextmenu={openMenu}>
-      <h2>待辦事項</h2>
+      <h2>{t("待辦事項", "To-dos")}</h2>
     </header>
     <TodoPanel bind:this={panel} doneKey="home.showDone" {matches} />
   </section>
@@ -215,30 +224,30 @@
 
 {#if menu}
   {@const m = menu}
-  <div class="ctx" role="menu" aria-label="主頁版面" style:left="{m.x}px" style:top="{m.y}px" use:place>
+  <div class="ctx" role="menu" aria-label={t("主頁版面", "Home layout")} style:left="{m.x}px" style:top="{m.y}px" use:place>
     {#if m.id}
       {@const id = m.id}
       <div class="mhead">{spec(id).label}</div>
       <button role="menuitem" onclick={() => act(() => (popup = { x: m.x, y: m.y, id }))}>
-        <Icon name="settings" size={14} />組件設定…
+        <Icon name="settings" size={14} />{t("組件設定…", "Widget settings…")}
       </button>
     {/if}
     <button role="menuitem" onclick={() => act(() => (popup = { x: m.x, y: m.y, id: null }))}>
-      <Icon name="image" size={14} />自訂主頁…
+      <Icon name="image" size={14} />{t("自訂主頁…", "Customize home…")}
     </button>
     <div class="sep"></div>
     <button role="menuitem" onclick={() => act(() => (editing = !editing))}>
-      <Icon name="widget" size={14} />{editing ? "完成調整" : "調整版面"}
+      <Icon name="widget" size={14} />{editing ? t("完成調整", "Done editing") : t("調整版面", "Edit layout")}
     </button>
     {#if m.id}
       {@const id = m.id}
       <button role="menuitem" onclick={() => act(() => homeLayout.remove(id))}>
-        <Icon name="close" size={14} />{isCountdown(id) ? "從主頁拿掉" : "拿掉這個組件"}
+        <Icon name="close" size={14} />{isCountdown(id) ? t("從主頁拿掉", "Remove from home") : t("拿掉這個組件", "Remove this widget")}
       </button>
     {/if}
     {#if addable.length}
       <div class="sep"></div>
-      <div class="mhead">加回組件</div>
+      <div class="mhead">{t("加回組件", "Add widget")}</div>
       {#each addable as a (a.id)}
         <button role="menuitem" onclick={() => act(() => homeLayout.add(a.id))}>
           <Icon name={isCountdown(a.id) ? "hourglass" : "plus"} size={14} /><span class="clip">{a.label}</span>
@@ -246,7 +255,7 @@
       {/each}
     {/if}
     <div class="sep"></div>
-    <button role="menuitem" onclick={() => act(() => homeLayout.reset())}><Icon name="refresh" size={14} />還原預設版面</button>
+    <button role="menuitem" onclick={() => act(() => homeLayout.reset())}><Icon name="refresh" size={14} />{t("還原預設版面", "Reset layout")}</button>
   </div>
 {/if}
 

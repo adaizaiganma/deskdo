@@ -1,6 +1,7 @@
 //! Worker 的 REST API 客戶端。
 
 use crate::config::Config;
+use crate::i18n::tr;
 use reqwest::{header, Client, Method};
 use serde_json::Value;
 use std::time::Duration;
@@ -45,11 +46,11 @@ pub async fn send(
         Ok(r) => r,
         Err(e) => {
             let msg = if e.is_builder() {
-                "API 網址格式不正確"
+                tr("API 網址格式不正確", "The API URL is not valid")
             } else if e.is_timeout() {
-                "連線逾時"
+                tr("連線逾時", "The connection timed out")
             } else {
-                "無法連線到伺服器"
+                tr("無法連線到伺服器", "Can't reach the server")
             };
             return ApiResult { status: 0, data: None, error: Some(msg.into()), etag: None };
         }
@@ -60,7 +61,7 @@ pub async fn send(
     let data: Option<Value> = resp.bytes().await.ok().and_then(|b| serde_json::from_slice(&b).ok());
 
     let error = if status == 401 {
-        Some("驗證失敗，請檢查 API token".to_string())
+        Some(tr("驗證失敗，請檢查 API token", "Authentication failed, check the API token").to_string())
     } else if status >= 400 {
         let msg = data.as_ref().and_then(|d| d.get("error")).and_then(Value::as_str);
         let issues: Vec<&str> = data
@@ -71,10 +72,10 @@ pub async fn send(
             .unwrap_or_default();
         let mut s = format!("HTTP {status}");
         if let Some(m) = msg {
-            s += &format!("：{m}");
+            s += &crate::trf!("：{m}", ": {m}");
         }
         if !issues.is_empty() {
-            s += &format!("（{}）", issues.join("；"));
+            s += &crate::trf!("（{}）", " ({})", issues.join(if crate::i18n::en() { "; " } else { "；" }));
         }
         Some(s)
     } else {

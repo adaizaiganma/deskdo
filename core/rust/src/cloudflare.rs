@@ -54,10 +54,10 @@ impl CfError {
 impl std::fmt::Display for CfError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.status {
-            0 => write!(f, "無法連線到 Cloudflare"),
-            401 | 403 => write!(f, "Cloudflare 權限不足：{}", self.message),
-            _ if self.code == 0 => write!(f, "Cloudflare：{}", self.message),
-            _ => write!(f, "Cloudflare：{}（{}）", self.message, self.code),
+            0 => f.write_str(crate::i18n::tr("無法連線到 Cloudflare", "Can't reach Cloudflare")),
+            401 | 403 => f.write_str(&crate::trf!("Cloudflare 權限不足：{}", "Cloudflare permission denied: {}", self.message)),
+            _ if self.code == 0 => f.write_str(&crate::trf!("Cloudflare：{}", "Cloudflare: {}", self.message)),
+            _ => f.write_str(&crate::trf!("Cloudflare：{}（{}）", "Cloudflare: {} ({})", self.message, self.code)),
         }
     }
 }

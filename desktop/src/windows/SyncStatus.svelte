@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { store } from "@deskdo/core/store.svelte";
 
   /** compact：同步正常時只顯示小圓點（桌面小工具空間有限） */
@@ -8,15 +9,15 @@
   const label = $derived(
     s.status === "ok"
       ? s.lastSync
-        ? `已同步 ${s.lastSync}`
-        : "已同步"
+        ? t(`已同步 ${s.lastSync}`, `Synced ${s.lastSync}`)
+        : t("已同步", "Synced")
       : s.status === "syncing"
-        ? "同步中…"
+        ? t("同步中…", "Syncing…")
         : s.status === "offline"
-          ? "離線"
-          : "同步錯誤",
+          ? t("離線", "Offline")
+          : t("同步錯誤", "Sync error"),
   );
-  const tip = $derived(s.message ? `${s.message}\n點一下重新同步` : `${label}\n點一下立即同步`);
+  const tip = $derived(s.message ? `${s.message}\n${t("點一下重新同步", "Click to retry")}` : `${label}\n${t("點一下立即同步", "Click to sync now")}`);
   const hideLabel = $derived(compact && s.status === "ok");
 </script>
 

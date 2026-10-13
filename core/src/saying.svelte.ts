@@ -2,8 +2,10 @@
  * 每日一言：連得上網時用 uapis.cn 的每日一句，抓不到就用內建的句子（quotes.ts）。
  * 那邊是簡體，抓到後轉成繁體（opencc-js，一 MB 多的字典，用到才載入），連同日期存在這台裝置，一天只抓一次。點一下可以換一句（random），換過的那句當天都會留著。
  * 要哪幾種句子在設定裡選（sayingPrefs，只存在這台裝置）；換了類型就重新抓一句。
+ * 英文介面不連網，用內建的英文句子（QUOTES_EN），點一下隨便換一句。
  */
-import { quoteOf, type Quote } from "./quotes";
+import { i18n } from "./i18n.svelte";
+import { QUOTES_EN, quoteOf, type Quote } from "./quotes";
 
 const API = "https://uapis.cn/api/v1/saying/random";
 const KEY = "deskdo.saying";
@@ -13,14 +15,14 @@ const RETRY_MS = 5 * 60_000;
 
 /** 可以選的類型：id 是 API 用的名稱（簡體），label 顯示在設定裡 */
 export const SAYING_CATEGORIES = [
-  { id: "古诗文", label: "古詩文" },
-  { id: "诗词", label: "詩詞" },
-  { id: "文学", label: "文學" },
-  { id: "哲学", label: "哲學" },
-  { id: "影视", label: "影視" },
-  { id: "动画", label: "動畫" },
-  { id: "网络", label: "網路" },
-  { id: "原创", label: "原創" },
+  { id: "古诗文", label: "古詩文", en: "Classical prose" },
+  { id: "诗词", label: "詩詞", en: "Poetry" },
+  { id: "文学", label: "文學", en: "Literature" },
+  { id: "哲学", label: "哲學", en: "Philosophy" },
+  { id: "影视", label: "影視", en: "Film & TV" },
+  { id: "动画", label: "動畫", en: "Anime" },
+  { id: "网络", label: "網路", en: "Internet" },
+  { id: "原创", label: "原創", en: "Original" },
 ] as const;
 
 const DEFAULT_CATEGORIES = ["古诗文"];
@@ -124,11 +126,14 @@ export function dailyQuote(today: () => string) {
   const cats = () => sayingPrefs.categories.join(",");
   let online = $state<Quote | null>(cached(today(), cats()));
   let loading = $state(false);
+  /** 英文介面換過的句子（當天有效） */
+  let english = $state<{ day: string; q: Quote } | null>(null);
   /** 換過句子後，還沒回來的每日一句就不要蓋掉它 */
   let picked = 0;
   let shownDay = today();
 
   $effect(() => {
+    if (i18n.en) return;
     const day = today();
     const c = cats();
     // 只寫不讀 online，不然換句子時會再跑一次。換了類型時先留著原本的句子，等新的抓回來
@@ -148,6 +153,7 @@ export function dailyQuote(today: () => string) {
 
   return {
     get current(): Quote {
+      if (i18n.en) return english?.day === today() ? english.q : quoteOf(today(), QUOTES_EN);
       return online ?? quoteOf(today());
     },
     get loading() {
@@ -156,6 +162,12 @@ export function dailyQuote(today: () => string) {
     /** 換一句；抓不到就丟出錯誤，原本的句子不變 */
     async refresh() {
       if (loading) return;
+      if (i18n.en) {
+        const cur = this.current;
+        const others = QUOTES_EN.filter((q) => q !== cur);
+        english = { day: today(), q: others[Math.floor(Math.random() * others.length)] };
+        return;
+      }
       loading = true;
       try {
         const day = today();

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { fly } from "svelte/transition";
   import { toast } from "@deskdo/core/toast.svelte";
 </script>
@@ -8,9 +9,9 @@
     <div class="toast" class:error={toast.current.kind === "error"} role="status" transition:fly={{ y: 10, duration: 220 }}>
       <span class="msg" title={toast.current.message}>{toast.current.message}</span>
       {#if toast.current.undo}
-        <button class="undo" onclick={() => toast.runUndo()}>復原</button>
+        <button class="undo" onclick={() => toast.runUndo()}>{t("復原", "Undo")}</button>
       {:else}
-        <button class="undo" onclick={() => toast.dismiss()} aria-label="關閉">✕</button>
+        <button class="undo" onclick={() => toast.dismiss()} aria-label={t("關閉", "Close")}>✕</button>
       {/if}
     </div>
   {/key}
