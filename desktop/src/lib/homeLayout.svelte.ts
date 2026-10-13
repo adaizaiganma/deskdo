@@ -2,6 +2,7 @@
  * 主頁左半的組件版面。格子的大小是固定的（不跟著視窗縮放），視窗寬一點就多幾欄。
  * 每個組件有位置和大小（以格子為單位），只存在這台裝置（localStorage）。
  */
+import { t } from "@deskdo/core/i18n.svelte";
 import { countdowns } from "@deskdo/core/countdowns.svelte";
 
 export type BaseId = "date" | "clock" | "quote" | "matrix";
@@ -26,10 +27,10 @@ export const STEP = CELL + GAP;
 export const span = (n: number) => n * STEP - GAP;
 
 export const BASE: Record<BaseId, { label: string; minW: number; minH: number }> = {
-  date: { label: "日期", minW: 4, minH: 2 },
-  clock: { label: "時鐘", minW: 2, minH: 2 },
-  quote: { label: "每日一言", minW: 4, minH: 2 },
-  matrix: { label: "優先矩陣", minW: 6, minH: 5 },
+  date: { get label() { return t("日期", "Date"); }, minW: 4, minH: 2 },
+  clock: { get label() { return t("時鐘", "Clock"); }, minW: 2, minH: 2 },
+  quote: { get label() { return t("每日一言", "Daily quote"); }, minW: 4, minH: 2 },
+  matrix: { get label() { return t("優先矩陣", "Priority matrix"); }, minW: 6, minH: 5 },
 };
 export const BASE_IDS = Object.keys(BASE) as BaseId[];
 
@@ -43,7 +44,7 @@ export const countdownId = (id: `cd:${string}`) => id.slice(3);
 export function spec(id: WidgetId): { label: string; minW: number; minH: number } {
   if (!isCountdown(id)) return BASE[id];
   const c = countdowns.list.find((x) => x.id === countdownId(id));
-  return { label: c?.title ?? "倒數日", minW: COUNTDOWN.minW, minH: COUNTDOWN.minH };
+  return { label: c?.title ?? t("倒數日", "Countdown"), minW: COUNTDOWN.minW, minH: COUNTDOWN.minH };
 }
 
 /** 預設的大小照內容決定：日期一行大字、一言兩行、矩陣四格各放幾項 */

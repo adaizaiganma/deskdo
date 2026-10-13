@@ -2,34 +2,35 @@
  * 主頁的外觀：背景圖片、組件的背景和字體大小。每個組件也可以有自己的背景和字體大小，沒設定就跟著主頁。
  * 只存在這台電腦：設定在 localStorage，背景圖片在 IndexedDB（圖片太大放不進 localStorage）。
  */
+import { t } from "@deskdo/core/i18n.svelte";
 import type { WidgetId } from "./homeLayout.svelte";
 
 /** solid = 實心卡片；glass = 半透明、模糊後面的背景；none = 沒有背景，字直接在主頁上 */
 export type WidgetBg = "solid" | "glass" | "none";
 
 export const BG_OPTIONS: { id: WidgetBg; label: string }[] = [
-  { id: "solid", label: "純色" },
-  { id: "glass", label: "毛玻璃" },
-  { id: "none", label: "無背景" },
+  { id: "solid", get label() { return t("純色", "Solid"); } },
+  { id: "glass", get label() { return t("毛玻璃", "Frosted"); } },
+  { id: "none", get label() { return t("無背景", "None"); } },
 ];
 
 /** 字體大小的倍數 */
 export const FONT_SCALES: { id: number; label: string }[] = [
-  { id: 0.875, label: "小" },
-  { id: 1, label: "標準" },
-  { id: 1.15, label: "大" },
-  { id: 1.3, label: "特大" },
+  { id: 0.875, get label() { return t("小", "Small"); } },
+  { id: 1, get label() { return t("標準", "Normal"); } },
+  { id: 1.15, get label() { return t("大", "Large"); } },
+  { id: 1.3, get label() { return t("特大", "Extra large"); } },
 ];
 
 /** 背景圖片怎麼擺：跟 Windows 桌布的選項一樣 */
 export type ImageFit = "cover" | "contain" | "fill" | "center" | "tile";
 
 export const FIT_OPTIONS: { id: ImageFit; label: string; size: string; repeat: string }[] = [
-  { id: "cover", label: "填滿", size: "cover", repeat: "no-repeat" },
-  { id: "contain", label: "符合", size: "contain", repeat: "no-repeat" },
-  { id: "fill", label: "延展", size: "100% 100%", repeat: "no-repeat" },
-  { id: "center", label: "置中", size: "auto", repeat: "no-repeat" },
-  { id: "tile", label: "並排", size: "auto", repeat: "repeat" },
+  { id: "cover", get label() { return t("填滿", "Fill"); }, size: "cover", repeat: "no-repeat" },
+  { id: "contain", get label() { return t("符合", "Fit"); }, size: "contain", repeat: "no-repeat" },
+  { id: "fill", get label() { return t("延展", "Stretch"); }, size: "100% 100%", repeat: "no-repeat" },
+  { id: "center", get label() { return t("置中", "Center"); }, size: "auto", repeat: "no-repeat" },
+  { id: "tile", get label() { return t("並排", "Tile"); }, size: "auto", repeat: "repeat" },
 ];
 
 export interface WidgetLook {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { compareDue, diffDays, rowDue } from "@deskdo/core/dates";
   import { store } from "@deskdo/core/store.svelte";
   import type { Todo } from "@deskdo/core/types";
@@ -28,27 +29,27 @@
   const important = (t: Todo) => t.priority === "high";
 
   const quadrants = $derived([
-    { key: "do", title: "馬上做", axis: "重要・緊急", items: sorted.filter((t) => important(t) && urgent(t)) },
-    { key: "plan", title: "排時間做", axis: "重要・不緊急", items: sorted.filter((t) => important(t) && !urgent(t)) },
-    { key: "quick", title: "盡快處理", axis: "不重要・緊急", items: sorted.filter((t) => !important(t) && urgent(t)) },
-    { key: "later", title: "有空再做", axis: "不重要・不緊急", items: sorted.filter((t) => !important(t) && !urgent(t)) },
+    { key: "do", title: t("馬上做", "Do now"), axis: t("重要・緊急", "Important · Urgent"), items: sorted.filter((t) => important(t) && urgent(t)) },
+    { key: "plan", title: t("排時間做", "Schedule"), axis: t("重要・不緊急", "Important · Not urgent"), items: sorted.filter((t) => important(t) && !urgent(t)) },
+    { key: "quick", title: t("盡快處理", "Get it done"), axis: t("不重要・緊急", "Not important · Urgent"), items: sorted.filter((t) => !important(t) && urgent(t)) },
+    { key: "later", title: t("有空再做", "Someday"), axis: t("不重要・不緊急", "Not important · Not urgent"), items: sorted.filter((t) => !important(t) && !urgent(t)) },
   ]);
 </script>
 
-<section class="matrix" aria-label="優先矩陣" title="高優先算重要，3 天內到期或逾期算緊急">
+<section class="matrix" aria-label={t("優先矩陣", "Priority matrix")} title={t("高優先算重要，3 天內到期或逾期算緊急", "High priority counts as important; due within 3 days or overdue counts as urgent")}>
   <div class="cols" aria-hidden="true">
-    <span></span><span>緊急</span><span>不緊急</span>
+    <span></span><span>{t("緊急", "Urgent")}</span><span>{t("不緊急", "Not urgent")}</span>
   </div>
   <div class="grid">
-    <span class="row-label" aria-hidden="true">重要</span>
+    <span class="row-label" aria-hidden="true">{t("重要", "Important")}</span>
     {#each quadrants.slice(0, 2) as q (q.key)}{@render quadrant(q)}{/each}
-    <span class="row-label" aria-hidden="true">不重要</span>
+    <span class="row-label" aria-hidden="true">{t("不重要", "Not important")}</span>
     {#each quadrants.slice(2) as q (q.key)}{@render quadrant(q)}{/each}
   </div>
 </section>
 
 {#snippet quadrant(q: { key: string; title: string; axis: string; items: Todo[] })}
-  <div class="q {q.key}" aria-label="{q.title}（{q.axis}）">
+  <div class="q {q.key}" aria-label="{q.title} ({q.axis})">
     <div class="qhead">
       <span class="qtitle">{q.title}</span>
       <span class="qcount">{q.items.length}</span>
@@ -60,7 +61,7 @@
         {#if due}<span class="idue {due.tone}">{due.count}</span>{/if}
       </button>
     {:else}
-      <span class="none">沒有</span>
+      <span class="none">{t("沒有", "None")}</span>
     {/each}
   </div>
 {/snippet}
@@ -100,6 +101,11 @@
     font-weight: 700;
     color: var(--sub);
     letter-spacing: 0.2em;
+  }
+  /* 英文側躺著由下往上讀，字距不用拉開 */
+  :global(html[lang="en"]) .row-label {
+    transform: rotate(180deg);
+    letter-spacing: 0.02em;
   }
   .q {
     display: flex;

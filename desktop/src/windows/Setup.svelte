@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { openUrl } from "@tauri-apps/plugin-opener";
@@ -34,13 +35,13 @@
   let subdomain = $state("");
 
   const STEPS: { id: SetupStep; label: string }[] = [
-    { id: "subdomain", label: "設定 workers.dev 網址" },
-    { id: "database", label: "準備資料庫" },
-    { id: "migrate", label: "建立資料表" },
-    { id: "device", label: "登記這台電腦" },
-    { id: "upload", label: "上傳 Deskdo 雲端程式" },
-    { id: "route", label: "開啟網址" },
-    { id: "verify", label: "確認連線" },
+    { id: "subdomain", get label() { return t("設定 workers.dev 網址", "Set up the workers.dev URL"); } },
+    { id: "database", get label() { return t("準備資料庫", "Prepare the database"); } },
+    { id: "migrate", get label() { return t("建立資料表", "Create tables"); } },
+    { id: "device", get label() { return t("登記這台電腦", "Register this PC"); } },
+    { id: "upload", get label() { return t("上傳 Deskdo 雲端程式", "Upload the Deskdo cloud app"); } },
+    { id: "route", get label() { return t("開啟網址", "Turn on the URL"); } },
+    { id: "verify", get label() { return t("確認連線", "Check the connection"); } },
   ];
   let progress = $state<Partial<Record<SetupStep, SetupProgress>>>({});
   let result = $state<SetupDone | null>(null);
@@ -49,7 +50,7 @@
   const AI_TABS = [
     { id: "claude", label: "Claude" },
     { id: "chatgpt", label: "ChatGPT" },
-    { id: "other", label: "其他工具" },
+    { id: "other", get label() { return t("其他工具", "Other tools"); } },
   ] as const;
   let ai = $state<(typeof AI_TABS)[number]["id"]>("claude");
 
@@ -160,25 +161,25 @@
             <path d="M9 16.6l5.1 5.1L23.7 11" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
-        <h1>歡迎使用 Deskdo</h1>
-        <p class="lead">只要設定一次，待辦就能在電腦和手機之間同步；想要的話，也能讓 Claude、ChatGPT 等 AI 助理幫你管理。</p>
+        <h1>{t("歡迎使用 Deskdo", "Welcome to Deskdo")}</h1>
+        <p class="lead">{t("只要設定一次，待辦就能在電腦和手機之間同步；想要的話，也能讓 Claude、ChatGPT 等 AI 助理幫你管理。", "Set it up once and your to-dos sync between your PC and phone. If you like, AI assistants such as Claude or ChatGPT can manage them too.")}</p>
         <ul class="points">
-          <li><Icon name="sparkle" size={15} /><span>待辦存在<b>你自己的 Cloudflare 帳號</b>，Deskdo 和開發者都看不到你的資料。</span></li>
-          <li><Icon name="done" size={15} /><span>Cloudflare 免費方案就夠用，不需要綁信用卡。</span></li>
-          <li><Icon name="refresh" size={15} /><span>接下來大約 2 分鐘：登入 Cloudflare，Deskdo 會自動完成所有設定。</span></li>
+          <li><Icon name="sparkle" size={15} /><span>{t("待辦存在", "Your to-dos live in ")}<b>{t("你自己的 Cloudflare 帳號", "your own Cloudflare account")}</b>{t("，Deskdo 和開發者都看不到你的資料。", ". Neither Deskdo nor its developer can see your data.")}</span></li>
+          <li><Icon name="done" size={15} /><span>{t("Cloudflare 免費方案就夠用，不需要綁信用卡。", "The free Cloudflare plan is enough, no credit card needed.")}</span></li>
+          <li><Icon name="refresh" size={15} /><span>{t("接下來大約 2 分鐘：登入 Cloudflare，Deskdo 會自動完成所有設定。", "About 2 minutes: sign in to Cloudflare and Deskdo does the rest.")}</span></li>
         </ul>
         <div class="row">
-          <button class="primary big" onclick={() => (page = "connect")}>開始設定</button>
+          <button class="primary big" onclick={() => (page = "connect")}>{t("開始設定", "Start setup")}</button>
         </div>
       </section>
     {:else if page === "connect"}
       <section in:fade={{ duration: 150 }}>
-        <p class="kicker">{mode === "new" ? "步驟 1／2" : "更新雲端"}</p>
-        <h1>連接 Cloudflare</h1>
+        <p class="kicker">{mode === "new" ? t("步驟 1／2", "Step 1 of 2") : t("更新雲端", "Update cloud")}</p>
+        <h1>{t("連接 Cloudflare", "Connect Cloudflare")}</h1>
         <p class="lead">
           {mode === "new"
-            ? "Deskdo 會在你的帳號建立一個小程式和資料庫，用來存放待辦。"
-            : `將雲端更新到版本 ${store.prefs?.latestCloudVersion}。請登入目前使用的那個 Cloudflare 帳號。`}
+            ? t("Deskdo 會在你的帳號建立一個小程式和資料庫，用來存放待辦。", "Deskdo creates a small app and a database in your account to store your to-dos.")
+            : t(`將雲端更新到版本 ${store.prefs?.latestCloudVersion}。請登入目前使用的那個 Cloudflare 帳號。`, `Updates your cloud to version ${store.prefs?.latestCloudVersion}. Sign in with the Cloudflare account it runs on.`)}
         </p>
 
         {#if oauth}
@@ -186,18 +187,18 @@
             <div class="waiting" in:fade>
               <span class="spinner"></span>
               <div>
-                <div>請在瀏覽器完成登入並按「允許」</div>
-                <div class="hint">完成後會自動回到這裡</div>
+                <div>{t("請在瀏覽器完成登入並按「允許」", "Sign in in your browser and press Allow")}</div>
+                <div class="hint">{t("完成後會自動回到這裡", "You'll come back here automatically")}</div>
               </div>
-              <button class="ghost" onclick={cancelLogin}>取消</button>
+              <button class="ghost" onclick={cancelLogin}>{t("取消", "Cancel")}</button>
             </div>
           {:else}
             <div class="row">
-              <button class="primary big" onclick={loginWithCloudflare} disabled={busy}>使用 Cloudflare 登入</button>
+              <button class="primary big" onclick={loginWithCloudflare} disabled={busy}>{t("使用 Cloudflare 登入", "Sign in with Cloudflare")}</button>
             </div>
           {/if}
           {#if mode === "new"}
-            <p class="hint">還沒有帳號？<button class="link" onclick={() => openUrl(CF_SIGNUP)}>免費註冊 Cloudflare</button>，註冊完再回來按登入。</p>
+            <p class="hint">{t("還沒有帳號？", "No account yet? ")}<button class="link" onclick={() => openUrl(CF_SIGNUP)}>{t("免費註冊 Cloudflare", "Sign up for Cloudflare for free")}</button>{t("，註冊完再回來按登入。", ", then come back and sign in.")}</p>
           {/if}
         {/if}
 
@@ -205,32 +206,32 @@
           <div class="token-box" in:fade>
             <ol>
               {#if !oauth && mode === "new"}
-                <li>還沒有 Cloudflare 帳號的話，先<button class="link" onclick={() => openUrl(CF_SIGNUP)}>免費註冊</button>。</li>
+                <li>{t("還沒有 Cloudflare 帳號的話，先", "No Cloudflare account yet? ")}<button class="link" onclick={() => openUrl(CF_SIGNUP)}>{t("免費註冊", "Sign up for free")}</button>{t("。", " first.")}</li>
               {/if}
-              <li><button class="link" onclick={() => openUrl(CF_TOKEN_TEMPLATE)}>開啟 API token 建立頁面</button>，權限已經幫你填好，拉到最下面按「繼續」→「建立 Token」。</li>
-              <li>複製畫面上的 token，貼在下面。</li>
+              <li><button class="link" onclick={() => openUrl(CF_TOKEN_TEMPLATE)}>{t("開啟 API token 建立頁面", "Open the API token page")}</button>{t("，權限已經幫你填好，拉到最下面按「繼續」→「建立 Token」。", ". The permissions are filled in; scroll down and press Continue → Create Token.")}</li>
+              <li>{t("複製畫面上的 token，貼在下面。", "Copy the token and paste it below.")}</li>
             </ol>
             <form class="token-row" onsubmit={(e) => (e.preventDefault(), connectToken())}>
-              <input type="password" bind:value={token} placeholder="貼上 API token" spellcheck="false" autocomplete="off" aria-label="API token" />
-              <button type="submit" class="primary" disabled={busy || !token.trim()}>{busy ? "連接中…" : "連接"}</button>
+              <input type="password" bind:value={token} placeholder={t("貼上 API token", "Paste the API token")} spellcheck="false" autocomplete="off" aria-label="API token" />
+              <button type="submit" class="primary" disabled={busy || !token.trim()}>{busy ? t("連接中…", "Connecting…") : t("連接", "Connect")}</button>
             </form>
           </div>
         {:else if oauth}
-          <button class="link alt" onclick={() => (showToken = true)}>改用 API token</button>
+          <button class="link alt" onclick={() => (showToken = true)}>{t("改用 API token", "Use an API token instead")}</button>
         {/if}
 
         {#if error}<p class="error">{error}</p>{/if}
         {#if oncancel}
-          <div class="row end"><button class="ghost" onclick={oncancel}>稍後再說</button></div>
+          <div class="row end"><button class="ghost" onclick={oncancel}>{t("稍後再說", "Maybe later")}</button></div>
         {/if}
       </section>
     {:else if page === "account"}
       <section in:fade={{ duration: 150 }}>
-        <p class="kicker">{mode === "new" ? "步驟 2／2" : "更新雲端"}</p>
-        <h1>{inspection ? "確認設定" : "選擇帳號"}</h1>
+        <p class="kicker">{mode === "new" ? t("步驟 2／2", "Step 2 of 2") : t("更新雲端", "Update cloud")}</p>
+        <h1>{inspection ? t("確認設定", "Confirm") : t("選擇帳號", "Choose an account")}</h1>
 
         {#if accounts.length > 1}
-          <div class="accounts" role="radiogroup" aria-label="Cloudflare 帳號">
+          <div class="accounts" role="radiogroup" aria-label={t("Cloudflare 帳號", "Cloudflare account")}>
             {#each accounts as a (a.id)}
               <button class="account" class:on={account?.id === a.id} role="radio" aria-checked={account?.id === a.id} onclick={() => chooseAccount(a)} disabled={busy}>
                 <span class="dot"></span>{a.name}
@@ -241,26 +242,26 @@
 
         {#if inspection && account}
           {#if inspection.mode === "update"}
-            <p class="lead">將更新 <b>{inspection.script}</b> 到版本 {store.prefs?.latestCloudVersion}，資料不會變動。</p>
+            <p class="lead">{t("將更新 ", "Updates ")}<b>{inspection.script}</b>{t(` 到版本 ${store.prefs?.latestCloudVersion}，資料不會變動。`, ` to version ${store.prefs?.latestCloudVersion}. Your data stays as is.`)}</p>
           {:else if inspection.existing}
-            <p class="lead">這個帳號已經有 Deskdo 雲端（可能是另一台電腦設定的），會把這台電腦加入，資料不會變動。</p>
+            <p class="lead">{t("這個帳號已經有 Deskdo 雲端（可能是另一台電腦設定的），會把這台電腦加入，資料不會變動。", "This account already has a Deskdo cloud (maybe set up on another PC). This PC will join it; your data stays as is.")}</p>
           {/if}
 
           {#if !inspection.subdomain}
             <label class="sub-field">
-              <span>幫你的雲端網址取個名字</span>
+              <span>{t("幫你的雲端網址取個名字", "Name your cloud URL")}</span>
               <span class="sub-input">
                 <span class="affix">{inspection.script}.</span>
-                <input bind:value={subdomain} spellcheck="false" aria-label="workers.dev 子網域" />
+                <input bind:value={subdomain} spellcheck="false" aria-label={t("workers.dev 子網域", "workers.dev subdomain")} />
                 <span class="affix">.workers.dev</span>
               </span>
-              <span class="hint">只能用英文小寫、數字和連字號。這是整個 Cloudflare 帳號共用的名稱，之後不方便更改。</span>
+              <span class="hint">{t("只能用英文小寫、數字和連字號。這是整個 Cloudflare 帳號共用的名稱，之後不方便更改。", "Lowercase letters, numbers and hyphens only. The name is shared across your Cloudflare account and is hard to change later.")}</span>
             </label>
           {/if}
 
           <div class="row">
             <button class="primary big" onclick={deploy} disabled={busy || (!inspection.subdomain && !subdomainValid)}>
-              {inspection.mode === "update" ? "開始更新" : "開始設定"}
+              {inspection.mode === "update" ? t("開始更新", "Start update") : t("開始設定", "Start setup")}
             </button>
           </div>
         {/if}
@@ -268,8 +269,8 @@
       </section>
     {:else if page === "deploy"}
       <section in:fade={{ duration: 150 }}>
-        <h1>{mode === "new" ? "正在設定你的雲端" : "正在更新雲端"}</h1>
-        <p class="lead">大約需要 1 分鐘，請不要關閉 Deskdo。</p>
+        <h1>{mode === "new" ? t("正在設定你的雲端", "Setting up your cloud") : t("正在更新雲端", "Updating your cloud")}</h1>
+        <p class="lead">{t("大約需要 1 分鐘，請不要關閉 Deskdo。", "This takes about a minute. Please keep Deskdo open.")}</p>
         <ol class="steps">
           {#each visibleSteps as s (s.id)}
             {@const p = progress[s.id]}
@@ -288,62 +289,62 @@
         {#if error}
           <p class="error">{error}</p>
           <div class="row">
-            <button class="primary" onclick={deploy}>重試</button>
-            <button class="ghost" onclick={() => ((page = "connect"), (error = ""))}>重新登入</button>
+            <button class="primary" onclick={deploy}>{t("重試", "Retry")}</button>
+            <button class="ghost" onclick={() => ((page = "connect"), (error = ""))}>{t("重新登入", "Sign in again")}</button>
           </div>
         {/if}
       </section>
     {:else if page === "done" && result}
       <section in:fade={{ duration: 150 }}>
         {#if mode === "update"}
-          <h1>雲端已更新</h1>
-          <p class="lead">已更新到版本 {store.prefs?.latestCloudVersion}。</p>
-          <div class="row"><button class="primary big" onclick={onfinish}>完成</button></div>
+          <h1>{t("雲端已更新", "Cloud updated")}</h1>
+          <p class="lead">{t(`已更新到版本 ${store.prefs?.latestCloudVersion}。`, `Updated to version ${store.prefs?.latestCloudVersion}.`)}</p>
+          <div class="row"><button class="primary big" onclick={onfinish}>{t("完成", "Done")}</button></div>
         {:else}
-          <h1>設定完成 🎉</h1>
+          <h1>{t("設定完成 🎉", "All set 🎉")}</h1>
           <p class="lead">
-            桌面小工具已經可以使用了。
-            {#if !result.reachable}新網址還在生效中，可能要再等一兩分鐘才會開始同步。{/if}
+            {t("桌面小工具已經可以使用了。", "The desktop widget is ready to use.")}
+            {#if !result.reachable}{t("新網址還在生效中，可能要再等一兩分鐘才會開始同步。", "The new URL is still going live; syncing may start in a minute or two.")}{/if}
           </p>
 
           {#if result.connectorUrl}
-            <h2>連接 AI 助理（可略過）</h2>
-            <p class="hint">想用說的新增、查詢待辦，可以把 Deskdo 接到 AI 助理。不用的話直接按「開始使用」，之後也能在「設定」裡找到這個網址。</p>
+            <h2>{t("連接 AI 助理（可略過）", "Connect an AI assistant (optional)")}</h2>
+            <p class="hint">{t("想用說的新增、查詢待辦，可以把 Deskdo 接到 AI 助理。不用的話直接按「開始使用」，之後也能在「設定」裡找到這個網址。", "Connect Deskdo to an AI assistant to add and look up to-dos by just asking. If you don't need it, press Get started; the URL is also in Settings.")}</p>
             <div class="url-box">
               <code>{result.connectorUrl}</code>
-              <button class="ghost" onclick={copy}>{copied ? "已複製" : "複製網址"}</button>
+              <button class="ghost" onclick={copy}>{copied ? t("已複製", "Copied") : t("複製網址", "Copy URL")}</button>
             </div>
-            <span class="hint warn">這個網址等同密碼，請不要分享給別人。</span>
+            <span class="hint warn">{t("這個網址等同密碼，請不要分享給別人。", "Treat this URL like a password and don't share it.")}</span>
 
-            <div class="tabs" role="tablist" aria-label="AI 助理">
-              {#each AI_TABS as t (t.id)}
-                <button role="tab" class:on={ai === t.id} aria-selected={ai === t.id} onclick={() => (ai = t.id)}>{t.label}</button>
+            <div class="tabs" role="tablist" aria-label={t("AI 助理", "AI assistant")}>
+              {#each AI_TABS as tab (tab.id)}
+                <button role="tab" class:on={ai === tab.id} aria-selected={ai === tab.id} onclick={() => (ai = tab.id)}>{tab.label}</button>
               {/each}
             </div>
             {#if ai === "claude"}
               <ol class="ai-steps">
-                <li><button class="link" onclick={() => openUrl(CLAUDE_CONNECTORS)}>開啟 claude.ai 的連接器設定</button>，選「新增自訂連接器」。</li>
-                <li>名稱填「待辦清單」，網址貼上剛才複製的內容，按「新增」。</li>
-                <li>完成。手機版 Claude 會自動同步，也可以搭配排程任務每天從 Gmail 整理待辦。</li>
+                <li><button class="link" onclick={() => openUrl(CLAUDE_CONNECTORS)}>{t("開啟 claude.ai 的連接器設定", "Open the connector settings on claude.ai")}</button>{t("，選「新增自訂連接器」。", " and choose Add custom connector.")}</li>
+                <li>{t("名稱填「待辦清單」，網址貼上剛才複製的內容，按「新增」。", "Name it \"To-do list\", paste the URL you copied and press Add.")}</li>
+                <li>{t("完成。手機版 Claude 會自動同步，也可以搭配排程任務每天從 Gmail 整理待辦。", "Done. Claude on your phone picks it up too, and you can pair it with a scheduled task to collect to-dos from Gmail every day.")}</li>
               </ol>
             {:else if ai === "chatgpt"}
               <ol class="ai-steps">
-                <li>在 ChatGPT 的設定裡開啟「開發者模式」（在「應用程式與連接器」→「進階」）。</li>
-                <li>建立連接器：名稱填「待辦清單」，網址貼上剛才複製的內容，驗證方式選「不需要驗證」。</li>
-                <li>在對話中選用這個連接器。ChatGPT 每次新增或修改待辦前會先請你確認。</li>
+                <li>{t("在 ChatGPT 的設定裡開啟「開發者模式」（在「應用程式與連接器」→「進階」）。", "Turn on Developer mode in ChatGPT's settings (Apps & Connectors → Advanced).")}</li>
+                <li>{t("建立連接器：名稱填「待辦清單」，網址貼上剛才複製的內容，驗證方式選「不需要驗證」。", "Create a connector named \"To-do list\", paste the URL you copied and set authentication to No authentication.")}</li>
+                <li>{t("在對話中選用這個連接器。ChatGPT 每次新增或修改待辦前會先請你確認。", "Pick the connector in a chat. ChatGPT asks you to confirm before adding or changing to-dos.")}</li>
               </ol>
               <p class="hint">
-                新增、修改待辦需要 ChatGPT 支援可寫入的連接器，部分方案可能只能查詢。選單名稱可能變動，請以
-                <button class="link" onclick={() => openUrl(CHATGPT_MCP_HELP)}>OpenAI 的說明</button>為準。
+                {t("新增、修改待辦需要 ChatGPT 支援可寫入的連接器，部分方案可能只能查詢。選單名稱可能變動，請以", "Adding and changing to-dos needs a ChatGPT plan with write-capable connectors; some plans can only read. Menu names change, so check")}
+                <button class="link" onclick={() => openUrl(CHATGPT_MCP_HELP)}>{t("OpenAI 的說明", "OpenAI's help page")}</button>{t("為準。", ".")}
               </p>
             {:else}
               <p class="hint ai-other">
-                任何支援遠端 MCP 伺服器（Streamable HTTP）的工具都可以使用這個網址，例如 Cursor、VS Code，驗證方式選「無」。
-                <button class="link" onclick={() => openUrl(SITE_GUIDE + "#ai")}>查看使用說明</button>
+                {t("任何支援遠端 MCP 伺服器（Streamable HTTP）的工具都可以使用這個網址，例如 Cursor、VS Code，驗證方式選「無」。", "Any tool that supports remote MCP servers (Streamable HTTP), such as Cursor or VS Code, can use this URL. Set authentication to none.")}
+                <button class="link" onclick={() => openUrl(SITE_GUIDE + "#ai")}>{t("查看使用說明", "Read the guide")}</button>
               </p>
             {/if}
           {/if}
-          <div class="row"><button class="primary big" onclick={onfinish}>開始使用</button></div>
+          <div class="row"><button class="primary big" onclick={onfinish}>{t("開始使用", "Get started")}</button></div>
         {/if}
       </section>
     {/if}

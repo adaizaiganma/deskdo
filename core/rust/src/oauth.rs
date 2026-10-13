@@ -6,6 +6,7 @@
 
 use crate::{
     cloudflare::Account,
+    i18n::tr,
     setup::{self, SetupState},
 };
 use base64::Engine;
@@ -121,13 +122,13 @@ pub async fn setup_oauth(app: AppHandle) -> Result<Vec<Account>, String> {
     if let Some(token) = dev_token() {
         return setup::connect(&app, token).await;
     }
-    let client_id = client_id().ok_or("這個版本沒有設定 Cloudflare 登入，請改用 API token")?;
+    let client_id = client_id().ok_or(tr("這個版本沒有設定 Cloudflare 登入，請改用 API token", "This build has no Cloudflare sign-in, use an API token instead"))?;
     let verifier = random_b64(48);
     let state = random_b64(16);
 
     let listener = TcpListener::bind(("127.0.0.1", REDIRECT_PORT))
         .await
-        .map_err(|_| format!("無法使用連接埠 {REDIRECT_PORT}（可能被其他程式占用），請改用 API token"))?;
+        .map_err(|_| crate::trf!("無法使用連接埠 {REDIRECT_PORT}（可能被其他程式占用），請改用 API token", "Port {REDIRECT_PORT} is unavailable (another program may be using it), use an API token instead"))?;
     // 有些瀏覽器會先用 IPv6 連 localhost
     let listener6 = TcpListener::bind(("::1", REDIRECT_PORT)).await.ok();
 
@@ -139,7 +140,7 @@ pub async fn setup_oauth(app: AppHandle) -> Result<Vec<Account>, String> {
         encode(&state),
         pkce_challenge(&verifier),
     );
-    app.opener().open_url(url, None::<&str>).map_err(|e| format!("無法開啟瀏覽器：{e}"))?;
+    app.opener().open_url(url, None::<&str>).map_err(|e| crate::trf!("無法開啟瀏覽器：{e}", "Can't open the browser: {e}"))?;
 
     // 瀏覽器可能先開預先連線或要 /favicon.ico，所以一直接到真正的 /callback 為止
     let st = app.state::<SetupState>();
@@ -154,8 +155,8 @@ pub async fn setup_oauth(app: AppHandle) -> Result<Vec<Account>, String> {
         let (mut stream, _) = tokio::select! {
             r = listener.accept() => r.map_err(|e| e.to_string())?,
             r = accept6 => r.map_err(|e| e.to_string())?,
-            _ = st.cancel.notified() => return Err("已取消登入".into()),
-            _ = tokio::time::sleep_until(deadline) => return Err("登入逾時，請再試一次".into()),
+            _ = st.cancel.notified() => return Err(tr("已取消登入", "Sign-in cancelled").into()),
+            _ = tokio::time::sleep_until(deadline) => return Err(tr("登入逾時，請再試一次", "Sign-in timed out, please try again").into()),
         };
         let line = read_request_line(&mut stream).await;
         if line.split_whitespace().nth(1).is_some_and(|t| t.starts_with("/callback?")) {
@@ -167,10 +168,14 @@ pub async fn setup_oauth(app: AppHandle) -> Result<Vec<Account>, String> {
     drop(listener6);
 
     let result = match (query_param(&line, "code"), query_param(&line, "state"), query_param(&line, "error")) {
-        (_, _, Some(err)) => Err(if err == "access_denied" { "你取消了授權".to_string() } else { format!("Cloudflare 登入失敗：{err}") }),
+        (_, _, Some(err)) => Err(if err == "access_denied" {
+            tr("你取消了授權", "You declined the authorization").to_string()
+        } else {
+            crate::trf!("Cloudflare 登入失敗：{err}", "Cloudflare sign-in failed: {err}")
+        }),
         (Some(code), Some(s), _) if s == state => Ok(code),
-        (Some(_), _, _) => Err("登入驗證失敗（state 不符），請再試一次".to_string()),
-        _ => Err("沒有收到授權碼，請再試一次".to_string()),
+        (Some(_), _, _) => Err(tr("登入驗證失敗（state 不符），請再試一次", "Sign-in verification failed (state mismatch), please try again").to_string()),
+        _ => Err(tr("沒有收到授權碼，請再試一次", "No authorization code received, please try again").to_string()),
     };
     respond(&mut stream, result.is_ok()).await;
     crate::show_main(&app);
@@ -188,12 +193,12 @@ async fn exchange_retrying(app: &AppHandle, client_id: &str, code: &str, verifie
     loop {
         match exchange(app, client_id, code, verifier).await {
             Err(Exchange::Offline) if tokio::time::Instant::now() < deadline => {}
-            Err(Exchange::Offline) => return Err("無法連線到 Cloudflare".into()),
+            Err(Exchange::Offline) => return Err(tr("無法連線到 Cloudflare", "Can't reach Cloudflare").into()),
             Err(Exchange::Failed(e)) => return Err(e),
             Ok(token) => return Ok(token),
         }
         tokio::select! {
-            _ = st.cancel.notified() => return Err("已取消登入".into()),
+            _ = st.cancel.notified() => return Err(tr("已取消登入", "Sign-in cancelled").into()),
             _ = tokio::time::sleep(Duration::from_secs(2)) => {}
         }
     }
@@ -228,19 +233,28 @@ async fn read_request_line(stream: &mut TcpStream) -> String {
 
 async fn respond(stream: &mut TcpStream, ok: bool) {
     let (title, body) = if ok {
-        ("已連接 Cloudflare", if cfg!(mobile) { "已完成登入，回到 Deskdo 繼續設定。" } else { "已完成登入，可以關閉這個分頁，回到 Deskdo 繼續設定。" })
+        (
+            tr("已連接 Cloudflare", "Connected to Cloudflare"),
+            if cfg!(mobile) {
+                tr("已完成登入，回到 Deskdo 繼續設定。", "You're signed in. Go back to Deskdo to continue.")
+            } else {
+                tr("已完成登入，可以關閉這個分頁，回到 Deskdo 繼續設定。", "You're signed in. You can close this tab and go back to Deskdo.")
+            },
+        )
     } else {
-        ("登入沒有完成", "請回到 Deskdo 再試一次。")
+        (tr("登入沒有完成", "Sign-in didn't finish"), tr("請回到 Deskdo 再試一次。", "Go back to Deskdo and try again."))
     };
+    let lang = if crate::i18n::en() { "en" } else { "zh-Hant" };
     // 手機上 App 要回到前景才能連網（見 exchange），所以給一個直接回去的按鈕，也試著自動切回去
     #[cfg(mobile)]
     let back = format!(
-        "<a class=\"btn\" href=\"{RETURN_URL}\">回到 Deskdo</a><script>location.href=\"{RETURN_URL}\"</script>"
+        "<a class=\"btn\" href=\"{RETURN_URL}\">{}</a><script>location.href=\"{RETURN_URL}\"</script>",
+        tr("回到 Deskdo", "Back to Deskdo")
     );
     #[cfg(desktop)]
     let back = "";
     let html = format!(
-        "<!doctype html><html lang=\"zh-Hant\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\">\
+        "<!doctype html><html lang=\"{lang}\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\">\
          <title>{title} · Deskdo</title>\
          <style>body{{font:16px system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;\
          background:#f6f6f4;color:#222}}@media(prefers-color-scheme:dark){{body{{background:#1c1d22;color:#eee}}}}\
@@ -276,8 +290,9 @@ async fn exchange(app: &AppHandle, client_id: &str, code: &str, verifier: &str) 
     let data: serde_json::Value = resp.json().await.unwrap_or_default();
     match data["access_token"].as_str() {
         Some(t) if status.is_success() => Ok(t.to_string()),
-        _ => Err(Exchange::Failed(format!(
+        _ => Err(Exchange::Failed(crate::trf!(
             "Cloudflare 登入失敗：{}",
+            "Cloudflare sign-in failed: {}",
             data["error_description"].as_str().or(data["error"].as_str()).unwrap_or(status.as_str())
         ))),
     }

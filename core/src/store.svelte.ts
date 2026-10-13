@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isOverdue, localDate, localTime, localToday } from "./dates";
+import { collator, t } from "./i18n.svelte";
 import { toast } from "./toast.svelte";
 import type { Folder, NewTodo, Prefs, Snapshot, Todo, TodoPatch, UpdateInfo } from "./types";
 
@@ -33,7 +34,7 @@ class Store {
     this.snap.todos.filter((t) => t.done).sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? "")),
   );
   doneToday = $derived(this.done.filter((t) => localDate(t.doneAt) === this.today));
-  tags = $derived([...new Set(this.snap.todos.flatMap((t) => t.tags))].sort((a, b) => a.localeCompare(b, "zh-Hant")));
+  tags = $derived([...new Set(this.snap.todos.flatMap((t) => t.tags))].sort((a, b) => a.localeCompare(b, collator())));
   folders = $derived(this.snap.folders ?? []);
   /** 標籤 → 所在的資料夾 */
   folderOf = $derived(new Map(this.folders.flatMap((f) => f.tags.map((t) => [t, f.name] as const))));
@@ -78,7 +79,7 @@ class Store {
 
   /** 要設成低優先前先問；雲端太舊時提示更新並回傳 false */
   canUseLow(): boolean {
-    if (!this.supportsLow) toast.error("低優先需要先更新雲端：到「設定 → 雲端」按「更新雲端」");
+    if (!this.supportsLow) toast.error(t("低優先需要先更新雲端：到「設定 → 雲端」按「更新雲端」", "Low priority needs a cloud update: go to Settings → Cloud and press Update cloud"));
     return this.supportsLow;
   }
 
@@ -89,7 +90,13 @@ class Store {
 
   /** 要用期限的時間、第二個標籤前先問；雲端太舊時提示更新並回傳 false */
   canUseV6(what: "time" | "tags"): boolean {
-    if (!this.supportsV6) toast.error(`${what === "time" ? "期限的時間" : "多個標籤"}需要先更新雲端：到「設定 → 雲端」按「更新雲端」`);
+    if (!this.supportsV6)
+      toast.error(
+        t(
+          `${what === "time" ? "期限的時間" : "多個標籤"}需要先更新雲端：到「設定 → 雲端」按「更新雲端」`,
+          `${what === "time" ? "Due times need" : "Multiple tags need"} a cloud update: go to Settings → Cloud and press Update cloud`,
+        ),
+      );
     return this.supportsV6;
   }
 
@@ -99,7 +106,7 @@ class Store {
 
   /** 要建立步驟前先問；雲端太舊時提示更新並回傳 false */
   canUseSteps(): boolean {
-    if (!this.supportsSteps) toast.error("接續的步驟需要先更新雲端：到「設定 → 雲端」按「更新雲端」");
+    if (!this.supportsSteps) toast.error(t("接續的步驟需要先更新雲端：到「設定 → 雲端」按「更新雲端」", "Follow-up steps need a cloud update: go to Settings → Cloud and press Update cloud"));
     return this.supportsSteps;
   }
 
@@ -147,7 +154,9 @@ class Store {
   complete(todo: Todo) {
     const next = this.nextOf.get(todo.id);
     this.update(todo.id, { done: true });
-    const msg = next ? `已完成「${todo.title}」，接著：${next.title}` : `已完成「${todo.title}」`;
+    const msg = next
+      ? t(`已完成「${todo.title}」，接著：${next.title}`, `Completed "${todo.title}". Next: ${next.title}`)
+      : t(`已完成「${todo.title}」`, `Completed "${todo.title}"`);
     toast.show(msg, { undo: () => this.update(todo.id, { done: false }) });
   }
 
@@ -158,7 +167,7 @@ class Store {
   /** 刪除；5 秒內可以復原，之後才真的送出 */
   remove(todo: Todo) {
     this.#call("delete_todo", { id: todo.id });
-    toast.show(`已刪除「${todo.title}」`, { undo: () => this.#call("undo_delete", { id: todo.id }) });
+    toast.show(t(`已刪除「${todo.title}」`, `Deleted "${todo.title}"`), { undo: () => this.#call("undo_delete", { id: todo.id }) });
   }
 
   /** 安裝已下載的新版；Deskdo 會關閉，裝完自動重新開啟 */

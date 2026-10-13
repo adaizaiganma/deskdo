@@ -4,6 +4,7 @@
 //! 第二台電腦跑精靈時，只會在 D1 新增一台裝置的 token，不會動到資料。
 
 use crate::{
+    i18n::tr,
     api,
     cloudflare::{Account, Cf, CfError},
     config::Config,
@@ -51,7 +52,7 @@ impl SetupState {
 }
 
 async fn cf(app: &AppHandle) -> Result<Cf, String> {
-    let token = app.state::<SetupState>().token.lock().await.clone().ok_or("請先連接 Cloudflare 帳號")?;
+    let token = app.state::<SetupState>().token.lock().await.clone().ok_or(tr("請先連接 Cloudflare 帳號", "Connect a Cloudflare account first"))?;
     Ok(Cf::new(shared(app).client.clone(), token))
 }
 
@@ -70,7 +71,10 @@ impl Target {
             return Ok(Target::New { script: default_script_name() });
         }
         let (script, subdomain) = parse_workers_dev(&cfg.api_base)
-            .ok_or("目前的 API 網址不是 workers.dev 網址，無法自動更新；請改用 wrangler 部署")?;
+            .ok_or(tr(
+                "目前的 API 網址不是 workers.dev 網址，無法自動更新；請改用 wrangler 部署",
+                "The current API URL isn't a workers.dev URL, so it can't be updated automatically; deploy with wrangler instead",
+            ))?;
         Ok(Target::Update { script, subdomain })
     }
 
@@ -172,7 +176,7 @@ fn cf_err(e: CfError) -> String {
 pub async fn setup_token(app: AppHandle, token: String) -> Result<Vec<Account>, String> {
     let token = token.trim().to_string();
     if token.is_empty() {
-        return Err("請貼上 API token".into());
+        return Err(tr("請貼上 API token", "Paste an API token").into());
     }
     connect(&app, token).await
 }
@@ -180,13 +184,17 @@ pub async fn setup_token(app: AppHandle, token: String) -> Result<Vec<Account>, 
 pub async fn connect(app: &AppHandle, token: String) -> Result<Vec<Account>, String> {
     let accounts = Cf::new(shared(app).client.clone(), token.clone()).accounts().await.map_err(|e| {
         if e.status == 401 || e.status == 403 {
-            "無法使用這個憑證，請確認權限包含 Account Settings: Read、Workers Scripts: Edit、D1: Edit".to_string()
+            tr(
+                "無法使用這個憑證，請確認權限包含 Account Settings: Read、Workers Scripts: Edit、D1: Edit",
+                "This token doesn't work. Make sure it has Account Settings: Read, Workers Scripts: Edit and D1: Edit",
+            )
+            .to_string()
         } else {
             e.to_string()
         }
     })?;
     if accounts.is_empty() {
-        return Err("這個憑證看不到任何 Cloudflare 帳號".into());
+        return Err(tr("這個憑證看不到任何 Cloudflare 帳號", "This token can't see any Cloudflare account").into());
     }
     *app.state::<SetupState>().token.lock().await = Some(token);
     Ok(accounts)
@@ -259,10 +267,10 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
         let sub = match cf.workers_subdomain(account).await.map_err(cf_err)? {
             Some(sub) => sub,
             None => {
-                let name = wanted_sub.as_deref().map(str::trim).filter(|n| !n.is_empty()).ok_or("請輸入 workers.dev 子網域名稱")?;
+                let name = wanted_sub.as_deref().map(str::trim).filter(|n| !n.is_empty()).ok_or(tr("請輸入 workers.dev 子網域名稱", "Enter a workers.dev subdomain name"))?;
                 cf.create_workers_subdomain(account, name).await.map_err(|e| {
                     if e.status == 409 || e.message.to_lowercase().contains("taken") {
-                        format!("「{name}」已經被別人使用，請換一個名稱")
+                        crate::trf!("「{name}」已經被別人使用，請換一個名稱", "\"{name}\" is already taken, please pick another name")
                     } else {
                         e.to_string()
                     }
@@ -271,7 +279,11 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
         };
         if let Target::Update { subdomain, .. } = &target {
             if *subdomain != sub {
-                return Err("登入的 Cloudflare 帳號和目前連線的雲端不是同一個".into());
+                return Err(tr(
+                    "登入的 Cloudflare 帳號和目前連線的雲端不是同一個",
+                    "The Cloudflare account you signed in with isn't the one this cloud runs on",
+                )
+                .into());
             }
         }
         progress(app, "subdomain", "done", format!("{sub}.workers.dev"));
@@ -287,8 +299,10 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
             (Target::Update { .. }, Some(set)) => binding(set, "d1", "DB")
                 .and_then(|b| b["id"].as_str().or(b["database_id"].as_str()))
                 .map(String::from)
-                .ok_or("找不到 Worker 的 D1 資料庫設定")?,
-            (Target::Update { .. }, None) => return Err(format!("這個 Cloudflare 帳號裡找不到 {script}")),
+                .ok_or(tr("找不到 Worker 的 D1 資料庫設定", "Can't find the Worker's D1 database binding"))?,
+            (Target::Update { .. }, None) => {
+                return Err(crate::trf!("這個 Cloudflare 帳號裡找不到 {script}", "Can't find {script} in this Cloudflare account"))
+            }
             (Target::New { .. }, _) => match cf.find_d1(account, &script).await.map_err(cf_err)? {
                 Some(id) => id,
                 None => cf.create_d1(account, &script).await.map_err(cf_err)?,
@@ -302,7 +316,7 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
     // 3. 建立／更新資料表
     step(app, "migrate", async {
         let n = migrate(cf, account, &db).await.map_err(cf_err)?;
-        progress(app, "migrate", "done", if n == 0 { "已是最新".to_string() } else { format!("套用 {n} 個更新") });
+        progress(app, "migrate", "done", if n == 0 { tr("已是最新", "Up to date").to_string() } else { crate::trf!("套用 {n} 個更新", "Applied {n} updates") });
         Ok(())
     })
     .await?;
@@ -337,7 +351,7 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
     step(app, "upload", async {
         let deployed = if existing.is_some() { cloud_version(&s.client, &conn).await } else { None };
         if deployed.is_some_and(|v| v >= WORKER_VERSION) {
-            progress(app, "upload", "done", "已是最新版本");
+            progress(app, "upload", "done", tr("已是最新版本", "Already the latest version"));
             return Ok(());
         }
         let tz = existing
@@ -357,7 +371,7 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
             "keep_bindings": ["secret_text"],
         });
         cf.upload_script(account, &script, embedded::WORKER_JS, metadata).await.map_err(cf_err)?;
-        progress(app, "upload", "done", format!("版本 {WORKER_VERSION}"));
+        progress(app, "upload", "done", crate::trf!("版本 {WORKER_VERSION}", "Version {WORKER_VERSION}"));
         Ok(())
     })
     .await?;
@@ -396,7 +410,7 @@ async fn provision(app: &AppHandle, cf: &Cf, account: &str, wanted_sub: Option<S
         s.cloud_version.store(version.unwrap_or(0), Ordering::Relaxed);
         progress(app, "verify", "done", "");
     } else {
-        progress(app, "verify", "skip", "網址還在生效中，Deskdo 會在背景自動重試");
+        progress(app, "verify", "skip", tr("網址還在生效中，Deskdo 會在背景自動重試", "The URL is still going live; Deskdo will keep retrying in the background"));
     }
     crate::prefs_changed(app);
     s.wake(true);
@@ -474,11 +488,11 @@ fn device_name() -> String {
             (Some(m), Some(d)) if d.to_lowercase().starts_with(&m.to_lowercase()) => d,
             (Some(m), Some(d)) => format!("{m} {d}"),
             (_, Some(d)) => d,
-            _ => "Android 手機".into(),
+            _ => tr("Android 手機", "Android phone").into(),
         };
     }
     #[allow(unreachable_code)]
-    std::env::var("COMPUTERNAME").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "Windows 電腦".into())
+    std::env::var("COMPUTERNAME").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| tr("Windows 電腦", "Windows PC").into())
 }
 
 /// 在 D1 新增這台電腦，回傳它的 token；同時確保有 MCP 密鑰
@@ -544,12 +558,16 @@ async fn fetch_connector(client: &reqwest::Client, cfg: &Config) -> Result<(Stri
     connector_from(r)
 }
 
+fn too_old() -> &'static str {
+    tr("雲端版本太舊，請先更新雲端", "The cloud is too old, update it first")
+}
+
 fn connector_from(r: api::ApiResult) -> Result<(String, bool), String> {
     if let Some(e) = r.error {
-        return Err(if r.status == 404 { "雲端版本太舊，請先更新雲端".into() } else { e });
+        return Err(if r.status == 404 { too_old().into() } else { e });
     }
     let d = r.data.unwrap_or_default();
-    let url = d["url"].as_str().ok_or("伺服器回應格式錯誤")?.to_string();
+    let url = d["url"].as_str().ok_or(tr("伺服器回應格式錯誤", "Unexpected server response"))?.to_string();
     Ok((url, d["rotatable"].as_bool().unwrap_or(false)))
 }
 
@@ -573,7 +591,7 @@ pub async fn list_devices(app: AppHandle) -> Result<Value, String> {
     let s = shared(&app);
     let r = api::send(&s.client, &s.config(), Method::GET, "/api/devices", None, None).await;
     if let Some(e) = r.error {
-        return Err(if r.status == 404 { "雲端版本太舊，請先更新雲端".into() } else { e });
+        return Err(if r.status == 404 { too_old().into() } else { e });
     }
     Ok(r.data.and_then(|mut d| d.get_mut("devices").map(Value::take)).unwrap_or(json!([])))
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "@deskdo/core/i18n.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
   import Icon from "../components/Icon.svelte";
@@ -23,15 +24,15 @@
       <rect x="2" y="2" width="28" height="28" rx="7" fill="#2563eb" />
       <path d="M9 16.6l5.1 5.1L23.7 11" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
-    待辦事項
-    {#if store.prefs?.beta}<span class="beta">測試版</span>{/if}
+    {t("待辦事項", "Deskdo")}
+    {#if store.prefs?.beta}<span class="beta">{t("測試版", "Beta")}</span>{/if}
   </div>
   <div class="controls">
-    <button onclick={() => win.minimize()} aria-label="最小化"><Icon name="minimize" size={14} stroke={1.2} /></button>
-    <button onclick={() => win.toggleMaximize()} aria-label={maximized ? "還原" : "最大化"}>
+    <button onclick={() => win.minimize()} aria-label={t("最小化", "Minimize")}><Icon name="minimize" size={14} stroke={1.2} /></button>
+    <button onclick={() => win.toggleMaximize()} aria-label={maximized ? t("還原", "Restore") : t("最大化", "Maximize")}>
       <Icon name={maximized ? "restore" : "maximize"} size={13} stroke={1.2} />
     </button>
-    <button class="close" onclick={() => win.close()} aria-label="關閉"><Icon name="close" size={14} stroke={1.2} /></button>
+    <button class="close" onclick={() => win.close()} aria-label={t("關閉", "Close")}><Icon name="close" size={14} stroke={1.2} /></button>
   </div>
 </div>
 

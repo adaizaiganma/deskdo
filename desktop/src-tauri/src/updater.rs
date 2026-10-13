@@ -4,6 +4,7 @@
 //! 只有正式版會自動檢查：開發版和測試版（Deskdo Beta）另外建置、手動安裝。
 
 use crate::config;
+use deskdo_core::{i18n::tr, trf};
 use crate::{store, tray::TrayItems};
 use serde::Serialize;
 use std::time::Duration;
@@ -17,7 +18,7 @@ const CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 
 #[derive(Clone, Serialize)]
 pub struct UpdateInfo {
-    version: String,
+    pub version: String,
     /// GitHub Release 的說明文字
     notes: Option<String>,
 }
@@ -60,15 +61,15 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
         return Ok(Some(info(u)));
     }
     let updater = app.updater().map_err(|e| e.to_string())?;
-    let Some(update) = updater.check().await.map_err(|e| format!("無法檢查更新：{e}"))? else {
+    let Some(update) = updater.check().await.map_err(|e| trf!("無法檢查更新：{e}", "Can't check for updates: {e}"))? else {
         return Ok(None);
     };
-    let bytes = update.download(|_, _| {}, || {}).await.map_err(|e| format!("下載更新失敗：{e}"))?;
+    let bytes = update.download(|_, _| {}, || {}).await.map_err(|e| trf!("下載更新失敗：{e}", "Couldn't download the update: {e}"))?;
     let found = info(&update);
     *st.ready.lock().await = Some((update, bytes));
 
     if let Some(items) = app.try_state::<TrayItems>() {
-        let _ = items.update.set_text(format!("重新啟動以更新到 {}", found.version));
+        let _ = items.update.set_text(restart_label(&found.version));
     }
     let _ = app.emit("update", &found);
     Ok(Some(found))
@@ -82,7 +83,7 @@ pub async fn get_update(app: AppHandle) -> Option<UpdateInfo> {
 #[tauri::command]
 pub async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
     if !enabled() {
-        return Err("開發版和測試版不會自動更新".into());
+        return Err(tr("開發版和測試版不會自動更新", "Dev and beta builds don't update automatically").into());
     }
     check(&app).await
 }
@@ -92,11 +93,16 @@ pub async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> 
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
     let ready = app.state::<UpdateState>().ready.lock().await.take();
     let Some((update, bytes)) = ready else {
-        return Err("沒有可安裝的更新".into());
+        return Err(tr("沒有可安裝的更新", "There's no update to install").into());
     };
     // 和「結束」一樣，先把還在等待復原期限的刪除送出去
     store::flush_deletes(&app).await;
-    update.install(bytes).map_err(|e| format!("安裝更新失敗：{e}"))
+    update.install(bytes).map_err(|e| trf!("安裝更新失敗：{e}", "Couldn't install the update: {e}"))
+}
+
+/// 系統匣選單上「重新啟動以更新到 x.y.z」
+pub fn restart_label(version: &str) -> String {
+    trf!("重新啟動以更新到 {version}", "Restart to update to {version}")
 }
 
 /// 系統匣選單的「檢查更新」：已經下載好就直接安裝，否則立即檢查
@@ -109,11 +115,11 @@ pub fn tray_clicked(app: &AppHandle) {
         }
         let items = app.try_state::<TrayItems>();
         if let Some(i) = &items {
-            let _ = i.update.set_text("正在檢查更新…");
+            let _ = i.update.set_text(tr("正在檢查更新…", "Checking for updates…"));
         }
         let text = match check_update(app.clone()).await {
-            Ok(Some(u)) => format!("重新啟動以更新到 {}", u.version),
-            Ok(None) => "已是最新版本".to_string(),
+            Ok(Some(u)) => restart_label(&u.version),
+            Ok(None) => tr("已是最新版本", "You're up to date").to_string(),
             Err(e) => e,
         };
         if let Some(i) = &items {

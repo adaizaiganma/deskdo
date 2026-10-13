@@ -28,6 +28,7 @@ pub fn run() {
             snapshot_changed: tray::update,
             prefs_changed: windows::emit_prefs,
             show_main: |app: &AppHandle| windows::show_main(app, None),
+            language_changed: tray::relabel,
         })
         .invoke_handler(deskdo_core::combine(
             deskdo_core::handler(),
@@ -68,7 +69,7 @@ pub fn run() {
         })
         .on_window_event(windows::on_window_event)
         .build(tauri::generate_context!())
-        .expect("無法啟動待辦事項")
+        .expect("failed to start Deskdo")
         .run(|_app, event| {
             // 視窗都收起來時不要結束，留在系統匣
             if let RunEvent::ExitRequested { api, code, .. } = event {

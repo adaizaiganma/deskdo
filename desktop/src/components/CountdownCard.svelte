@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18n, t } from "@deskdo/core/i18n.svelte";
   import { countdowns, resolve } from "@deskdo/core/countdowns.svelte";
   import { fullDate, longDate } from "@deskdo/core/dates";
 
@@ -16,9 +17,13 @@
     <span class="title">{c.title}</span>
     <span class="num">
       {#if c.n === 0}
-        <b class="now">就是今天</b>
+        <b class="now">{t("就是今天", "Today")}</b>
       {:else}
-        <small>{c.n > 0 ? "還有" : "已經"}</small><b class:past={c.n < 0}>{Math.abs(c.n)}</b><small>天</small>
+        {#if i18n.en}
+          <b class:past={c.n < 0}>{Math.abs(c.n)}</b><small>{Math.abs(c.n) === 1 ? "day" : "days"} {c.n > 0 ? "left" : "ago"}</small>
+        {:else}
+          <small>{c.n > 0 ? "還有" : "已經"}</small><b class:past={c.n < 0}>{Math.abs(c.n)}</b><small>天</small>
+        {/if}
       {/if}
     </span>
     <span class="sub">{longDate(c.target)}</span>

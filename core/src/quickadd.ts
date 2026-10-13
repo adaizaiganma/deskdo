@@ -5,6 +5,7 @@
  *
  * - `#標籤`              設定標籤，可以寫好幾個
  * - `@今天` `@明天` `@後天` `@週五` `@下週三` `@10/15` `@10-15` `@2026-10-15`   設定期限
+ *   英文也可以：`@today` `@tomorrow`（`@tmr`）`@fri` `@friday` `@nextfri`
  * - `15:00` 或 `@15:00`  期限的時間；沒寫日期就是今天，沒寫時間就是一整天
  * - `!` 或 `！`          高優先
  * - `~` 或 `～`          低優先
@@ -18,7 +19,24 @@ import { addDays, diffDays, mondayIndex } from "./dates";
 import type { NewTodo } from "./types";
 
 const WEEKDAYS = "一二三四五六日";
-const RELATIVE: Record<string, number> = { 今天: 0, 今日: 0, 明天: 1, 明日: 1, 後天: 2, 后天: 2, 大後天: 3 };
+const RELATIVE: Record<string, number> = {
+  今天: 0,
+  今日: 0,
+  明天: 1,
+  明日: 1,
+  後天: 2,
+  后天: 2,
+  大後天: 3,
+  today: 0,
+  tod: 0,
+  tomorrow: 1,
+  tmr: 1,
+  tmrw: 1,
+  tom: 1,
+};
+/** 英文的星期，0 = 週一 */
+const WEEKDAYS_EN = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const WEEKDAY_EN = /^(next[-_]?)?(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:rs?|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)$/;
 
 function validDate(y: number, m: number, d: number): string | null {
   const dt = new Date(Date.UTC(y, m - 1, d));
@@ -28,16 +46,18 @@ function validDate(y: number, m: number, d: number): string | null {
 
 export function parseDue(text: string, today: string): string | null {
   text = text.trim();
-  if (text in RELATIVE) return addDays(today, RELATIVE[text]);
+  const lower = text.toLowerCase();
+  if (Object.hasOwn(RELATIVE, lower)) return addDays(today, RELATIVE[lower]);
+
+  const cur = mondayIndex(today);
+  // 「下週X」：下一週的那一天；「週X」：今天起最近的那一天
+  const onWeekday = (target: number, next: boolean) => addDays(today, next ? target - cur + 7 : (((target - cur) % 7) + 7) % 7);
 
   let m = text.match(/^(下)?(?:週|周|星期|禮拜)([一二三四五六日天])$/);
-  if (m) {
-    const target = WEEKDAYS.indexOf(m[2] === "天" ? "日" : m[2]);
-    const cur = mondayIndex(today);
-    // 「下週X」：下一週的那一天；「週X」：今天起最近的那一天
-    const days = m[1] ? target - cur + 7 : (((target - cur) % 7) + 7) % 7;
-    return addDays(today, days);
-  }
+  if (m) return onWeekday(WEEKDAYS.indexOf(m[2] === "天" ? "日" : m[2]), !!m[1]);
+
+  m = lower.match(WEEKDAY_EN);
+  if (m) return onWeekday(WEEKDAYS_EN.indexOf(m[2].slice(0, 3)), !!m[1]);
 
   m = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
   if (m) return validDate(+m[1], +m[2], +m[3]);

@@ -95,6 +95,22 @@ describe("parseDue", () => {
     expect(parseTime("7:5")).toBeNull();
   });
 
+  test("english", () => {
+    expect(parseDue("today", TODAY)).toBe(TODAY);
+    expect(parseDue("Tomorrow", TODAY)).toBe("2026-10-11");
+    expect(parseDue("tmr", TODAY)).toBe("2026-10-11");
+    expect(parseDue("mon", TODAY)).toBe("2026-10-12");
+    expect(parseDue("Saturday", TODAY)).toBe(TODAY);
+    expect(parseDue("thurs", TODAY)).toBe("2026-10-15");
+    expect(parseDue("nextwed", TODAY)).toBe("2026-10-14");
+    expect(parseDue("next-mon", "2026-10-12")).toBe("2026-10-19");
+    expect(parseDue("monk", TODAY)).toBeNull();
+    expect(parseDue("constructor", TODAY)).toBeNull();
+    expect(parseQuickAdd("Essay #english @fri 9:00 !", TODAY)).toEqual({
+      title: "Essay", tags: ["english"], due: "2026-10-16", dueTime: "09:00", priority: "high",
+    });
+  });
+
   test("numeric dates", () => {
     expect(parseDue("10/15", TODAY)).toBe("2026-10-15");
     expect(parseDue("1-5", TODAY)).toBe("2027-01-05");
