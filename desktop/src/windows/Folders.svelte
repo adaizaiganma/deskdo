@@ -81,6 +81,11 @@
   const H = $derived(h / scale);
 
   const dish = new Dish();
+  /**
+   * 細胞膜（泡泡黏在一起）只在 App 裡畫。iPhone、iPad 的 Safari 用 CPU 算 SVG 濾鏡，
+   * 泡泡在動時每格都要重算，非常卡，所以網頁版只畫圓。
+   */
+  const goo = !store.prefs?.web;
   let view = $state.raw<{ folders: FolderView[]; tags: TagView[]; hover: string | null; drag: string | null }>({
     folders: [],
     tags: [],
@@ -381,6 +386,7 @@
   >
     {#if w && h}
       <svg width={w} height={h} viewBox="0 0 {W} {H}" aria-hidden="true">
+        {#if goo}
         <defs>
           <!--
             形狀：模糊後把透明度拉陡，靠近的圓會像細胞膜一樣黏在一起。
@@ -395,8 +401,9 @@
             <feComposite in="color" in2="shape" operator="in" />
           </filter>
         </defs>
+        {/if}
 
-        <g class="rim" filter="url(#goo)">
+        <g class="rim" filter={goo ? "url(#goo)" : undefined}>
           {#each view.folders as f (f.id)}
             <circle cx={f.x} cy={f.y} r={f.r + 3} style="--h:{f.hue}" />
           {/each}
@@ -405,7 +412,7 @@
             <circle cx={t.x} cy={t.y} r={t.r + 8} class:loose={hue === null} style="--h:{hue ?? 220}" />
           {/each}
         </g>
-        <g class="fill" filter="url(#goo)">
+        <g class="fill" filter={goo ? "url(#goo)" : undefined}>
           {#each view.folders as f (f.id)}
             <circle cx={f.x} cy={f.y} r={f.r} style="--h:{f.hue}" />
           {/each}
