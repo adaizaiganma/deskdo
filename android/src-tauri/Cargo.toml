@@ -1,0 +1,30 @@
+[package]
+name = "deskdo"
+version = "0.10.1"
+edition = "2021"
+
+# Android 要把 App 編成函式庫，由系統的 Activity 載入
+[lib]
+name = "deskdo_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# 同步、設定檔、設定精靈：和電腦版共用（upstream 是 adaizaiganma/deskdo 的 submodule）
+deskdo-core = { path = "../upstream/core/rust" }
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["time", "sync", "macros"] }
+tauri-plugin-opener = "2"
+# 手機上沒有系統的 OpenSSL，HTTPS 改用 rustls（憑證用內建的 webpki 根憑證）
+reqwest = { version = "0.12", default-features = false, features = ["multipart", "json", "rustls-tls", "charset", "http2"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
