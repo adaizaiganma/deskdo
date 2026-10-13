@@ -33,6 +33,9 @@
     panel?.focus();
   }
 
+  /** 觸控螢幕（網頁版在 iPad 上）沒有右鍵，用長按（web/src/longpress.ts 把長按變成右鍵） */
+  const touch = matchMedia("(hover: none)").matches;
+
   /** 調整版面：拖曳移動、調整大小、拿掉或加回組件（從右鍵選單進入） */
   let editing = $state(false);
 
@@ -189,7 +192,7 @@
       <!-- 浮在下面，不佔版面 -->
       <div class="edit-dock">
         <div class="edit-bar">
-          <span>{t("拖曳移動・拖右下角調整大小・按右鍵加回組件", "Drag to move · drag the corner to resize · right-click to add widgets")}</span>
+          <span>{touch ? t("拖曳移動・拖右下角調整大小・長按加回組件", "Drag to move · drag the corner to resize · long-press to add widgets") : t("拖曳移動・拖右下角調整大小・按右鍵加回組件", "Drag to move · drag the corner to resize · right-click to add widgets")}</span>
           <button class="done" onclick={() => (editing = false)}>{t("完成", "Done")}</button>
         </div>
       </div>
@@ -468,6 +471,12 @@
   .quote:focus-visible .qcap :global(svg),
   .loading .qcap :global(svg) {
     opacity: 1;
+  }
+  /* 觸控螢幕沒有滑鼠移上去，一直顯示 */
+  @media (hover: none) {
+    .qcap :global(svg) {
+      opacity: 1;
+    }
   }
   .loading .qcap :global(svg) {
     animation: spin 0.8s linear infinite;

@@ -1,3 +1,4 @@
+import "@fontsource-variable/noto-sans-tc";
 import "./app.css";
 import { mount } from "svelte";
 import { disableContextMenu } from "./lib/contextmenu";

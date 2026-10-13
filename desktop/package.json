@@ -3,10 +3,14 @@
   "private": true,
   "version": "0.10.0",
   "type": "module",
+  "exports": {
+    "./lib/*": "./src/lib/*.ts",
+    "./*": "./src/*"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:worker": "npm --prefix ../worker run bundle",
+    "build:worker": "npm --prefix ../web run build && npm --prefix ../worker run bundle",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "tauri": "tauri"

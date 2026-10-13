@@ -1,0 +1,27 @@
+{
+  "name": "@deskdo/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "手機版的介面（Android App 和網頁版的窄螢幕共用）：下方分頁、側邊抽屜、底部面板",
+  "exports": {
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@deskdo/core": "*",
+    "@tauri-apps/plugin-opener": "^2.7.0",
+    "svelte": "^5.57.2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tsconfig/svelte": "^5.0.8",
+    "svelte-check": "^4.7.6",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  }
+}

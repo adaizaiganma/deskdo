@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "bundle": "wrangler deploy --dry-run --outdir dist --minify",
-    "typecheck": "tsc --noEmit",
+    "dev": "node scripts/embed-web.mjs && wrangler dev",
+    "deploy": "node scripts/embed-web.mjs --require && wrangler deploy",
+    "bundle": "node scripts/embed-web.mjs --require && wrangler deploy --dry-run --outdir dist --minify",
+    "typecheck": "node scripts/embed-web.mjs && tsc --noEmit",
     "db:migrate:local": "wrangler d1 migrations apply deskdo --local",
     "db:migrate:remote": "wrangler d1 migrations apply deskdo --remote"
   },

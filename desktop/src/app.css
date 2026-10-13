@@ -1,7 +1,6 @@
-@import "@fontsource-variable/noto-sans-tc";
-
 :root {
-  --font: "Noto Sans TC Variable", "Microsoft JhengHei UI", "Segoe UI", sans-serif;
+  /* 網頁版沒有 Noto（見 main.ts），用系統的：iPad、Mac 是蘋方 */
+  --font: "Noto Sans TC Variable", -apple-system, "PingFang TC", "Microsoft JhengHei UI", "Segoe UI", sans-serif;
   --bg: #fafaf8;
   --raised: #ffffff;
   --bg2: #efefec;

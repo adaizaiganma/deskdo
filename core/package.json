@@ -12,12 +12,16 @@
   },
   "peerDependencies": {
     "@tauri-apps/api": "^2.12.2",
-    "svelte": "^5.57.2",
-    "opencc-js": "^1.4.2"
+    "@tauri-apps/plugin-opener": "^2.7.0",
+    "opencc-js": "^1.4.2",
+    "svelte": "^5.57.2"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "vitest": "^5.0.3",
-    "opencc-js": "^1.4.2"
+    "opencc-js": "^1.4.2",
+    "vitest": "^5.0.3"
+  },
+  "dependencies": {
+    "uqr": "0.1.3"
   }
 }

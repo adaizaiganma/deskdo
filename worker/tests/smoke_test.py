@@ -81,7 +81,7 @@ etag = h["ETag"]
 s, _, _ = api("GET", "/api/todos", headers={"If-None-Match": etag})
 check(s == 304, "沒變動時 If-None-Match → 304")
 
-s, _, t1 = api("POST", "/api/todos", {"title": "交作業三", "due": "2026-10-12", "tag": "微積分", "priority": "high"})
+s, _, t1 = api("POST", "/api/todos", {"title": "交作業三", "due": "2099-10-12", "tag": "微積分", "priority": "high"})
 check(s == 201 and t1["source"] == "manual" and t1["done"] is False, "POST 新增")
 s, _, _ = api("GET", "/api/todos", headers={"If-None-Match": etag})
 check(s == 200, "新增後 ETag 改變")
@@ -126,7 +126,7 @@ check([t["title"] for t in l["todos"]] == ["回覆教授信件"], f"overdue 篩�
 err, l = call("list_todos", {"tag": "微積分"})
 check(len(l["todos"]) == 0 and l["tags"] == [], "tag 篩選 / tags 清單（tag 已清除）")
 call("update_todo", {"id": t1["id"], "tag": "微積分"})
-err, l = call("list_todos", {"due_before": "2026-10-12", "due_after": "2026-10-10"})
+err, l = call("list_todos", {"due_before": "2099-10-12", "due_after": "2099-10-10"})
 check([t["title"] for t in l["todos"]] == ["交作業三"], "日期區間篩選")
 err, l = call("list_todos", {"query": "牛奶"})
 check(len(l["todos"]) == 1, "關鍵字搜尋")
@@ -235,6 +235,51 @@ s, _, _ = req("GET", BASE + "/api/todos", headers=dev)
 check(s == 401, "撤銷後 token 失效")
 s, _, _ = api("GET", "/api/nope")
 check(s == 404, "未知的 /api 路徑 → 404")
+
+# --- 網頁版：配對碼換 cookie ---
+web = {"X-Deskdo-Web": "1"}
+def pair(code, extra=None):
+    return req("POST", BASE + "/app/pair", {"code": code, **(extra or {})}, web)
+def wrong(code):
+    return "000000" if code != "000000" else "111111"
+
+s, _, b = api("POST", "/api/pairing")
+check(s == 201 and len(b["code"]) == 6 and b["code"].isdigit() and b["expiresAt"], "POST /api/pairing 產生 6 位數配對碼")
+code = b["code"]
+s, _, _ = req("POST", BASE + "/app/pair", {"code": code})
+check(s == 404, "沒有 X-Deskdo-Web 的配對請求 → 404")
+s, _, _ = pair(wrong(code))
+check(s == 400, "配對碼錯誤 → 400")
+s, h, _ = pair(code, {"name": "Test iPhone"})
+cookie = h.get("Set-Cookie", "")
+check(s == 200 and cookie.startswith("__Host-deskdo=") and "HttpOnly" in cookie and "Secure" in cookie and "SameSite=Strict" in cookie,
+      "配對成功 → 設定 HttpOnly、Secure、SameSite=Strict 的 cookie")
+jar = cookie.split(";")[0]
+s, _, _ = pair(code)
+check(s == 400, "配對碼用過一次就失效")
+s, _, b = req("GET", BASE + "/api/devices", headers={**web, "Cookie": jar})
+check(s == 200 and any(d["name"] == "Test iPhone" and d["current"] for d in b["devices"]), "cookie 可以呼叫 API，裝置清單有這個瀏覽器")
+s, _, _ = req("GET", BASE + "/api/todos", headers={"Cookie": jar})
+check(s == 401, "只有 cookie、沒有 X-Deskdo-Web → 401（擋跨站偽造的請求）")
+s, _, b = req("POST", BASE + "/api/pairing", headers={**web, "Cookie": jar})
+check(s == 201, "網頁版也可以產生配對碼（再配對另一台）")
+
+code = b["code"]
+for _ in range(5):
+    pair(wrong(code))
+s, _, _ = pair(code)
+check(s == 400, "錯 5 次後配對碼作廢")
+s, _, b = api("POST", "/api/pairing")
+d1("UPDATE settings SET value = json_set(value, '$.expiresAt', 0) WHERE key = 'pairing'")
+s, _, _ = pair(b["code"])
+check(s == 400, "過期的配對碼 → 400")
+
+s, h, _ = req("POST", BASE + "/app/logout", None, {**web, "Cookie": jar})
+check(s == 204 and "Max-Age=0" in h.get("Set-Cookie", ""), "登出 → 清掉 cookie")
+s, _, _ = req("GET", BASE + "/api/todos", headers={**web, "Cookie": jar})
+check(s == 401, "登出後這個瀏覽器的裝置也撤銷了")
+s, _, _ = req("PUT", BASE + "/app/index.html")
+check(s == 405, "網頁的檔案只能 GET")
 
 # --- 標籤資料夾 ---
 s, _, b = api("GET", "/api/folders")

@@ -607,6 +607,33 @@ pub async fn revoke_device(app: AppHandle, id: String) -> Result<(), String> {
     }
 }
 
+/// 網頁版（例如 iPhone 加到主畫面的）用的配對碼：6 位數、5 分鐘內有效（見 worker/src/pairing.ts）
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Pairing {
+    code: String,
+    expires_at: String,
+    /// 網頁版的網址（QR code 的內容）
+    url: String,
+}
+
+#[tauri::command]
+pub async fn create_pairing(app: AppHandle) -> Result<Pairing, String> {
+    let s = shared(&app);
+    let cfg = s.config();
+    let r = api::send(&s.client, &cfg, Method::POST, "/api/pairing", None, None).await;
+    if let Some(e) = r.error {
+        return Err(if r.status == 404 { too_old().into() } else { e });
+    }
+    let d = r.data.unwrap_or_default();
+    let field = |k: &str| d[k].as_str().map(String::from).ok_or(tr("伺服器回應格式錯誤", "Unexpected server response"));
+    Ok(Pairing {
+        code: field("code")?,
+        expires_at: field("expiresAt")?,
+        url: format!("{}/app/", cfg.api_base.trim().trim_end_matches('/')),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

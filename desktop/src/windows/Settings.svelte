@@ -1,11 +1,13 @@
 <script lang="ts">
   import { LANG_OPTIONS, i18n, t } from "@deskdo/core/i18n.svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { openUrl } from "@tauri-apps/plugin-opener";
-  import { onMount } from "svelte";
+  import { invoke } from "@deskdo/core/backend";
+  import { openLink as openUrl } from "@deskdo/core/open";
+  import { onDestroy, onMount } from "svelte";
   import { CLAUDE_CONNECTORS, SITE_GUIDE } from "@deskdo/core/links";
   import { localDate, monthDay } from "@deskdo/core/dates";
   import { THEME_OPTIONS, theme } from "../lib/theme.svelte";
+  import { countdown, PairingFlow } from "@deskdo/core/pairing.svelte";
+  import { qrPath } from "@deskdo/core/qr";
   import { store } from "@deskdo/core/store.svelte";
   import type { Connector, Device, UpdateInfo } from "@deskdo/core/types";
 
@@ -13,6 +15,8 @@
   let { onsetup }: { onsetup: (mode: "new" | "update") => void } = $props();
 
   const p = $derived(store.prefs);
+  /** 網頁版（寬螢幕）：沒有桌面小工具、App 更新、手動連線，可以登出 */
+  const web = $derived(!!p?.web);
 
   let apiBase = $state(store.prefs?.apiBase ?? "");
   let apiToken = $state(store.prefs?.apiToken ?? "");
@@ -33,6 +37,11 @@
   onMount(() => {
     if (store.prefs?.configured) loadDevices();
   });
+
+  /** 在 iPhone、iPad 使用：配對碼和 QR code（網頁版的網址） */
+  const pairing = new PairingFlow(() => loadDevices());
+  const qr = $derived(pairing.pairing ? qrPath(pairing.pairing.url) : null);
+  onDestroy(() => pairing.stop());
 
   async function saveConnection(e: SubmitEvent) {
     e.preventDefault();
@@ -114,6 +123,20 @@
     }
   }
 
+  let confirmLogout = $state(false);
+  let logoutError = $state("");
+
+  /** 網頁版：撤銷這個瀏覽器並回到配對頁 */
+  async function logout() {
+    confirmLogout = false;
+    logoutError = "";
+    try {
+      await invoke("web_logout");
+    } catch (e) {
+      logoutError = String(e);
+    }
+  }
+
   function seen(iso: string | null): string {
     if (!iso) return t("尚未連線", "Never connected");
     const d = new Date(iso);
@@ -128,7 +151,7 @@
 <div class="settings">
   <h1>{t("設定", "Settings")}</h1>
 
-  {#if p && !p.configured}
+  {#if p && !p.configured && !web}
     <section class="card callout">
       <div>
         <h2>{t("還沒有完成設定", "Not set up yet")}</h2>
@@ -175,7 +198,7 @@
         {#each devices as d (d.id)}
           <div class="toggle-row">
             <div>
-              <div>{d.name}{#if d.current}<span class="tag">{t("這台電腦", "This PC")}</span>{/if}</div>
+              <div>{d.name}{#if d.current}<span class="tag">{web ? t("這個瀏覽器", "This browser") : t("這台電腦", "This PC")}</span>{/if}</div>
               <div class="hint">{seen(d.lastSeenAt)}{t("・", " · ")}{t(`${monthDay(localDate(d.createdAt) ?? store.today, store.today)} 加入`, `Added ${monthDay(localDate(d.createdAt) ?? store.today, store.today)}`)}</div>
             </div>
             {#if !d.current}
@@ -195,6 +218,34 @@
         <p class="hint">{t("要在另一台電腦或手機使用：安裝 Deskdo，用同一個 Cloudflare 帳號登入即可。移除後，那台裝置就不能再讀寫待辦。", "To use another PC or phone, install Deskdo and sign in with the same Cloudflare account. A removed device can no longer read or edit your to-dos.")}</p>
       {/if}
       {#if devicesError}<p class="result bad">{devicesError}</p>{/if}
+    </section>
+
+    <section class="card">
+      <h2>{t("在 iPhone、iPad 使用", "Use on iPhone or iPad")}</h2>
+      <p class="hint">
+        {t("沒有 App 的裝置可以用網頁版：用手機相機掃描 QR code 打開，加到主畫面後輸入配對碼。配對一次之後就不用再輸入。", "Devices without the app can use the web version: scan the QR code with the phone's camera, add it to the home screen, then enter the pairing code. You only need to pair once.")}
+      </p>
+      {#if pairing.pairing && qr}
+        {@const expired = pairing.left === 0}
+        <div class="pairing" class:expired>
+          <svg class="qr" viewBox="0 0 {qr.size} {qr.size}" role="img" aria-label={t("網頁版網址的 QR code", "QR code for the web version")}>
+            <rect width={qr.size} height={qr.size} fill="#fff" />
+            <path d={qr.d} fill="#000" />
+          </svg>
+          <div class="pair-info">
+            <div class="pair-code">{pairing.pairing.code.slice(0, 3)} {pairing.pairing.code.slice(3)}</div>
+            <div class="hint">{expired ? t("配對碼已失效", "The code has expired") : t(`${countdown(pairing.left)} 後失效`, `Expires in ${countdown(pairing.left)}`)}</div>
+            <code class="pair-url">{pairing.pairing.url}</code>
+          </div>
+        </div>
+        <div class="btns">
+          <button class="ghost" onclick={() => pairing.start()}>{expired ? t("重新產生", "New code") : t("換一組", "New code")}</button>
+        </div>
+      {:else}
+        {#if pairing.joined}<p class="result">{t(`已加入「${pairing.joined}」`, `"${pairing.joined}" is connected`)}</p>{/if}
+        <div class="btns"><button class="ghost" onclick={() => pairing.start()}>{t("產生配對碼", "Make a pairing code")}</button></div>
+      {/if}
+      {#if pairing.error}<p class="result bad">{pairing.error}</p>{/if}
     </section>
 
     <section class="card">
@@ -218,7 +269,7 @@
     <div class="toggle-row">
       <div>
         <div>{t("語言", "Language")}</div>
-        <div class="hint">{t("介面、系統匣和桌面小工具都會換成這個語言", "Used for the app, the tray menu and the desktop widget")}</div>
+        <div class="hint">{web ? t("只影響這個瀏覽器", "Only for this browser") : t("介面、系統匣和桌面小工具都會換成這個語言", "Used for the app, the tray menu and the desktop widget")}</div>
       </div>
       <div class="seg" role="radiogroup" aria-label={t("語言", "Language")}>
         {#each LANG_OPTIONS as o (o.id)}
@@ -229,7 +280,7 @@
     <div class="toggle-row">
       <div>
         <div>{t("深色、淺色", "Theme")}</div>
-        <div class="hint">{t("主視窗和桌面小工具都會跟著變", "Applies to the main window and the desktop widget")}</div>
+        <div class="hint">{web ? t("只影響這個瀏覽器的寬螢幕版面", "Only for the wide layout in this browser") : t("主視窗和桌面小工具都會跟著變", "Applies to the main window and the desktop widget")}</div>
       </div>
       <div class="seg" role="radiogroup" aria-label={t("深色、淺色", "Theme")}>
         {#each THEME_OPTIONS as o (o.id)}
@@ -240,7 +291,32 @@
     <p class="hint home-hint">{t("主頁的外觀改到主頁上設定：在主頁空白處按右鍵 →「自訂主頁」可以換背景圖片、組件背景和字體大小；在組件上按右鍵 →「組件設定」可以個別調整，時鐘樣式、每日一言的類型也在這裡。", "The home page is customized on the home page itself: right-click an empty spot → Customize home to change the background image, widget backgrounds and font size; right-click a widget → Widget settings to adjust it on its own, including the clock style and quote types.")}</p>
   </section>
 
-  {#if p}
+  {#if p && web}
+    <section class="card">
+      <h2>{t("系統", "System")}</h2>
+      <div class="toggle-row">
+        <div>
+          <div>{t("網頁版", "Web version")} {p.appVersion}</div>
+          <div class="hint">{t("網頁版跟著雲端一起更新：在電腦版按「更新雲端」就會換成新版", "The web version updates with your cloud: press Update cloud in the desktop app")}</div>
+        </div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div>{t("登出", "Sign out")}</div>
+          <div class="hint">{t("這個瀏覽器會從已連線的裝置中移除，要再用得重新配對", "This browser is removed from your connected devices; pair it again to use it")}</div>
+        </div>
+        {#if confirmLogout}
+          <span class="btns">
+            <button class="ghost danger" onclick={logout}>{t("確定登出", "Sign out")}</button>
+            <button class="ghost" onclick={() => (confirmLogout = false)}>{t("取消", "Cancel")}</button>
+          </span>
+        {:else}
+          <button class="ghost" onclick={() => (confirmLogout = true)}>{t("登出", "Sign out")}</button>
+        {/if}
+      </div>
+      {#if logoutError}<p class="result bad">{logoutError}</p>{/if}
+    </section>
+  {:else if p}
     <section class="card">
       <h2>{t("桌面小工具", "Desktop widget")}</h2>
       <div class="toggle-row">
@@ -305,6 +381,7 @@
     </section>
   {/if}
 
+  {#if !web}
   <details class="card advanced">
     <summary>{t("進階：手動設定連線", "Advanced: manual connection")}</summary>
     <p class="hint">{t("給自己用 wrangler 部署 Worker 的開發者。一般使用者請用上面的設定精靈。", "For developers who deploy the Worker with wrangler themselves. Everyone else should use the setup wizard above.")}</p>
@@ -332,6 +409,7 @@
   </details>
 
   <p class="foot">{t("設定檔位置：", "Config file: ")}%APPDATA%\Deskdo\config.json</p>
+  {/if}
 </div>
 
 <style>
@@ -498,6 +576,37 @@
   .card > .hint {
     margin: 0 0 12px;
     line-height: 1.6;
+  }
+  .pairing {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .pairing.expired {
+    opacity: 0.4;
+  }
+  .qr {
+    flex: none;
+    width: 140px;
+    height: 140px;
+    border-radius: 8px;
+  }
+  .pair-info {
+    min-width: 0;
+  }
+  .pair-code {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+  }
+  .pair-url {
+    display: block;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: var(--sub);
+    word-break: break-all;
+    user-select: all;
   }
   .url-box {
     display: flex;

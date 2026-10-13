@@ -1,0 +1,14 @@
+/* 網頁版：viewport-fit=cover 之後畫面會延伸到瀏海、底部橫條底下，要自己讓開 */
+:root {
+  --nav-inset: env(safe-area-inset-bottom, 0px);
+}
+
+#app {
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+}
+
+/* 電腦版介面在 iPad 上：長按是右鍵選單（longpress.ts），不要跳出系統的放大鏡、選取選單 */
+:root[data-layout="wide"] body {
+  -webkit-touch-callout: none;
+}

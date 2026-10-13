@@ -1,11 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { invoke, listen } from "./backend";
 import { isOverdue, localDate, localTime, localToday } from "./dates";
 import { collator, t } from "./i18n.svelte";
 import { toast } from "./toast.svelte";
 import type { Folder, NewTodo, Prefs, Snapshot, Todo, TodoPatch, UpdateInfo } from "./types";
 
-/** 資料都在 Rust 端；這裡只保留最新快照，修改一律透過 invoke */
+/** 資料都在後端（App 是 Rust 端，網頁版是 web/backend.ts）；這裡只保留最新快照，修改一律透過 invoke */
 class Store {
   snap = $state<Snapshot>({ todos: [], folders: [], today: localToday(), status: "syncing", message: "", lastSync: null });
   prefs = $state<Prefs | null>(null);
@@ -56,9 +55,9 @@ class Store {
   );
 
   async init() {
-    await listen<Snapshot>("state", (e) => (this.snap = e.payload));
-    await listen<Prefs>("prefs", (e) => (this.prefs = e.payload));
-    await listen<UpdateInfo>("update", (e) => (this.appUpdate = e.payload));
+    await listen<Snapshot>("state", (s) => (this.snap = s));
+    await listen<Prefs>("prefs", (p) => (this.prefs = p));
+    await listen<UpdateInfo>("update", (u) => (this.appUpdate = u));
     this.snap = await invoke<Snapshot>("get_state");
     this.prefs = await invoke<Prefs>("get_prefs");
     this.appUpdate = (await invoke<UpdateInfo | null>("get_update")) ?? null;

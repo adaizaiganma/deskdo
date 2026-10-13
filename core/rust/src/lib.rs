@@ -72,6 +72,7 @@ pub const COMMANDS: &[&str] = &[
     "rotate_connector",
     "list_devices",
     "revoke_device",
+    "create_pairing",
     "set_language",
 ];
 
@@ -93,6 +94,7 @@ pub fn handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + 'static {
         setup::rotate_connector,
         setup::list_devices,
         setup::revoke_device,
+        setup::create_pairing,
         i18n::set_language,
     ]
 }
