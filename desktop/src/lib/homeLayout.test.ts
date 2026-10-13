@@ -47,7 +47,7 @@ describe("arrange", () => {
     const out = arrange(DEFAULT_LAYOUT, 6);
     for (const b of out) expect(b.x + b.w).toBeLessThanOrEqual(6);
     for (const a of out) for (const b of out) expect(collides(a, b)).toBe(false);
-    expect(out.find((b) => b.id === "clock")).toEqual(box("clock", 0, 2, 3, 3));
+    expect(out.find((b) => b.id === "clock")).toEqual(box("clock", 0, 3, 3, 3));
     expect(out.find((b) => b.id === "matrix")!.w).toBe(6);
   });
 });
@@ -55,7 +55,8 @@ describe("arrange", () => {
 describe("firstFit", () => {
   test("finds the first free spot from the top left", () => {
     expect(firstFit(DEFAULT_LAYOUT, "cd:a", 3, 2, 12)).toEqual(box("cd:a", 9, 0, 3, 2));
-    expect(firstFit(DEFAULT_LAYOUT, "cd:a", 3, 2, 10)).toEqual(box("cd:a", 7, 3, 3, 2));
-    expect(firstFit(DEFAULT_LAYOUT, "cd:a", 3, 2, 9)).toEqual(box("cd:a", 0, 11, 3, 2));
+    // 一言旁邊的空位
+    expect(firstFit(DEFAULT_LAYOUT, "cd:a", 3, 2, 10)).toEqual(box("cd:a", 6, 3, 3, 2));
+    expect(firstFit(DEFAULT_LAYOUT, "cd:a", 3, 2, 9)).toEqual(box("cd:a", 6, 3, 3, 2));
   });
 });

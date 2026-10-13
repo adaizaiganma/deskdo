@@ -47,12 +47,12 @@ export function spec(id: WidgetId): { label: string; minW: number; minH: number 
   return { label: c?.title ?? t("倒數日", "Countdown"), minW: COUNTDOWN.minW, minH: COUNTDOWN.minH };
 }
 
-/** 預設的大小照內容決定：日期一行大字、一言兩行、矩陣四格各放幾項 */
+/** 預設的大小照內容決定：日期一行大字（和旁邊的時鐘一樣高）、一言兩行、矩陣四格各放幾項 */
 export const DEFAULT_LAYOUT: Box[] = [
-  { id: "date", x: 0, y: 0, w: 6, h: 2 },
+  { id: "date", x: 0, y: 0, w: 6, h: 3 },
   { id: "clock", x: 6, y: 0, w: 3, h: 3 },
-  { id: "quote", x: 0, y: 2, w: 6, h: 2 },
-  { id: "matrix", x: 0, y: 4, w: 7, h: 7 },
+  { id: "quote", x: 0, y: 3, w: 6, h: 2 },
+  { id: "matrix", x: 0, y: 5, w: 7, h: 7 },
 ];
 
 export function collides(a: Box, b: Box): boolean {
