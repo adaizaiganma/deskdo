@@ -3,6 +3,8 @@
   "private": true,
   "workspaces": [
     "core",
-    "desktop"
+    "mobile",
+    "desktop",
+    "web"
   ]
 }

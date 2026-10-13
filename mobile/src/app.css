@@ -1,0 +1,286 @@
+/*
+ * 字型：Android App 在 main.ts 載入 Noto Sans TC；網頁版不帶字型檔（四 MB 多，Worker 放不下），
+ * 用系統內建的（iPhone、Mac 是蘋方，Windows 是微軟正黑體）。
+ *
+ * Material 3 的配色（藍色系）。名稱：
+ * --bg 頁面底色、--c-low／--c／--c-high／--c-highest 由淺到深的容器（卡片、底部面板、輸入框）、
+ * --text 主要文字、--sub 次要文字、--faint 提示文字和外框、--line 分隔線、
+ * --accent 主色（--on-accent 放在主色上的字）、--accent-container 主色容器（浮動按鈕）、
+ * --sel 選中的底色（導覽列、篩選標籤）、--warn 高優先和到期（橘色）。
+ */
+:root {
+  --font: "Noto Sans TC Variable", "Noto Sans TC", -apple-system, "PingFang TC", "Microsoft JhengHei UI", sans-serif;
+  --bg: #f9f9ff;
+  --c-low: #f3f3fa;
+  --c: #ededf4;
+  --c-high: #e7e8ee;
+  --c-highest: #e2e2e9;
+  --text: #191c20;
+  --sub: #44474f;
+  --faint: #74777f;
+  --ring: #74777f;
+  --line: #c4c6d0;
+  --accent: #415f91;
+  --on-accent: #ffffff;
+  --accent-container: #d6e3ff;
+  --on-accent-container: #284777;
+  --sel: #dae2f9;
+  --on-sel: #3e4759;
+  --warn: #9c4a14;
+  --warn-container: #ffdbc8;
+  --on-warn-container: #5c2700;
+  --yellow: #8a6a00;
+  --ok: #2e7d4f;
+  --scrim: rgba(0, 0, 0, 0.4);
+  --inverse: #2e3036;
+  --on-inverse: #eff0f7;
+  --inverse-accent: #adc6ff;
+
+  /* 舊名稱（設定、設定精靈、整理標籤還在用） */
+  --raised: var(--c);
+  --bg2: var(--c-high);
+  --hover: color-mix(in srgb, var(--text) 8%, transparent);
+  --active: color-mix(in srgb, var(--text) 12%, transparent);
+  --accent-soft: var(--accent-container);
+  --warn-soft: var(--warn-container);
+  --toast-bg: var(--inverse);
+  --toast-text: var(--on-inverse);
+  --toast-accent: var(--inverse-accent);
+  --card-shadow: none;
+  --pop-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  --layer: var(--bg);
+
+  /* 系統導覽列的高度（MainActivity 告訴網頁），貼著底部的東西要讓開 */
+  --nav-inset: 0px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111318;
+    --c-low: #191c20;
+    --c: #1d2024;
+    --c-high: #282a2f;
+    --c-highest: #33353a;
+    --text: #e2e2e9;
+    --sub: #c4c6d0;
+    --faint: #8e9099;
+    --ring: #8e9099;
+    --line: #44474f;
+    --accent: #adc6ff;
+    --on-accent: #102f60;
+    --accent-container: #2b4678;
+    --on-accent-container: #d8e2ff;
+    --sel: #3e4759;
+    --on-sel: #dae2f9;
+    --warn: #ffb77c;
+    --warn-container: #6a3a12;
+    --on-warn-container: #ffdcc4;
+    --yellow: #e8c547;
+    --ok: #9dd4a8;
+    --scrim: rgba(0, 0, 0, 0.55);
+    --inverse: #e2e2e9;
+    --on-inverse: #2e3036;
+    --inverse-accent: #415f91;
+    --pop-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--font);
+  font-size: 15px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  cursor: default;
+}
+
+#app {
+  height: 100%;
+}
+
+input,
+textarea {
+  user-select: text;
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* 長按按鈕不要選取文字、跳出系統選單 */
+button,
+a {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* 圓形圖示按鈕（48dp 的點擊範圍） */
+.icon-btn {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--sub);
+  transition: background 0.15s;
+}
+.icon-btn:active {
+  background: var(--hover);
+}
+
+/* 篩選標籤（chip） */
+.pill {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sub);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.pill.on {
+  background: var(--sel);
+  border-color: transparent;
+  color: var(--on-sel);
+}
+.pill.warn-on {
+  background: var(--warn-container);
+  border-color: transparent;
+  color: var(--on-warn-container);
+}
+
+/* 按鈕：primary 填滿、ghost 色調（tonal） */
+.primary,
+.ghost {
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: filter 0.15s, opacity 0.15s;
+}
+.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.ghost {
+  padding: 0 20px;
+  background: var(--sel);
+  color: var(--on-sel);
+}
+.ghost.danger {
+  background: var(--warn-container);
+  color: var(--on-warn-container);
+}
+.primary:active,
+.ghost:active {
+  filter: brightness(1.08);
+}
+.primary.big {
+  height: 48px;
+  padding: 0 28px;
+  font-size: 15px;
+  border-radius: 24px;
+}
+.primary:disabled,
+.ghost:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 文字按鈕 */
+.text-btn {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.text-btn:active {
+  background: var(--hover);
+}
+.text-btn.danger {
+  color: var(--warn);
+}
+
+/* 太長的名稱（標籤、資料夾）截斷成「…」；放在 flex 容器裡也有效 */
+.clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+/* 測試版標示 */
+.beta {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--warn-container);
+  color: var(--on-warn-container);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+/* 只給螢幕閱讀器的文字 */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

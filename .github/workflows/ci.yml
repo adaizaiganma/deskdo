@@ -18,20 +18,33 @@ jobs:
         with:
           workspaces: desktop/src-tauri
 
-      - name: Worker
-        working-directory: worker
-        run: |
-          npm ci
-          npm run typecheck
-          npm run bundle
-
-      # core 和 desktop 是同一個 npm workspace（根目錄的 package.json）
+      # core、mobile、desktop、web 是同一個 npm workspace（根目錄的 package.json）
       - name: Install
         run: npm ci
 
       - name: Core (shared with Android)
         working-directory: core
         run: npm test
+
+      - name: Mobile (shared with Android and the web version)
+        working-directory: mobile
+        run: |
+          npm run check
+          npm test
+
+      # 網頁版要先建置，Worker 打包時把它嵌進去
+      - name: Web
+        working-directory: web
+        run: |
+          npm run check
+          npm run build
+
+      - name: Worker
+        working-directory: worker
+        run: |
+          npm ci
+          npm run typecheck
+          npm run bundle
 
       - name: Desktop (frontend)
         working-directory: desktop

@@ -30,6 +30,12 @@ function backend() {
 }
 
 beforeEach(() => {
+  const storage = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (k: string) => storage.get(k) ?? null,
+    setItem: (k: string, v: string) => void storage.set(k, v),
+    removeItem: (k: string) => void storage.delete(k),
+  });
   vi.stubGlobal("document", { visibilityState: "visible" });
   vi.stubGlobal("location", { origin: "https://deskdo.example.workers.dev" });
 });
@@ -93,15 +99,40 @@ describe("WebBackend", () => {
     expect(last().todos.map((t) => t.id)).toEqual(["a"]);
   });
 
-  it("a 401 marks the browser as not paired", async () => {
-    fakeFetch(json({ error: "unauthorized" }, 401));
+  it("tracks pairing from responses and remembers it for the next visit", async () => {
+    fakeFetch(json({ today: "2030-01-01", todos: [] }), json({ error: "unauthorized" }, 401));
     const { b } = backend();
+    expect(b.prefs().configured).toBe(false);
+    expect(b.prefs().web).toBe(true);
     const prefs: boolean[] = [];
     void b.listen<{ configured: boolean }>("prefs", (p) => prefs.push(p.configured));
     await b.refresh();
-    expect(prefs).toEqual([false]);
+    expect(new WebBackend({ appVersion: "test" }).prefs().configured).toBe(true);
+    await b.refresh();
+    expect(prefs).toEqual([true, false]);
+    expect(new WebBackend({ appVersion: "test" }).prefs().configured).toBe(false);
+  });
+
+  it("pairs with a code and signs out", async () => {
+    const calls = fakeFetch(json({ ok: true }), json({ today: "2030-01-01", todos: [todo("a")] }), new Response(null, { status: 204 }));
+    const { b, last } = backend();
+    await b.invoke("web_pair", { code: "123456", name: "iPhone" });
+    expect(calls[0]).toMatchObject({ method: "POST", url: "/app/pair", body: { code: "123456", name: "iPhone" } });
+    expect(b.prefs().configured).toBe(true);
+    await b.refresh();
+    expect(last().todos).toHaveLength(1);
+    await b.invoke("web_logout");
+    expect(calls[2]).toMatchObject({ method: "POST", url: "/app/logout" });
+    expect(last().todos).toEqual([]);
     expect(b.prefs().configured).toBe(false);
-    expect(b.prefs().web).toBe(true);
+    expect(localStorage.getItem("web.cache")).toBeNull();
+  });
+
+  it("shows the Worker's message for a wrong code", async () => {
+    fakeFetch(json({ error: "配對碼不正確或已經過期" }, 400));
+    const { b } = backend();
+    await expect(b.invoke("web_pair", { code: "000000" })).rejects.toBe("配對碼不正確或已經過期");
+    expect(b.prefs().configured).toBe(false);
   });
 
   it("adds optimistically and swaps in the server's copy", async () => {

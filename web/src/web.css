@@ -1,0 +1,9 @@
+/* 網頁版：viewport-fit=cover 之後畫面會延伸到瀏海、底部橫條底下，要自己讓開 */
+:root {
+  --nav-inset: env(safe-area-inset-bottom, 0px);
+}
+
+#app {
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+}

@@ -52,5 +52,5 @@ if (existsSync(join(dist, "index.html"))) {
 const header = "// 由 scripts/embed-web.mjs 產生，不要手動修改，也不要提交\n";
 const type = "export const ASSETS: Record<string, { type: string; etag: string; body: string; base64?: true }> = ";
 writeFileSync(out, header + type + JSON.stringify(assets) + ";\n");
-const size = Object.values(assets).reduce((n, a) => n + a.body.length, 0);
+const size = Object.values(assets).reduce((n, a) => n + Buffer.byteLength(a.body), 0);
 console.log(`embed-web: ${Object.keys(assets).length} 個檔案，${(size / 1024).toFixed(0)} KB`);

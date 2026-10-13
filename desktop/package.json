@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:worker": "npm --prefix ../worker run bundle",
+    "build:worker": "npm --prefix ../web run build && npm --prefix ../worker run bundle",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "tauri": "tauri"

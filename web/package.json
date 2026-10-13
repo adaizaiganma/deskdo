@@ -1,0 +1,28 @@
+{
+  "name": "deskdo-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "網頁版：由使用者自己的雲端 Worker 在 /app 提供（worker/scripts/embed-web.mjs 嵌進 Worker），給 iPhone、iPad 等沒有 App 的裝置用",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@deskdo/core": "*",
+    "@deskdo/mobile": "*",
+    "@tauri-apps/api": "^2.12.2",
+    "@tauri-apps/plugin-opener": "^2.7.0",
+    "opencc-js": "^1.4.2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^26.6.5",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.6",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4"
+  }
+}

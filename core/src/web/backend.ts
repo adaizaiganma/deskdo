@@ -16,6 +16,8 @@ const POLL_SECONDS = 30;
 /** 多久檢查一次雲端版本 */
 const VERSION_CHECK_MS = 6 * 60 * 60 * 1000;
 const CACHE_KEY = "web.cache";
+/** 上次知道的配對狀態：cookie 是 HttpOnly 讀不到，先照上次的顯示，等第一次同步再確認 */
+const PAIRED_KEY = "web.paired";
 /** Worker 只接受帶這個標頭的 cookie 請求：別的網站沒辦法自己加標頭，可以擋掉跨站偽造的請求 */
 export const WEB_HEADER = "X-Deskdo-Web";
 
@@ -124,6 +126,14 @@ function saveCache(c: Cache) {
   } catch {}
 }
 
+function readPaired(): boolean {
+  try {
+    return localStorage.getItem(PAIRED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export interface WebOptions {
   /** 網頁版的版本，顯示在設定頁 */
   appVersion: string;
@@ -145,7 +155,7 @@ export class WebBackend implements Backend {
   /** 已按刪除、還在等待復原期限的項目 */
   #hidden = new Set<string>();
   /** 收到 401 就是沒配對（或被撤銷）；畫面看到 configured = false 會改顯示配對頁 */
-  #paired = true;
+  #paired = readPaired();
   #cloudVersion: number | null = null;
   #versionCheckedAt = 0;
   #timer: ReturnType<typeof setTimeout> | null = null;
@@ -218,6 +228,10 @@ export class WebBackend implements Backend {
         return this.#listDevices();
       case "revoke_device":
         return this.#revokeDevice(args.id);
+      case "web_pair":
+        return this.#pair(args.code, args.name);
+      case "web_logout":
+        return this.#logout();
       default:
         // App 才有的功能（設定精靈、小工具、更新……）在網頁版不會出現在畫面上
         return Promise.reject(t(`網頁版不支援這個功能（${cmd}）`, `The web version doesn't support this (${cmd})`));
@@ -294,6 +308,9 @@ export class WebBackend implements Backend {
   #setPaired(paired: boolean) {
     if (this.#paired === paired) return;
     this.#paired = paired;
+    try {
+      localStorage.setItem(PAIRED_KEY, paired ? "1" : "0");
+    } catch {}
     this.#emit("prefs", this.prefs());
   }
 
@@ -521,6 +538,31 @@ export class WebBackend implements Backend {
   #flushDeletes() {
     for (const id of this.#hidden) void send("DELETE", `/api/todos/${encodeURIComponent(id)}`, undefined, null, true);
     this.#hidden.clear();
+  }
+
+  // ---- 配對、登出（網頁版才有） ----
+
+  /** 用電腦版產生的配對碼換到這個瀏覽器的 cookie */
+  async #pair(code: string, name?: string) {
+    const r = await send("POST", "/app/pair", { code, name });
+    if (r.error) throw r.status === 400 && typeof r.data?.error === "string" ? r.data.error : r.error;
+    this.#setPaired(true);
+    this.#status = "syncing";
+    this.wake(true);
+  }
+
+  /** 撤銷這個瀏覽器的裝置、清掉 cookie 和這台裝置上的待辦 */
+  async #logout() {
+    const r = await send("POST", "/app/logout");
+    if (r.error) throw r.error;
+    this.#todos = [];
+    this.#folders = [];
+    this.#etag = null;
+    try {
+      localStorage.removeItem(CACHE_KEY);
+    } catch {}
+    this.#emitState();
+    this.#setPaired(false);
   }
 
   // ---- 連接器與裝置（設定頁用） ----
