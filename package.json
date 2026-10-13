@@ -6,6 +6,7 @@
   "workspaces": [
     "upstream/core",
     "upstream/mobile",
+    "upstream/desktop",
     "upstream/web"
   ],
   "scripts": {
