@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 系統語言是英文時，小工具清單裡的名稱和說明（小工具上的文字跟著 App 的語言設定，見 DeskdoWidget.kt） -->
+<resources>
+    <string name="widget_title">Deskdo</string>
+    <string name="widget_description">Your to-dos; tap a circle to complete one</string>
+    <string name="widget_complete">Complete</string>
+    <string name="widget_high">High</string>
+    <string name="widget_low">Low</string>
+    <string name="widget_note">Note</string>
+</resources>

@@ -1,0 +1,33 @@
+{
+  "name": "deskdo-android",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:worker": "npm --prefix ../web run build && npm --prefix ../worker run bundle",
+    "check": "svelte-check --tsconfig ./tsconfig.json && npm --prefix ../mobile run check",
+    "test": "npm --prefix ../core test && npm --prefix ../mobile test",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@deskdo/core": "*",
+    "@deskdo/mobile": "*",
+    "@fontsource-variable/noto-sans-tc": "^5.3.0",
+    "@tauri-apps/api": "^2.12.2",
+    "@tauri-apps/plugin-opener": "^2.7.0",
+    "opencc-js": "^1.4.2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tauri-apps/cli": "^2.12.1",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^26.6.5",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.6",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  }
+}

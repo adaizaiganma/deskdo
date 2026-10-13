@@ -1,22 +1,54 @@
-# 推送 v* 標籤時建置 Windows 安裝檔，建立 GitHub Release 草稿（確認後再按發布）
-#   git tag v0.7.0 && git push origin v0.7.0
-# Android 版在另一個 repo（adaizaiganma/deskdo-android），有自己的 Release。
+# 推送 v* 標籤時建置 Windows 安裝檔和 Android APK，放進同一個 GitHub Release 草稿（確認後再按發布）
+#   git tag v1.0.0 && git push origin v1.0.0
+# 標籤要和 desktop、android 的版本號一樣（versions 這一步會檢查）。
+#
+# 兩邊的自動更新都看這個 repo 的 releases/latest，所以兩個檔案要在同一個 Release：
+#   電腦版：latest.json 和 .sig（tauri-action 產生，用下面的簽章私鑰簽）
+#   Android：.apk（android/src-tauri/src/updater.rs）；簽章要和已安裝的一樣，系統才肯覆蓋安裝
+# 1.0.0 以前的 Android App 查的是 adaizaiganma/deskdo-android 的 Release，那邊要另外放一份 1.0.0 的 APK
+#
+# 改了這個檔案的 PR 和手動執行（workflow_dispatch）只打包、不建立 Release，用來測試流程；
+# 打包好的 APK 放在這次執行的 Artifacts。
 #
 # 需要在 repo 的 Settings → Secrets and variables → Actions 設定：
 #   Variables  DESKDO_CF_CLIENT_ID：Cloudflare OAuth client ID（公開用戶端，不是密鑰）
-#   Secrets    TAURI_SIGNING_PRIVATE_KEY、TAURI_SIGNING_PRIVATE_KEY_PASSWORD：自動更新的簽章私鑰與密碼
-#              （tauri signer generate 產生；公鑰在 tauri.conf.json 的 plugins.updater.pubkey）
+#   Secrets    TAURI_SIGNING_PRIVATE_KEY、TAURI_SIGNING_PRIVATE_KEY_PASSWORD：電腦版自動更新的簽章私鑰與密碼
+#              （tauri signer generate 產生；公鑰在 desktop/src-tauri/tauri.conf.json 的 plugins.updater.pubkey）
+#              ANDROID_KEYSTORE_BASE64、ANDROID_KEYSTORE_PASSWORD：APK 的簽名金鑰（.jks 轉 base64）與密碼
+#              （別名 deskdo；換了金鑰，已安裝的 App 就無法直接更新，金鑰一定要備份）
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths: [".github/workflows/release.yml"]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+env:
+  # APK 簽名憑證的 SHA-256（0.x 版的 deskdo-android 也是這個）；不一樣就不發布，免得已安裝的 App 無法更新
+  APK_CERT_SHA256: b1237ee13db63ecd16596a3ef988b9a8be9aad572681725824920dd66debe035
+
 jobs:
-  build:
+  versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Desktop and Android share one version
+        run: |
+          desktop=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")
+          android=$(node -p "require('./android/src-tauri/tauri.conf.json').version")
+          echo "desktop $desktop, android $android"
+          test "$desktop" = "$android" || { echo "電腦版和 Android 的版本號不一樣"; exit 1; }
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "v$desktop" = "$GITHUB_REF_NAME" || { echo "標籤 $GITHUB_REF_NAME 和版本號 $desktop 不一樣"; exit 1; }
+          fi
+
+  windows:
+    needs: versions
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,17 +65,87 @@ jobs:
           npm ci --prefix worker
           npm ci
 
+      # 推送標籤時建立 Release 草稿並上傳安裝檔、.sig、latest.json；其他時候只打包
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DESKDO_CF_CLIENT_ID: ${{ vars.DESKDO_CF_CLIENT_ID }}
-          # 自動更新的簽章：tauri-action 會一起上傳 latest.json 和 .sig，
-          # 發布 Release 後，已安裝的 Deskdo 就會從 releases/latest/download/latest.json 收到更新
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: desktop
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: Deskdo ${{ github.ref_name }}
-          releaseBody: 下載 `Deskdo_*_x64-setup.exe` 安裝。第一次開啟時會出現設定精靈。Android 版在 https://github.com/adaizaiganma/deskdo-android/releases
+          releaseBody: 電腦版下載 `Deskdo_*_x64-setup.exe`，Android 下載 `Deskdo_*_arm64.apk`（會覆蓋舊版並保留資料）。第一次開啟時會出現設定精靈。
           releaseDraft: true
+
+  android:
+    needs: versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: android/src-tauri
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix worker
+          npm ci
+
+      - name: Signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/deskdo.jks"
+          echo "DESKDO_KEYSTORE=$RUNNER_TEMP/deskdo.jks" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        working-directory: android
+        env:
+          DESKDO_CF_CLIENT_ID: ${{ vars.DESKDO_CF_CLIENT_ID }}
+          DESKDO_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          # runner 內建 Android SDK 和 NDK
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx tauri android build --apk --target aarch64
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          mkdir -p out
+          # Linux 上輸出的是 universal 版（--target 只放 arm64），名稱沒有 -unsigned 表示已經簽好
+          apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-release.apk' | head -1)
+          test -n "$apk" || { echo "找不到簽好名的 APK"; exit 1; }
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$bt/apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
+          grep -q "SHA-256 digest: $APK_CERT_SHA256" "$RUNNER_TEMP/certs.txt" \
+            || { echo "APK 的簽名憑證和之前的版本不同，已安裝的 App 會無法更新"; exit 1; }
+          cp "$apk" "out/Deskdo_${version}_arm64.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deskdo-apk
+          path: android/out/*.apk
+
+  # APK 放進電腦版建立的同一個 Release 草稿
+  attach-apk:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: deskdo-apk
+          path: out
+      - name: Upload APK to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" out/*.apk --repo "$GITHUB_REPOSITORY" --clobber
