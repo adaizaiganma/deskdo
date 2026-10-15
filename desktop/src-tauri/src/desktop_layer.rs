@@ -1,5 +1,8 @@
-//! 讓桌面小工具像真正的桌面元件：永遠排在桌面（Progman）的正上方。
+//! 讓桌面小工具像真正的桌面元件：永遠排在桌面（放桌面圖示的那個視窗）的正上方。
 //!
+//! - 桌面圖示通常在 Progman 裡；但換桌布的淡入動畫、桌布投影片、Wallpaper Engine 之類的程式
+//!   會讓 Explorer 把圖示搬到另一個頂層 WorkerW。這時 Win+D 拉上來的是那個 WorkerW，
+//!   若還跟著 Progman 排就會被它蓋住，所以每次都找出真正放圖示的視窗
 //! - 平常桌面在 Z-order 最底層，所以小工具在所有視窗下面；被點擊時也不會跑到前面
 //! - 按 Win+D 時 Windows 會把桌面拉到上層，小工具跟著排到桌面上面，所以不會被蓋住
 //! - 設成工具視窗：不出現在工作列和 Alt+Tab
@@ -17,7 +20,7 @@ use windows_sys::Win32::{
 };
 
 static WIDGET: AtomicIsize = AtomicIsize::new(0);
-static PROGMAN: AtomicIsize = AtomicIsize::new(0);
+static DESKTOP: AtomicIsize = AtomicIsize::new(0);
 /// 只有自己呼叫 SetWindowPos 重新排序時才允許改變 Z-order
 static RESTACKING: AtomicBool = AtomicBool::new(false);
 
@@ -31,14 +34,29 @@ fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
-unsafe fn progman() -> HWND {
-    let cached = PROGMAN.load(Ordering::Relaxed) as HWND;
-    if !cached.is_null() && IsWindow(cached) != 0 {
+unsafe fn has_icons(h: HWND) -> bool {
+    !FindWindowExW(h, std::ptr::null_mut(), wide("SHELLDLL_DefView").as_ptr(), std::ptr::null()).is_null()
+}
+
+/// 放桌面圖示（SHELLDLL_DefView）的頂層視窗：Progman 或某個 WorkerW
+unsafe fn desktop() -> HWND {
+    let cached = DESKTOP.load(Ordering::Relaxed) as HWND;
+    // 圖示可能隨時被搬走，Explorer 重新啟動後也會換成新的視窗
+    if !cached.is_null() && has_icons(cached) {
         return cached;
     }
-    // Explorer 重新啟動後 Progman 會換一個新的
-    let h = FindWindowW(wide("Progman").as_ptr(), std::ptr::null());
-    PROGMAN.store(h as isize, Ordering::Relaxed);
+    let mut h = FindWindowW(wide("Progman").as_ptr(), std::ptr::null());
+    if h.is_null() || !has_icons(h) {
+        let worker = wide("WorkerW");
+        let mut w = FindWindowExW(std::ptr::null_mut(), std::ptr::null_mut(), worker.as_ptr(), std::ptr::null());
+        while !w.is_null() && !has_icons(w) {
+            w = FindWindowExW(std::ptr::null_mut(), w, worker.as_ptr(), std::ptr::null());
+        }
+        if !w.is_null() {
+            h = w;
+        }
+    }
+    DESKTOP.store(h as isize, Ordering::Relaxed);
     h
 }
 
@@ -48,7 +66,7 @@ fn is_topmost(h: HWND) -> bool {
 
 /// 把小工具排到桌面正上方；已經在那裡就什麼都不做
 unsafe fn restack(h: HWND) {
-    let pm = progman();
+    let pm = desktop();
     if pm.is_null() {
         return;
     }
